@@ -589,3 +589,21 @@ body[data-card-style="clean"] .project-card::before { opacity: .35; }
   .editor-project-body, .editor-advanced-body { padding-left: 15px; padding-right: 15px; }
   .editor-actions { position: static; }
 }
+
+
+/* 项目视频与动态 */
+.youtube-card { position:relative; display:block; overflow:hidden; min-height:250px; background:#182023; }
+.youtube-card img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:.7; }
+.youtube-card::after { content:""; position:absolute; inset:0; background:linear-gradient(transparent 35%,rgba(0,0,0,.8)); pointer-events:none; }
+.youtube-card .slot-copy { position:absolute; z-index:1; bottom:22px; left:24px; color:white; }
+.youtube-play { position:absolute; z-index:1; top:45%; left:50%; transform:translate(-50%,-50%); display:grid; place-items:center; width:66px; height:66px; border-radius:50%; background:var(--accent); color:#121716; font-size:24px; }
+.post-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:20px; }
+.post-card { display:block; overflow:hidden; border:1px solid rgba(255,255,255,.14); border-radius:16px; background:rgba(255,255,255,.035); color:inherit; text-decoration:none; transition:transform .2s,border-color .2s; }
+.post-card:hover { transform:translateY(-4px); border-color:var(--accent); }
+.post-card img { display:block; width:100%; aspect-ratio:16/9; object-fit:cover; }
+.post-card-copy { padding:24px; } .post-card time,.post-detail time { color:var(--teal); font-size:.85rem; }
+.post-card h3 { margin:12px 0; } .post-card p { color:var(--muted); line-height:1.7; overflow-wrap:anywhere; } .post-card span { color:var(--accent); }
+.post-page { min-height:65vh; padding-top:70px; padding-bottom:110px; } .post-page>h1 { margin:20px 0 40px; }
+.post-detail { max-width:800px; margin:45px auto 0; } .post-detail h1 { margin:12px 0 42px; font-size:clamp(2rem,5vw,3.5rem); } .post-detail p { white-space:pre-wrap; line-height:1.9; overflow-wrap:anywhere; margin:1.5em 0; } .post-detail figure { margin:2em 0; } .post-detail img { display:block; max-width:100%; height:auto; border-radius:12px; } .post-detail figcaption { margin-top:8px; opacity:.7; }
+.post-block { margin:14px 0; } .editor-post-image { display:block; max-width:220px; max-height:140px; object-fit:contain; margin:12px 0; }
+@media (max-width:760px) { .post-grid { grid-template-columns:1fr; } .post-page { padding-top:40px; } }

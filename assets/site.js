@@ -77,12 +77,15 @@
     if (/\.(mp4|webm|ogg)(?:[?#].*)?$/i.test(source)) {
       return `<div class="media-placeholder image-populated video-filled"><video controls preload="metadata" playsinline><source src="${escapeHtml(source)}"></video></div>`;
     }
+    let youtubeId = "";
+    try { const u = new URL(url); const h = u.hostname.toLowerCase(); if (h === "youtu.be") youtubeId = u.pathname.slice(1).split("/")[0]; else if (h === "youtube.com" || h.endsWith(".youtube.com")) youtubeId = u.searchParams.get("v") || u.pathname.match(/^\/(?:embed|shorts)\/([^/]+)/)?.[1] || ""; } catch (_) {}
+    if (/^[A-Za-z0-9_-]{11}$/.test(youtubeId)) return `<a class="media-placeholder video video-link youtube-card" ${linkAttributes(url)}><img src="https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg" alt="" onerror="this.remove()"><span class="youtube-play" aria-hidden="true">▶</span><div class="slot-copy"><b>${escapeHtml(video.label || "查看演示视频")}</b><span>${escapeHtml(video.note || "点击观看视频 ↗")}</span></div></a>`;
     return `<a class="media-placeholder video video-link" ${linkAttributes(url)}><div class="slot-copy"><b>${escapeHtml(video.label || "查看演示视频")}</b><span>${escapeHtml(video.note || "点击在新窗口打开视频")}</span></div></a>`;
   }
 
   function renderHeader(prefix = "") {
     const name = escapeHtml(content.profile?.name || "作品集");
-    return `<header class="topbar"><div class="container topbar-inner"><a class="brand" href="${prefix}index.html#top" aria-label="回到首页"><span class="brand-mark">PH</span><span>${name} · 作品集</span></a><nav class="nav" aria-label="页面导航"><a href="${prefix}index.html#about">简介</a><a href="${prefix}index.html#projects">项目</a><a href="${prefix}index.html#contact">联系</a></nav></div></header>`;
+    return `<header class="topbar"><div class="container topbar-inner"><a class="brand" href="${prefix}index.html${previewQuery}#top" aria-label="回到首页"><span class="brand-mark">PH</span><span>${name} · 作品集</span></a><nav class="nav" aria-label="页面导航"><a href="${prefix}index.html${previewQuery}#about">简介</a><a href="${prefix}index.html${previewQuery}#projects">项目</a><a href="${prefix}index.html${previewQuery}#updates">动态</a><a href="${prefix}index.html${previewQuery}#contact">联系</a></nav></div></header>`;
   }
 
   function renderFooter(prefix = "") {
@@ -102,6 +105,21 @@
     return `<div class="contact-item"><strong>${escapeHtml(label)}</strong>${valueHtml}</div>`;
   }
 
+  function visiblePosts() { return (content.posts || []).filter(p => p.visible !== false && p.title).slice().sort((a,b) => (b.date || "").localeCompare(a.date || "")); }
+  function postHref(post) { return `posts.html?id=${encodeURIComponent(post.id)}${previewQuery ? "&preview=1" : ""}`; }
+  function postSummary(post) { return (post.blocks || []).filter(b => b.type === "text").map(b => b.text || "").join(" ").slice(0, 120); }
+  function postCard(post) {
+    const image = (post.blocks || []).find(b => b.type === "image" && b.src);
+    return `<a class="post-card" href="${postHref(post)}">${image ? `<img src="${escapeHtml(pathForCurrentPage(image.src))}" alt="${escapeHtml(image.caption || post.title)}">` : ""}<div class="post-card-copy"><time>${escapeHtml(post.date || "")}</time><h3>${escapeHtml(post.title)}</h3><p>${escapeHtml(postSummary(post))}</p><span>阅读全文 ↗</span></div></a>`;
+  }
+  function renderPosts() {
+    const posts = visiblePosts(), id = new URLSearchParams(location.search).get("id"), post = posts.find(p => p.id === id);
+    if (id) {
+      const body = post ? `<article class="post-detail"><time>${escapeHtml(post.date || "")}</time><h1>${escapeHtml(post.title)}</h1>${(post.blocks || []).map(b => b.type === "image" && b.src ? `<figure><img src="${escapeHtml(pathForCurrentPage(b.src))}" alt="${escapeHtml(b.caption || "文章图片")}">${b.caption ? `<figcaption>${escapeHtml(b.caption)}</figcaption>` : ""}</figure>` : b.type === "text" ? `<p>${escapeHtml(b.text || "")}</p>` : "").join("")}</article>` : `<h1>没有找到这篇动态</h1>`;
+      root.innerHTML = `${renderHeader("")}<main class="container post-page"><a class="back-link" href="posts.html${previewQuery}">← 返回全部动态</a>${body}</main>${renderFooter("")}`;
+      if (post) document.title = `${post.title}｜${content.profile?.name || "作品集"}`;
+    } else root.innerHTML = `${renderHeader("")}<main class="container post-page"><a class="back-link" href="index.html${previewQuery}#updates">← 返回首页</a><span class="micro-label">动态 / 开发日志</span><h1>全部动态</h1><div class="post-grid">${posts.map(postCard).join("") || "<p>暂时还没有发布动态。</p>"}</div></main>${renderFooter("")}`;
+  }
   function renderHome() {
     const profile = content.profile || {};
     const home = content.home || {};
@@ -124,7 +142,7 @@
     ].filter(Boolean).join("");
     const videoNote = contactRows || `<p class="section-intro">联系方式与简历链接待本人补充。</p>`;
 
-    root.innerHTML = `${renderHeader("")}<main id="top"><section class="container hero"><div class="reveal"><span class="eyebrow">${escapeHtml(profile.eyebrow || "游戏设计作品集")}</span><h1>${escapeHtml(profile.name || "")}<br><em>${escapeHtml(profile.headline || "游戏与交互作品集")}</em></h1>${profile.intro ? `<p class="hero-copy">${escapeHtml(profile.intro)}</p>` : ""}<div class="hero-actions"><a class="button primary" href="#projects">查看 ${projects.length} 个项目</a><a class="button" href="#contact">联系方式 / 简历</a></div></div><div class="hero-art reveal" aria-label="作品主视觉"><div class="orb orb-one"></div><div class="orb orb-two"></div><div class="orb orb-three"></div>${heroVisual}</div></section>${aboutSection}<section class="section" id="projects"><div class="container"><div class="section-head reveal"><div><span class="micro-label">02 / 项目作品</span><h2 class="section-title">项目案例</h2></div><p class="section-intro">${escapeHtml(home.projectsIntro || "")}</p></div><div class="project-grid">${projects.map(projectCard).join("")}</div></div></section><section class="section" id="contact"><div class="container"><div class="contact-card reveal"><div><span class="micro-label">03 / 联系方式</span><h2>${escapeHtml(contact.heading || "联系方式与简历")}</h2><p>${escapeHtml(contact.intro || "")}</p></div><div class="contact-list">${videoNote}</div></div></div></section></main>${renderFooter("")}`;
+    root.innerHTML = `${renderHeader("")}<main id="top"><section class="container hero"><div class="reveal"><span class="eyebrow">${escapeHtml(profile.eyebrow || "游戏设计作品集")}</span><h1>${escapeHtml(profile.name || "")}<br><em>${escapeHtml(profile.headline || "游戏与交互作品集")}</em></h1>${profile.intro ? `<p class="hero-copy">${escapeHtml(profile.intro)}</p>` : ""}<div class="hero-actions"><a class="button primary" href="#projects">查看 ${projects.length} 个项目</a><a class="button" href="#contact">联系方式 / 简历</a></div></div><div class="hero-art reveal" aria-label="作品主视觉"><div class="orb orb-one"></div><div class="orb orb-two"></div><div class="orb orb-three"></div>${heroVisual}</div></section>${aboutSection}<section class="section" id="projects"><div class="container"><div class="section-head reveal"><div><span class="micro-label">02 / 项目作品</span><h2 class="section-title">项目案例</h2></div><p class="section-intro">${escapeHtml(home.projectsIntro || "")}</p></div><div class="project-grid">${projects.map(projectCard).join("")}</div></div></section><section class="section" id="updates"><div class="container"><div class="section-head"><div><span class="micro-label">03 / 动态</span><h2 class="section-title">动态与开发日志</h2></div><a class="button" href="posts.html${previewQuery}">查看全部 ↗</a></div><div class="post-grid">${visiblePosts().slice(0,3).map(postCard).join("") || "<p class=\"section-intro\">还没有发布动态，敬请期待。</p>"}</div></div></section><section class="section" id="contact"><div class="container"><div class="contact-card reveal"><div><span class="micro-label">04 / 联系方式</span><h2>${escapeHtml(contact.heading || "联系方式与简历")}</h2><p>${escapeHtml(contact.intro || "")}</p></div><div class="contact-list">${videoNote}</div></div></div></section></main>${renderFooter("")}`;
   }
 
   function cardsMarkup(cards, className) {
@@ -176,7 +194,9 @@
 
   applyTheme();
   document.title = content.meta?.siteTitle || "游戏设计作品集";
-  if (pageType === "project") {
+  if (pageType === "posts") {
+    renderPosts();
+  } else if (pageType === "project") {
     const project = (content.projects || []).find(item => item.id === document.body.dataset.projectId);
     if (project) document.title = `${project.title}｜${content.profile?.name || "作品集"}`;
     renderProject(project);
@@ -186,3 +206,4 @@
 
   if (window.initSiteEffects) window.initSiteEffects();
 })();
+

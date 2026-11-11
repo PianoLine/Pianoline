@@ -34,23 +34,44 @@
       <div class="editor-subgroup"><h3>截图与视频</h3><div class="editor-grid">${field(`${b}.galleryText`,"截图区说明","textarea")}${field(`${b}.video.url`,"视频链接或 MP4 路径")}${field(`${b}.video.label`,"视频标题")}${field(`${b}.video.note`,"视频说明")}</div><div class="editor-mini-grid">${gallery}</div></div>
       </div></details>`;
   }
-  function render(openProjects=[]) {
+  function postsEditor() {
+    return `<section class="editor-group"><div class="editor-group-head"><h2>动态与开发日志</h2><p>短文和长文都可以发布。文字和图片按顺序排列，修改后请下载内容文件并推送到 GitHub。</p></div>${draft.posts.map((post,i) => `<details class="editor-project" data-post="${i}"><summary><span><b>${esc(post.title || "未命名动态")}</b><small>${esc(post.date || "未设置日期")}</small></span><span>展开编辑</span></summary><div class="editor-project-body"><div class="editor-grid">${field(`posts.${i}.title`,"标题")}${field(`posts.${i}.date`,"发布日期","date")}${field(`posts.${i}.visible`,"公开显示这条动态","checkbox")}</div><p>按顺序添加文字或图片；长文可拆成多段，再插入图片。</p>${post.blocks.map((block,j) => `<div class="editor-mini-card post-block"><strong>${block.type === "image" ? "图片" : "文字"} ${j+1}</strong>${block.type === "image" ? `${field(`posts.${i}.blocks.${j}.src`,"图片路径或网址","text","也可以使用下方按钮选择电脑里的图片")}${field(`posts.${i}.blocks.${j}.caption`,"图片说明")}<label class="editor-field"><span>选择图片（建议单张小于 1 MB）</span><input type="file" accept="image/*" data-image-post="${i}" data-image-block="${j}"></label>${block.src ? `<img class="editor-post-image" src="${esc(block.src)}" alt="图片预览">` : ""}` : field(`posts.${i}.blocks.${j}.text`,"正文","textarea")}<div class="editor-card-actions"><button type="button" class="button subtle" data-post-action="up" data-post-index="${i}" data-block-index="${j}">上移</button><button type="button" class="button subtle" data-post-action="down" data-post-index="${i}" data-block-index="${j}">下移</button><button type="button" class="button subtle" data-post-action="delete-block" data-post-index="${i}" data-block-index="${j}">删除</button></div></div>`).join("")}<div class="editor-card-actions"><button class="button" type="button" data-post-action="text" data-post-index="${i}">＋ 添加文字</button><button class="button" type="button" data-post-action="image" data-post-index="${i}">＋ 添加图片</button><button class="button subtle" type="button" data-post-action="delete-post" data-post-index="${i}">删除这条动态</button></div></div></details>`).join("")}<button class="button editor-add" type="button" data-post-action="add">＋ 新增动态</button></section>`;
+  }
+  function render(openProjects=[], openPosts=[]) {
     const basics=field("meta.siteTitle","浏览器标签标题")+field("profile.name","姓名 / 昵称")+field("profile.eyebrow","顶部小标签")+field("profile.headline","首页主标题")+field("profile.intro","首页简介","textarea")+field("profile.heroImage","首页图片路径")+field("profile.heroImageAlt","首页图片说明")+field("profile.profileTitle","个人定位")+field("profile.profileCopy","个人简介正文","textarea")+field("home.aboutIntro","简介区说明","textarea")+field("home.projectsIntro","项目区说明","textarea");
     const contact=field("contact.heading","联系区标题")+field("contact.intro","联系区说明","textarea")+field("contact.email","邮箱")+field("contact.resumeUrl","简历 PDF 链接")+field("contact.videoUrl","视频主页链接")+field("contact.platformUrl","作品平台链接");
     const appearance=field("theme.accent","强调色","color")+field("theme.accentLight","强调浅色","color")+field("theme.teal","辅助色","color")+field("theme.cardColumns","桌面项目卡片列数（1–3）","number")+field("theme.maxWidth","内容最大宽度（像素）","number")+field("theme.sectionSpace","上下留白（像素）","number");
     const tags=(draft.profile.tags||[]).map((_,i)=>field(`profile.tags.${i}`,`技能标签 ${i+1}`)).join("");
-    root.innerHTML=group("个人信息","修改首页文字和个人介绍。",basics)+group("联系方式与简历","只填写愿意公开的信息。",contact)+group("视觉与排版","调整网站颜色和桌面排版。",appearance)+group("技能标签","留空的标签不会显示。",tags)+`<section class="editor-group"><div class="editor-group-head"><h2>项目作品</h2><p>展开项目后填写制作人数，并按五个板块修改内容。</p></div><div class="editor-project-list">${draft.projects.map(projectEditor).join("")}</div></section>`;
+    root.innerHTML=group("个人信息","修改首页文字和个人介绍。",basics)+group("联系方式与简历","只填写愿意公开的信息。",contact)+group("视觉与排版","调整网站颜色和桌面排版。",appearance)+group("技能标签","留空的标签不会显示。",tags)+postsEditor()+`<section class="editor-group"><div class="editor-group-head"><h2>项目作品</h2><p>展开项目后填写制作人数，并按五个板块修改内容。</p></div><div class="editor-project-list">${draft.projects.map(projectEditor).join("")}</div></section>`;
+    for(const i of openPosts) root.querySelector(`details[data-post="${i}"]`)?.setAttribute("open", "");
     for(const i of openProjects) root.querySelector(`details[data-project="${i}"]`)?.setAttribute("open","");
   }
-  function save(message="草稿已保存到当前浏览器") { localStorage.setItem(KEY,JSON.stringify(draft)); status.textContent=message; }
+  function save(message="草稿已保存到当前浏览器") { try { localStorage.setItem(KEY,JSON.stringify(draft)); status.textContent=message; } catch (_) { status.textContent="浏览器存储空间不足，请先下载内容文件备份，并减少或压缩图片。"; } }
   root.addEventListener("input",event=>{ const e=event.target, path=e.dataset.path; if(!path)return; set(path,e.type==="checkbox"?e.checked:e.type==="number"?Number(e.value):e.value); clearTimeout(timer); timer=setTimeout(()=>save("已自动保存草稿"),400); });
   root.addEventListener("click",event=>{
     const button=event.target.closest("button"); if(!button)return;
+    const action=button.dataset.postAction;
+    if(action) {
+      const openedProjects=[...root.querySelectorAll("details[data-project][open]")].map(d=>d.dataset.project);
+      let openedPosts=[...root.querySelectorAll("details[data-post][open]")].map(d=>Number(d.dataset.post));
+      const i=Number(button.dataset.postIndex), j=Number(button.dataset.blockIndex);
+      if(action==="add") { const d=new Date(); const date=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; draft.posts.unshift({id:`post-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,title:"",date,visible:true,blocks:[{type:"text",text:""}]}); openedPosts=[0,...openedPosts.map(x=>x+1)]; }
+      else if(action==="delete-post") { if(!confirm("确定删除这条动态吗？"))return; draft.posts.splice(i,1); openedPosts=openedPosts.filter(x=>x!==i).map(x=>x>i?x-1:x); }
+      else { const blocks=draft.posts[i].blocks; if(action==="text")blocks.push({type:"text",text:""}); if(action==="image")blocks.push({type:"image",src:"",caption:""}); if(action==="delete-block")blocks.splice(j,1); if(action==="up" && j>0)[blocks[j-1],blocks[j]]=[blocks[j],blocks[j-1]]; if(action==="down" && j<blocks.length-1)[blocks[j+1],blocks[j]]=[blocks[j],blocks[j+1]]; }
+      save(); render(openedProjects,openedPosts); return;
+    }
     const path=button.dataset.add || button.dataset.delete; if(!path)return;
     const opened=[...root.querySelectorAll("details[data-project][open]")].map(d=>d.dataset.project);
     if(button.dataset.add) get(path).push({title:"",text:""});
     else get(path).splice(Number(button.dataset.index),1);
-    save(); render(opened);
+    const postOpen=[...root.querySelectorAll("details[data-post][open]")].map(d=>d.dataset.post);
+    save(); render(opened,postOpen);
+  });
+  root.addEventListener("change", event => {
+    const input=event.target; if (!input.dataset.imagePost || !input.files?.[0]) return;
+    const file=input.files[0], i=Number(input.dataset.imagePost), j=Number(input.dataset.imageBlock);
+    if(file.size>1024*1024 && !confirm("这张图片超过 1 MB，可能占满浏览器草稿空间。建议压缩后使用，仍要继续吗？")) { input.value=""; return; }
+    const reader=new FileReader(); reader.onload=()=>{ if(!draft.posts[i]?.blocks[j])return; draft.posts[i].blocks[j].src=reader.result; save(); render([...root.querySelectorAll("details[data-project][open]")].map(d=>d.dataset.project),[...root.querySelectorAll("details[data-post][open]")].map(d=>d.dataset.post)); }; reader.readAsDataURL(file);
   });
   document.querySelector(".editor-actions").addEventListener("click",event=>{
     const action=event.target.dataset.action;
@@ -65,3 +86,4 @@
   });
   render();
 })();
+

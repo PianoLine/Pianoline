@@ -36,7 +36,7 @@
   }
   window.exportPortfolioWebsite = async function (draft) {
     if (location.protocol === "file:") throw new Error("请使用在线编辑页下载完整网站，本地文件无法读取其他文件");
-    const paths = new Set(["index.html", "editor.html", "assets/styles.css", "assets/main.js", "assets/schema.js", "assets/site.js", "assets/editor.js", "assets/export-site.js"]);
+    const paths = new Set(["index.html", "editor.html", "posts.html", "assets/styles.css", "assets/main.js", "assets/schema.js", "assets/site.js", "assets/editor.js", "assets/export-site.js"]);
     for (const project of draft.projects || []) paths.add(`projects/${project.id}.html`);
     const addLocal = value => {
       if (typeof value === "string" && /^assets\/media\//.test(value)) paths.add(value.split(/[?#]/)[0]);
@@ -47,6 +47,7 @@
       for (const item of project.gallery || []) addLocal(item.src);
       for (const item of project.resources || []) addLocal(item.url);
     }
+    for (const post of draft.posts || []) for (const block of post.blocks || []) addLocal(block.src);
     addLocal(draft.contact?.resumeUrl);
     const files = await Promise.all([...paths].map(async path => {
       const response = await fetch(path);
@@ -61,3 +62,4 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 })();
+

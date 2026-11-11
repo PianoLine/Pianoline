@@ -1,5 +1,7 @@
 window.normalizePortfolio = function (value) {
   const data = JSON.parse(JSON.stringify(value));
+  data.posts = Array.isArray(data.posts) ? data.posts : [];
+  for (const post of data.posts) { post.blocks = Array.isArray(post.blocks) ? post.blocks : []; post.visible = post.visible !== false; }
   for (const project of data.projects || []) {
     const oldTeam = (project.meta || []).find(item => /人数|制作人数/.test(item.label));
     project.teamSize = project.teamSize ?? oldTeam?.value ?? "待填写";
@@ -14,3 +16,4 @@ window.normalizePortfolio = function (value) {
   }
   return data;
 };
+
