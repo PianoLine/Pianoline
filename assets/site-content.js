@@ -176,8 +176,8 @@ window.PORTFOLIO_CONTENT = {
       ],
       "video": {
         "label": "演示视频",
-        "note": "暂无公开视频链接。",
-        "url": ""
+        "note": "",
+        "url": "https://youtu.be/1L4nK_MEArs"
       },
       "reflection": {
         "label": "05 / Responsibilities",
@@ -199,11 +199,11 @@ window.PORTFOLIO_CONTENT = {
       "roles": [
         {
           "title": "项目总体策划",
-          "text": "我在此项目负责前期策划游戏总体的背景故事，美术风格以及中期的关卡设计。"
+          "text": "负责策划游戏的背景故事，美术风格以及关卡设计。"
         },
         {
           "title": "项目美术素材",
-          "text": "同时，我还担任项目中的一部分美术，主要做了大部分的2D美术素材以及所有角色的动画。"
+          "text": "担任项目中的一部分美术，主要做了大部分的2D美术素材以及所有角色的动画。"
         }
       ],
       "prototypeCards": [
@@ -335,8 +335,8 @@ window.PORTFOLIO_CONTENT = {
       ],
       "video": {
         "label": "演示视频",
-        "note": "暂无公开视频链接。",
-        "url": ""
+        "note": "",
+        "url": "https://youtu.be/Ae-lI_kf-Cc"
       },
       "reflection": {
         "label": "05 / CURRENT STATUS",
@@ -485,8 +485,8 @@ window.PORTFOLIO_CONTENT = {
       ],
       "video": {
         "label": "演示视频",
-        "note": "暂无公开视频链接。",
-        "url": ""
+        "note": "",
+        "url": "https://youtu.be/Qy6l2qItMoQ"
       },
       "reflection": {
         "label": "05 / CURRENT STATUS",
@@ -616,8 +616,8 @@ window.PORTFOLIO_CONTENT = {
       ],
       "video": {
         "label": "演示视频",
-        "note": "暂无公开视频链接。",
-        "url": ""
+        "note": "",
+        "url": "https://youtu.be/QC0tHsWJxUU"
       },
       "reflection": {
         "label": "05 / NEXT STEP",
@@ -1086,7 +1086,7 @@ window.PORTFOLIO_CONTENT = {
       "roles": [
         {
           "title": "设计整个战斗模块",
-          "text": "在该项目中，我主要担任设计战斗模块这一职责。我负责设计了三消玩法与回合制战斗的实现与结合。负责模块化配置角色与敌人以及技能的脚本。"
+          "text": "担任设计战斗模块设计职责。我负责设计了三消玩法与回合制战斗的实现与结合。负责模块化配置角色与敌人以及技能的脚本。"
         }
       ],
       "prototypeCards": [
