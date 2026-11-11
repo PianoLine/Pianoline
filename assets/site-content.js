@@ -177,7 +177,7 @@ window.PORTFOLIO_CONTENT = {
       "video": {
         "label": "演示视频",
         "note": "",
-        "url": "https://youtu.be/1L4nK_MEArs"
+        "url": "https://youtu.be/bar5t6Jo_HI"
       },
       "reflection": {
         "label": "05 / Responsibilities",
@@ -336,7 +336,7 @@ window.PORTFOLIO_CONTENT = {
       "video": {
         "label": "演示视频",
         "note": "",
-        "url": "https://youtu.be/Ae-lI_kf-Cc"
+        "url": "https://youtu.be/WQ4W-9gLJy4"
       },
       "reflection": {
         "label": "05 / CURRENT STATUS",
@@ -486,7 +486,7 @@ window.PORTFOLIO_CONTENT = {
       "video": {
         "label": "演示视频",
         "note": "",
-        "url": "https://youtu.be/Qy6l2qItMoQ"
+        "url": "https://youtu.be/kLExD3jrNrs"
       },
       "reflection": {
         "label": "05 / CURRENT STATUS",
@@ -617,7 +617,7 @@ window.PORTFOLIO_CONTENT = {
       "video": {
         "label": "演示视频",
         "note": "",
-        "url": "https://youtu.be/QC0tHsWJxUU"
+        "url": "https://youtu.be/6eprPL_2eqI"
       },
       "reflection": {
         "label": "05 / NEXT STEP",
