@@ -79,7 +79,7 @@
     }
     let youtubeId = "";
     try { const u = new URL(url); const h = u.hostname.toLowerCase(); if (h === "youtu.be") youtubeId = u.pathname.slice(1).split("/")[0]; else if (h === "youtube.com" || h.endsWith(".youtube.com")) youtubeId = u.searchParams.get("v") || u.pathname.match(/^\/(?:embed|shorts)\/([^/]+)/)?.[1] || ""; } catch (_) {}
-    if (/^[A-Za-z0-9_-]{11}$/.test(youtubeId)) return `<a class="media-placeholder video video-link youtube-card" ${linkAttributes(url)}><img src="https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg" alt="" onerror="this.remove()"><span class="youtube-play" aria-hidden="true">▶</span><div class="slot-copy"><b>${escapeHtml(video.label || "查看演示视频")}</b><span>${escapeHtml(video.note || "点击观看视频 ↗")}</span></div></a>`;
+    if (/^[A-Za-z0-9_-]{11}$/.test(youtubeId)) return `<a class="media-placeholder video video-link youtube-card" ${linkAttributes(url)}><img src="https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg" alt="" onerror="this.remove()"><svg class="youtube-play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0M6.79 5.093A.5.5 0 0 0 6 5.5v5a.5.5 0 0 0 .79.407l3.5-2.5a.5.5 0 0 0 0-.814z"/></svg><div class="slot-copy"><b>${escapeHtml(video.label || "查看演示视频")}</b><span>${escapeHtml(video.note || "点击观看视频 ↗")}</span></div></a>`;
     return `<a class="media-placeholder video video-link" ${linkAttributes(url)}><div class="slot-copy"><b>${escapeHtml(video.label || "查看演示视频")}</b><span>${escapeHtml(video.note || "点击在新窗口打开视频")}</span></div></a>`;
   }
 
