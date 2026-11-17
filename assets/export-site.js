@@ -36,7 +36,7 @@
   }
   window.exportPortfolioWebsite = async function (draft) {
     if (location.protocol === "file:") throw new Error("请使用在线编辑页下载完整网站，本地文件无法读取其他文件");
-    const paths = new Set(["index.html", "editor.html", "posts.html", "assets/styles.css", "assets/main.js", "assets/schema.js", "assets/site.js", "assets/editor.js", "assets/export-site.js"]);
+    const paths = new Set(["index.html", "editor.html", "posts.html", "assets/styles.css", "assets/main.js", "assets/schema.js", "assets/site.js", "assets/editor.js", "assets/export-site.js", "prototype/index.html", "prototype/prototype.css", "prototype/prototype.js", "prototype/art/table-scene.png", "prototype/art/ghost.png", "prototype/art/bookshelf.png", "prototype/art/noticeboard.png", "prototype/art/lamp.png", "prototype/art/plant-shelf.png"]);
     for (const project of draft.projects || []) paths.add(`projects/${project.id}.html`);
     const addLocal = value => {
       if (typeof value === "string" && /^assets\/media\//.test(value)) paths.add(value.split(/[?#]/)[0]);
