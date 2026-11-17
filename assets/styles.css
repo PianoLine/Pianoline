@@ -592,6 +592,15 @@ body[data-card-style="clean"] .project-card::before { opacity: .35; }
 
 
 /* 项目视频与动态 */
+.project-video { margin-top: 38px; padding: clamp(18px, 3vw, 30px); border: 1px solid var(--line); border-radius: var(--radius-md); background: rgba(22,28,31,.58); }
+.project-video-heading { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 20px; }
+.project-video-heading h3 { margin: 8px 0 0; font-size: clamp(1.15rem, 2vw, 1.45rem); }
+.project-video-heading p { margin: 7px 0 0; color: var(--muted); }
+.project-video-original { flex-shrink: 0; color: var(--accent-light); font-size: .9rem; text-decoration: none; }
+.project-video-original:hover { text-decoration: underline; }
+.project-video-player { width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 10px; background: #07090a; }
+.project-video-player video, .project-video-player iframe { display: block; width: 100%; height: 100%; border: 0; object-fit: contain; }
+@media (max-width: 620px) { .project-video-heading { align-items: start; flex-direction: column; gap: 12px; } }
 .youtube-card { position:relative; display:block; overflow:hidden; min-height:250px; background:#182023; }
 .youtube-card img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:.7; }
 .media-placeholder.video.youtube-card::after { content:""; display:block; position:absolute; inset:0; width:auto; height:auto; margin:0; border:0; border-radius:0; background:linear-gradient(transparent 35%,rgba(0,0,0,.8)); pointer-events:none; }

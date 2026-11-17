@@ -72,15 +72,14 @@
 
   function videoMarkup(video) {
     const url = video?.url || "";
-    if (!url) return "";
-    const source = pathForCurrentPage(url);
-    if (/\.(mp4|webm|ogg)(?:[?#].*)?$/i.test(source)) {
-      return `<div class="media-placeholder image-populated video-filled"><video controls preload="metadata" playsinline><source src="${escapeHtml(source)}"></video></div>`;
-    }
+    const local = video?.file || (/\.(mp4|webm|ogg)(?:[?#].*)?$/i.test(url) ? url : "");
+    const original = video?.originalUrl || (local !== url ? url : "");
+    if (!local && !original) return "";
     let youtubeId = "";
-    try { const u = new URL(url); const h = u.hostname.toLowerCase(); if (h === "youtu.be") youtubeId = u.pathname.slice(1).split("/")[0]; else if (h === "youtube.com" || h.endsWith(".youtube.com")) youtubeId = u.searchParams.get("v") || u.pathname.match(/^\/(?:embed|shorts)\/([^/]+)/)?.[1] || ""; } catch (_) {}
-    if (/^[A-Za-z0-9_-]{11}$/.test(youtubeId)) return `<a class="media-placeholder video video-link youtube-card" ${linkAttributes(url)}><img src="https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg" alt="" onerror="this.remove()"><svg class="youtube-play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0M6.79 5.093A.5.5 0 0 0 6 5.5v5a.5.5 0 0 0 .79.407l3.5-2.5a.5.5 0 0 0 0-.814z"/></svg><div class="slot-copy"><b>${escapeHtml(video.label || "查看演示视频")}</b><span>${escapeHtml(video.note || "点击观看视频 ↗")}</span></div></a>`;
-    return `<a class="media-placeholder video video-link" ${linkAttributes(url)}><div class="slot-copy"><b>${escapeHtml(video.label || "查看演示视频")}</b><span>${escapeHtml(video.note || "点击在新窗口打开视频")}</span></div></a>`;
+    try { const u = new URL(original); const h = u.hostname.toLowerCase(); if (h === "youtu.be") youtubeId = u.pathname.slice(1).split("/")[0]; else if (h === "youtube.com" || h.endsWith(".youtube.com")) youtubeId = u.searchParams.get("v") || u.pathname.match(/^\/(?:embed|shorts)\/([^/]+)/)?.[1] || ""; } catch (_) {}
+    const title = escapeHtml(video.label || "演示视频");
+    const player = local ? `<video controls preload="metadata" playsinline aria-label="${title}"><source src="${escapeHtml(pathForCurrentPage(local))}">您的浏览器不支持视频播放。</video>` : /^[A-Za-z0-9_-]{11}$/.test(youtubeId) ? `<iframe src="https://www.youtube-nocookie.com/embed/${youtubeId}" title="${title}" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>` : "";
+    return `<div class="project-video"><div class="project-video-heading"><div><span class="section-label">PROJECT VIDEO</span><h3>${title}</h3>${video.note ? `<p>${escapeHtml(video.note)}</p>` : ""}</div>${original ? `<a class="project-video-original" ${linkAttributes(original)}>打开原视频 ↗</a>` : ""}</div>${player ? `<div class="project-video-player">${player}</div>` : ""}</div>`;
   }
 
   function renderHeader(prefix = "") {

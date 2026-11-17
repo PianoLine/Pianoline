@@ -177,7 +177,8 @@ window.PORTFOLIO_CONTENT = {
       "video": {
         "label": "演示视频",
         "note": "",
-        "url": "https://youtu.be/bar5t6Jo_HI"
+        "url": "https://youtu.be/bar5t6Jo_HI",
+        "file": "assets/media/videos/scroll-of-phantom-city.mp4"
       },
       "reflection": {
         "label": "05 / Responsibilities",
@@ -336,7 +337,8 @@ window.PORTFOLIO_CONTENT = {
       "video": {
         "label": "演示视频",
         "note": "",
-        "url": "https://youtu.be/WQ4W-9gLJy4"
+        "url": "https://youtu.be/WQ4W-9gLJy4",
+        "file": "assets/media/videos/forging-simulator.mp4"
       },
       "reflection": {
         "label": "05 / CURRENT STATUS",
@@ -486,7 +488,8 @@ window.PORTFOLIO_CONTENT = {
       "video": {
         "label": "演示视频",
         "note": "",
-        "url": "https://youtu.be/kLExD3jrNrs"
+        "url": "https://youtu.be/kLExD3jrNrs",
+        "file": "assets/media/videos/yellow-river-cleaner.mp4"
       },
       "reflection": {
         "label": "05 / CURRENT STATUS",
@@ -617,7 +620,8 @@ window.PORTFOLIO_CONTENT = {
       "video": {
         "label": "演示视频",
         "note": "",
-        "url": "https://youtu.be/6eprPL_2eqI"
+        "url": "https://youtu.be/6eprPL_2eqI",
+        "file": "assets/media/videos/greedy-ghost.mp4"
       },
       "reflection": {
         "label": "05 / NEXT STEP",

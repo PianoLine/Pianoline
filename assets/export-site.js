@@ -43,7 +43,7 @@
     };
     addLocal(draft.profile?.heroImage);
     for (const project of draft.projects || []) {
-      addLocal(project.cover?.src); addLocal(project.video?.url);
+      addLocal(project.cover?.src); addLocal(project.video?.url); addLocal(project.video?.file);
       for (const item of project.gallery || []) addLocal(item.src);
       for (const item of project.resources || []) addLocal(item.url);
     }

@@ -12,6 +12,7 @@ window.normalizePortfolio = function (value) {
     project.purpose = project.purpose || {text:"",cards:[]};
     project.flow = project.flow || {text:"",items:[]};
     project.gallery = project.gallery || [];
+    project.video = project.video || {url:"", file:"", originalUrl:"", label:"演示视频", note:""};
     project.meta = project.meta || [];
   }
   return data;

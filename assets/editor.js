@@ -31,7 +31,7 @@
       <div class="editor-subgroup"><h3>2. 玩法流程</h3><div class="editor-grid">${field(`${b}.flow.text`,"流程说明","textarea")}</div>${cards(`${b}.flow.items`,"流程步骤")}</div>
       <div class="editor-subgroup"><h3>3. 原型内容</h3><div class="editor-grid">${field(`${b}.prototypeText`,"板块说明","textarea")}</div>${cards(`${b}.prototypeCards`,"原型卡片")}</div>
       <div class="editor-subgroup"><h3>4. 职责分工</h3><p>仅勾选上方“多人项目”时显示在项目页。</p>${cards(`${b}.roles`,"职责卡片")}</div>
-      <div class="editor-subgroup"><h3>截图与视频</h3><div class="editor-grid">${field(`${b}.galleryText`,"截图区说明","textarea")}${field(`${b}.video.url`,"视频链接或 MP4 路径")}${field(`${b}.video.label`,"视频标题")}${field(`${b}.video.note`,"视频说明")}</div><div class="editor-mini-grid">${gallery}</div></div>
+      <div class="editor-subgroup"><h3>截图与视频</h3><div class="editor-grid">${field(`${b}.galleryText`,"截图区说明","textarea")}${field(`${b}.video.file`,"站内视频文件路径","text","例如 assets/media/videos/example.mp4")}${field(`${b}.video.url`,"原视频链接或旧的视频路径","text","可填写 YouTube 链接；站内文件优先播放")}${field(`${b}.video.originalUrl`,"额外的原视频链接（可选）")}${field(`${b}.video.label`,"视频标题")}${field(`${b}.video.note`,"视频说明")}</div><div class="editor-mini-grid">${gallery}</div></div>
       </div></details>`;
   }
   function postsEditor() {
