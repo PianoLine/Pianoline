@@ -16,7 +16,7 @@
     if(type==="textarea") return `<label class="editor-field full"><span>${esc(label)}</span><textarea ${attr} rows="3">${esc(value)}</textarea>${help ? `<small>${esc(help)}</small>` : ""}</label>`;
     return `<label class="editor-field"><span>${esc(label)}</span><input type="${type}" ${attr} value="${esc(value)}">${help ? `<small>${esc(help)}</small>` : ""}</label>`;
   }
-  function group(title, description, fields) { return `<section class="editor-group"><div class="editor-group-head"><h2>${esc(title)}</h2><p>${esc(description)}</p></div><div class="editor-grid">${fields}</div></section>`; }
+  function group(id, title, description, fields) { return `<section id="${id}" class="editor-group"><div class="editor-group-head"><h2>${esc(title)}</h2><p>${esc(description)}</p></div><div class="editor-grid">${fields}</div></section>`; }
   function cards(path, label) {
     const list=get(path) || [];
     return `<div class="editor-mini-grid">${list.map((item,i)=>`<div class="editor-mini-card"><strong>${esc(label)} ${i+1}</strong>${field(`${path}.${i}.title`,"标题")}${field(`${path}.${i}.text`,"内容","textarea")}<div class="editor-card-actions"><button type="button" class="button subtle" data-delete="${esc(path)}" data-index="${i}">删除</button></div></div>`).join("")}</div><button type="button" class="button editor-add" data-add="${esc(path)}">＋ 添加${esc(label)}</button>`;
@@ -26,7 +26,7 @@
     const meta=p.meta.map((m,j)=> /项目状态|人数/.test(m.label) ? "" : `${field(`${b}.meta.${j}.label`,"信息名称")}${field(`${b}.meta.${j}.value`,"信息内容")}`).join("");
     const gallery=p.gallery.map((image,j)=>`<div class="editor-mini-card"><strong>截图 ${j+1}</strong>${field(`${b}.gallery.${j}.src`,"图片路径")}${field(`${b}.gallery.${j}.alt`,"图片替代文字")}${field(`${b}.gallery.${j}.label`,"截图标题")}${field(`${b}.gallery.${j}.note`,"截图说明","textarea")}</div>`).join("");
     return `<details class="editor-project" data-project="${i}"><summary><span><b>${esc(p.number)} / ${esc(p.title)}</b><small>项目编辑</small></span><span>展开编辑</span></summary><div class="editor-project-body">
-      <div class="editor-subgroup"><h3>项目基本信息</h3><div class="editor-grid">${field(`${b}.number`,"项目序号")}${field(`${b}.title`,"项目名称")}${field(`${b}.teamSize`,"制作人数小标签","text","例如：1 人、3 人或团队项目")}${field(`${b}.multiplayer`,"多人项目：显示职责分工","checkbox")}${field(`${b}.short`,"首页卡片简介","textarea")}${field(`${b}.intro`,"项目页开头简介","textarea")}${meta}${field(`${b}.cover.src`,"封面图片路径")}${field(`${b}.cover.alt`,"封面图片说明")}</div></div>
+      <div class="editor-subgroup"><h3>项目基本信息</h3><div class="editor-grid">${field(`${b}.number`,"项目序号")}${field(`${b}.title`,"项目名称")}${field(`${b}.category`,"手牌与项目列表标签","text","例如 UE5 / 已完成")}${field(`${b}.teamSize`,"制作人数小标签","text","例如：1 人、3 人或团队项目")}${field(`${b}.multiplayer`,"多人项目：显示职责分工","checkbox")}${field(`${b}.short`,"首页卡片简介","textarea")}${field(`${b}.intro`,"项目页开头简介","textarea")}${meta}${field(`${b}.cover.src`,"封面图片路径")}${field(`${b}.cover.alt`,"封面图片说明")}${field(`${b}.cover.cardSrc`,"手牌与列表缩略图（可选）","text","留空时使用项目封面")}</div></div>
       <div class="editor-subgroup"><h3>1. 项目概述</h3><div class="editor-grid">${field(`${b}.purpose.text`,"概述说明","textarea")}</div>${cards(`${b}.purpose.cards`,"概述卡片")}</div>
       <div class="editor-subgroup"><h3>2. 玩法流程</h3><div class="editor-grid">${field(`${b}.flow.text`,"流程说明","textarea")}</div>${cards(`${b}.flow.items`,"流程步骤")}</div>
       <div class="editor-subgroup"><h3>3. 原型内容</h3><div class="editor-grid">${field(`${b}.prototypeText`,"板块说明","textarea")}</div>${cards(`${b}.prototypeCards`,"原型卡片")}</div>
@@ -35,18 +35,28 @@
       </div></details>`;
   }
   function postsEditor() {
-    return `<section class="editor-group"><div class="editor-group-head"><h2>动态与开发日志</h2><p>短文和长文都可以发布。文字和图片按顺序排列，修改后请下载内容文件并推送到 GitHub。</p></div>${draft.posts.map((post,i) => `<details class="editor-project" data-post="${i}"><summary><span><b>${esc(post.title || "未命名动态")}</b><small>${esc(post.date || "未设置日期")}</small></span><span>展开编辑</span></summary><div class="editor-project-body"><div class="editor-grid">${field(`posts.${i}.title`,"标题")}${field(`posts.${i}.date`,"发布日期","date")}${field(`posts.${i}.visible`,"公开显示这条动态","checkbox")}</div><p>按顺序添加文字或图片；长文可拆成多段，再插入图片。</p>${post.blocks.map((block,j) => `<div class="editor-mini-card post-block"><strong>${block.type === "image" ? "图片" : "文字"} ${j+1}</strong>${block.type === "image" ? `${field(`posts.${i}.blocks.${j}.src`,"图片路径或网址","text","也可以使用下方按钮选择电脑里的图片")}${field(`posts.${i}.blocks.${j}.caption`,"图片说明")}<label class="editor-field"><span>选择图片（建议单张小于 1 MB）</span><input type="file" accept="image/*" data-image-post="${i}" data-image-block="${j}"></label>${block.src ? `<img class="editor-post-image" src="${esc(block.src)}" alt="图片预览">` : ""}` : field(`posts.${i}.blocks.${j}.text`,"正文","textarea")}<div class="editor-card-actions"><button type="button" class="button subtle" data-post-action="up" data-post-index="${i}" data-block-index="${j}">上移</button><button type="button" class="button subtle" data-post-action="down" data-post-index="${i}" data-block-index="${j}">下移</button><button type="button" class="button subtle" data-post-action="delete-block" data-post-index="${i}" data-block-index="${j}">删除</button></div></div>`).join("")}<div class="editor-card-actions"><button class="button" type="button" data-post-action="text" data-post-index="${i}">＋ 添加文字</button><button class="button" type="button" data-post-action="image" data-post-index="${i}">＋ 添加图片</button><button class="button subtle" type="button" data-post-action="delete-post" data-post-index="${i}">删除这条动态</button></div></div></details>`).join("")}<button class="button editor-add" type="button" data-post-action="add">＋ 新增动态</button></section>`;
+    return `<section id="posts" class="editor-group"><div class="editor-group-head"><h2>动态与开发日志</h2><p>按阅读顺序添加文字和图片，勾选「公开显示」的动态会出现在首页和日志页。</p></div>${draft.posts.map((post,i) => `<details class="editor-project" data-post="${i}"><summary><span><b>${esc(post.title || "未命名动态")}</b><small>${esc(post.date || "未设置日期")}</small></span><span>展开编辑</span></summary><div class="editor-project-body"><div class="editor-grid">${field(`posts.${i}.title`,"标题")}${field(`posts.${i}.date`,"发布日期","date")}${field(`posts.${i}.visible`,"公开显示这条动态","checkbox")}</div><p>按顺序添加文字或图片；长文可拆成多段，再插入图片。</p>${post.blocks.map((block,j) => `<div class="editor-mini-card post-block"><strong>${block.type === "image" ? "图片" : "文字"} ${j+1}</strong>${block.type === "image" ? `${field(`posts.${i}.blocks.${j}.src`,"图片路径或网址","text","也可以使用下方按钮选择电脑里的图片")}${field(`posts.${i}.blocks.${j}.caption`,"图片说明")}<label class="editor-field"><span>选择图片（建议单张小于 1 MB）</span><input type="file" accept="image/*" data-image-post="${i}" data-image-block="${j}"></label>${block.src ? `<img class="editor-post-image" src="${esc(block.src)}" alt="图片预览">` : ""}` : field(`posts.${i}.blocks.${j}.text`,"正文","textarea")}<div class="editor-card-actions"><button type="button" class="button subtle" data-post-action="up" data-post-index="${i}" data-block-index="${j}">上移</button><button type="button" class="button subtle" data-post-action="down" data-post-index="${i}" data-block-index="${j}">下移</button><button type="button" class="button subtle" data-post-action="delete-block" data-post-index="${i}" data-block-index="${j}">删除</button></div></div>`).join("")}<div class="editor-card-actions"><button class="button" type="button" data-post-action="text" data-post-index="${i}">＋ 添加文字</button><button class="button" type="button" data-post-action="image" data-post-index="${i}">＋ 添加图片</button><button class="button subtle" type="button" data-post-action="delete-post" data-post-index="${i}">删除这条动态</button></div></div></details>`).join("")}<button class="button editor-add" type="button" data-post-action="add">＋ 新增动态</button></section>`;
   }
   function render(openProjects=[], openPosts=[]) {
-    const basics=field("meta.siteTitle","浏览器标签标题")+field("profile.name","姓名 / 昵称")+field("profile.eyebrow","顶部小标签")+field("profile.headline","首页主标题")+field("profile.intro","首页简介","textarea")+field("profile.heroImage","首页图片路径")+field("profile.heroImageAlt","首页图片说明")+field("profile.profileTitle","个人定位")+field("profile.profileCopy","个人简介正文","textarea")+field("home.aboutIntro","简介区说明","textarea")+field("home.projectsIntro","项目区说明","textarea");
+    const basics = [
+      field("meta.siteTitle","浏览器标签标题"), field("profile.name","首页姓名"),
+      field("profile.eyebrow","姓名下方的职业方向"), field("profile.headline","首页辅助标题"),
+      field("profile.profileTitle","简介区标题"), field("profile.profileCopy","个人简介正文","textarea","这段文字也会出现在小幽灵的简介窗口。"),
+      field("home.aboutIntro","简介区引言","textarea"), field("home.projectsIntro","项目区引言","textarea")
+    ].join("");
     const contact=field("contact.heading","联系区标题")+field("contact.intro","联系区说明","textarea")+field("contact.email","邮箱")+field("contact.resumeUrl","简历 PDF 链接")+field("contact.videoUrl","视频主页链接")+field("contact.platformUrl","作品平台链接");
     const appearance=field("theme.accent","强调色","color")+field("theme.accentLight","强调浅色","color")+field("theme.teal","辅助色","color")+field("theme.cardColumns","桌面项目卡片列数（1–3）","number")+field("theme.maxWidth","内容最大宽度（像素）","number")+field("theme.sectionSpace","上下留白（像素）","number");
     const tags=(draft.profile.tags||[]).map((_,i)=>field(`profile.tags.${i}`,`技能标签 ${i+1}`)).join("");
-    root.innerHTML=group("个人信息","修改首页文字和个人介绍。",basics)+group("联系方式与简历","只填写愿意公开的信息。",contact)+group("视觉与排版","调整网站颜色和桌面排版。",appearance)+group("技能标签","留空的标签不会显示。",tags)+postsEditor()+`<section class="editor-group"><div class="editor-group-head"><h2>项目作品</h2><p>展开项目后填写制作人数，并按五个板块修改内容。</p></div><div class="editor-project-list">${draft.projects.map(projectEditor).join("")}</div></section>`;
+    const projects = `<section id="projects" class="editor-group"><div class="editor-group-head"><h2>项目作品</h2><p>展开一个作品，修改卡牌、详情、截图和视频。</p></div><div class="editor-project-list">${draft.projects.map(projectEditor).join("")}</div></section>`;
+    root.innerHTML = [
+      group("profile","首页与简介","编辑访客在桌边和个人简介区看到的文字。",basics+tags),
+      projects, postsEditor(), group("contact","联系方式与简历","填写希望展示给访客的信息。",contact),
+      group("appearance","颜色与排版","设置内容页面的强调色、列表列数和宽度。木屋灯光由互动场景单独控制。",appearance)
+    ].join("");
     for(const i of openPosts) root.querySelector(`details[data-post="${i}"]`)?.setAttribute("open", "");
     for(const i of openProjects) root.querySelector(`details[data-project="${i}"]`)?.setAttribute("open","");
   }
-  function save(message="草稿已保存到当前浏览器") { try { localStorage.setItem(KEY,JSON.stringify(draft)); status.textContent=message; } catch (_) { status.textContent="浏览器存储空间不足，请先下载内容文件备份，并减少或压缩图片。"; } }
+  function save(message="草稿已保存到当前浏览器") { try { localStorage.setItem(KEY,JSON.stringify(draft)); status.textContent=message; return true; } catch (_) { status.textContent="浏览器存储空间不足，请先下载内容文件备份，并减少或压缩图片。"; return false; } }
   root.addEventListener("input",event=>{ const e=event.target, path=e.dataset.path; if(!path)return; set(path,e.type==="checkbox"?e.checked:e.type==="number"?Number(e.value):e.value); clearTimeout(timer); timer=setTimeout(()=>save("已自动保存草稿"),400); });
   root.addEventListener("click",event=>{
     const button=event.target.closest("button"); if(!button)return;
@@ -76,13 +86,13 @@
   document.querySelector(".editor-actions").addEventListener("click",event=>{
     const action=event.target.dataset.action;
     if(action==="save") save();
-    if(action==="preview") { save("已保存草稿并打开预览"); window.open("index.html?preview=1","_blank","noopener"); }
+    if(action==="preview" && save("已保存草稿并打开预览")) { window.open("index.html?preview=1","_blank","noopener"); }
     if(action==="download") {
       const blob=new Blob([`window.PORTFOLIO_CONTENT = ${JSON.stringify(draft,null,2)};\n`],{type:"text/javascript;charset=utf-8"});
       const url=URL.createObjectURL(blob), a=document.createElement("a"); a.href=url; a.download="site-content.js";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);save("已下载内容文件");
     }
     if(action==="website") { save("正在整理完整网站……");window.exportPortfolioWebsite(draft).then(()=>status.textContent="完整网站已下载").catch(error=>status.textContent=`导出失败：${error.message}`); }
-    if(action==="reset" && window.confirm("确定恢复当前已发布版本？本浏览器草稿会被覆盖。")){draft=window.normalizePortfolio(published);localStorage.removeItem(KEY);render();status.textContent="已恢复已发布版本";}
+    if(action==="reset" && window.confirm("确定还原到当前网站文件中的内容？本浏览器草稿会被覆盖。")){clearTimeout(timer);draft=window.normalizePortfolio(published);render();save("已还原到网站文件版本");}
   });
   render();
 })();

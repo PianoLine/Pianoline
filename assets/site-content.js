@@ -5,11 +5,11 @@ window.PORTFOLIO_CONTENT = {
     "year": "2026"
   },
   "theme": {
-    "accent": "#d3a062",
-    "accentLight": "#f3cd96",
-    "teal": "#a6d8cc",
+    "accent": "#a64a32",
+    "accentLight": "#f18b67",
+    "teal": "#365e5c",
     "cardColumns": 2,
-    "maxWidth": 1240,
+    "maxWidth": 2100,
     "sectionSpace": 104,
     "cardStyle": "immersive"
   },
@@ -254,6 +254,7 @@ window.PORTFOLIO_CONTENT = {
       ],
       "cover": {
         "src": "assets/media/portfolio-docx/image5.png",
+        "cardSrc": "assets/media/forging-card.webp",
         "alt": "《锻刀模拟器》项目展示图"
       },
       "purpose": {

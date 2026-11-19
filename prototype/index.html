@@ -1,6 +1,54 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>互动作品卡牌</title><script>if(new URLSearchParams(location.search).has('embed'))document.documentElement.className='embedded';</script><link rel="stylesheet" href="prototype.css?v=20261117e"></head><body>
-<header><a href="../index.html">PH · 作品集</a><nav><a href="../index.html#about">关于我</a><a href="../index.html#projects">项目作品</a><a href="../index.html#updates">动态</a><a href="../index.html#contact">联系</a></nav></header>
-<main><div class="eyebrow">INTERACTIVE PORTFOLIO · 交互原型</div><h1>来，打一场作品牌。</h1><p class="intro">抽取项目卡，拖到小幽灵身上；也可以点击卡牌直接查看。</p>
-<section class="arena" id="arena" aria-label="卡牌互动区"><div class="scene" id="scene"><div class="room-lamp"></div><div class="room-table"></div></div><button class="ghost" id="ghost" aria-label="点击了解我，或把卡牌拖到这里"><svg class="ghost-art" viewBox="0 0 140 140" aria-hidden="true"><path d="M17 78 L33 62 L34 37 L67 8 L108 25 L113 61 L129 78 L110 84 L112 116 L94 105 L77 124 L62 109 L45 120 L33 99 L13 96 Z" fill="#ebe9db" stroke="#c6c9b8" stroke-width="2"/><path d="M42 49 l24 7 -3 9 -23 -6z M79 56 l24 -8 3 10 -24 8z" fill="#26302b"/><path d="M66 80 Q79 95 92 78 Q80 108 66 80" fill="#26302b"/></svg><span class="hit" id="hit">−128</span><span class="ghost-label">点击了解我 · 拖牌攻击</span></button><div class="speech" id="speech">“把项目牌丢过来？我才不怕呢！”</div><div class="tableline">你的手牌 <span id="count"></span><span class="hint">拖动卡牌到幽灵，或点击出牌</span></div><div class="hand" id="hand"></div><div class="deckzone"><button id="deck" class="deck" aria-label="抽取一张项目卡">▧<small>抽一张 <span id="remaining"></span></small></button><span>拖牌至此放回牌库</span><button id="end" class="end">回合结束 → 动态</button></div><div id="transition" class="transition"><span>项目发现</span><strong id="transition-title"></strong></div></section>
-<section class="below"><span>继续探索</span><h2>游戏之外，也可以直接浏览。</h2><p>这是一个独立原型。正式作品、个人介绍和动态仍然可以通过普通导航访问。</p><div><a href="../index.html#about">了解我 ↗</a><a href="../index.html#projects">查看全部项目 ↗</a><a href="../index.html#updates">动态与日志 ↗</a></div></section></main>
-<dialog id="about"><button id="close" aria-label="关闭">×</button><span>ABOUT ME</span><h2>你好，我是潘厚霖。</h2><p>关注游戏玩法、交互与系统设计，使用 Unity 和 Unreal Engine 搭建可以体验的原型。</p><a href="../index.html#about">查看完整介绍 ↗</a></dialog><script src="../assets/site-content.js"></script><script src="prototype.js?v=20261117c"></script></body></html>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>个人作品集 · 作品卡</title>
+  <script>
+    const display = new URLSearchParams(location.search);
+    if (display.has("embed")) document.documentElement.classList.add("embedded");
+  </script>
+  <link rel="stylesheet" href="prototype.css?v=charcoal">
+</head>
+<body>
+  <header class="standalone"><a href="../index.html">PAN HOULIN</a><nav aria-label="页面导航"><a href="../index.html#about">简介</a><a href="../index.html#projects">项目</a><a href="../index.html#updates">动态</a><a href="../index.html#contact">联系</a></nav></header>
+  <main class="arena" id="arena">
+    <section class="stage" aria-labelledby="title">
+      <div class="opening">
+        <p class="edition"><i aria-hidden="true"></i> 个人作品集</p>
+        <h1 id="title">作品集</h1>
+        <p class="byline" id="byline"></p>
+        <a class="browse" target="_top" href="../index.html#projects">直接浏览全部作品 <span aria-hidden="true">↗</span></a>
+      </div>
+    </section>
+    <div class="encounter">
+        <p class="speech" id="speech" role="status">想先看看哪个作品？</p>
+        <button class="ghost" id="ghost" type="button" aria-label="点击了解我，或把卡牌拖到这里">
+          <img src="art/front-ghost.webp" alt="" draggable="false">
+          <span class="hit" aria-hidden="true">−128</span>
+          <span class="ghost-label">个人简介 ↗</span>
+        </button>
+    </div>
+    <div class="scene-edges" aria-hidden="true"></div>
+    <section class="table" aria-labelledby="hand-title">
+      <div class="table-inner">
+        <div class="table-head"><h2 id="hand-title">作品卡 <small id="count"></small></h2><p>点选作品卡，或将卡片拖给小幽灵</p></div>
+        <div class="play-row">
+          <div class="deckzone">
+            <button id="deck" class="deck" aria-label="抽取一张项目卡"><span class="deck-art" aria-hidden="true"><i>✷</i></span><span class="deck-copy"><b>抽一张 <span aria-hidden="true">＋</span></b><small>牌库余 <span id="remaining"></span> 张</small></span></button>
+            <span class="deck-hint">拖到牌库可放回</span>
+          </div>
+          <div class="hand" id="hand"></div>
+          <button class="end" id="end"><span>回合结束 <i aria-hidden="true">↗</i></span><small>前往动态</small></button>
+        </div>
+      </div>
+    </section>
+    <div id="transition" class="transition" aria-hidden="true"><span>翻开作品</span><strong id="transition-title"></strong></div>
+  </main>
+  <dialog id="about" aria-labelledby="about-name"><button id="close" aria-label="关闭简介">×</button><span class="edition">ABOUT THE DESIGNER</span><h2 id="about-name"></h2><p id="about-copy"></p><a class="browse" href="../index.html#about" target="_top">查看完整介绍 ↗</a></dialog>
+  <script src="../assets/site-content.js?v=woodcut"></script>
+  <script src="cabin-mesh.js?v=paperfire"></script>
+  <script src="cabin-view.js?v=paperfire"></script>
+  <script src="prototype.js?v=paperfire"></script>
+</body>
+</html>

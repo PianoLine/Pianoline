@@ -36,14 +36,14 @@
   }
   window.exportPortfolioWebsite = async function (draft) {
     if (location.protocol === "file:") throw new Error("请使用在线编辑页下载完整网站，本地文件无法读取其他文件");
-    const paths = new Set(["index.html", "editor.html", "posts.html", "assets/styles.css", "assets/main.js", "assets/schema.js", "assets/site.js", "assets/editor.js", "assets/export-site.js", "prototype/index.html", "prototype/prototype.css", "prototype/prototype.js", "prototype/art/table-scene.png", "prototype/art/ghost.png", "prototype/art/bookshelf.png", "prototype/art/noticeboard.png", "prototype/art/lamp.png", "prototype/art/plant-shelf.png"]);
+    const paths = new Set(["index.html", "editor.html", "posts.html", "assets/styles.css", "assets/main.js", "assets/schema.js", "assets/site.js", "assets/editor.js", "assets/export-site.js", "prototype/index.html", "prototype/prototype.css", "prototype/prototype.js", "prototype/cabin-mesh.js", "prototype/cabin-view.js", "prototype/art/polygon-cabin.webp", "prototype/art/front-ghost.webp"]);
     for (const project of draft.projects || []) paths.add(`projects/${project.id}.html`);
     const addLocal = value => {
       if (typeof value === "string" && /^assets\/media\//.test(value)) paths.add(value.split(/[?#]/)[0]);
     };
     addLocal(draft.profile?.heroImage);
     for (const project of draft.projects || []) {
-      addLocal(project.cover?.src); addLocal(project.video?.url); addLocal(project.video?.file);
+      addLocal(project.cover?.src); addLocal(project.cover?.cardSrc); addLocal(project.video?.url); addLocal(project.video?.file);
       for (const item of project.gallery || []) addLocal(item.src);
       for (const item of project.resources || []) addLocal(item.url);
     }

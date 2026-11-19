@@ -1,25 +1,227 @@
-(()=>{
-  const params=new URLSearchParams(location.search),embedded=params.has('embed');let content=window.PORTFOLIO_CONTENT;
-  if(params.has('preview'))try{content=JSON.parse(localStorage.getItem('portfolio-editor-draft-v2'))||content}catch(_){}
-  const projects=content.projects||[],icons=['⚔','⚒','♣','♠','▣','✦','◆'];let deck=projects.map((_,i)=>i),hand=deck.splice(0,3),busy=false,drag=null,animating=false;
-  const $=id=>document.getElementById(id),speech=$('speech'),ghost=$('ghost');
-  $('scene').insertAdjacentHTML('beforeend', `<img class="art-object art-bookshelf" src="art/bookshelf.png" alt="" draggable="false"><img class="art-object art-board" src="art/noticeboard.png" alt="" draggable="false"><img class="art-object art-lamp art-lamp-left" src="art/lamp.png" alt="" draggable="false"><img class="art-object art-lamp art-lamp-right" src="art/lamp.png" alt="" draggable="false"><img class="art-object art-plant" src="art/plant-shelf.png" alt="" draggable="false">`);
-  $('scene').insertAdjacentHTML('afterbegin', `<div class="paper-shelf paper-depth-far" aria-hidden="true"><i class="shelf-top"></i><i class="shelf-books"></i><i class="shelf-bottom"></i><i class="shelf-plant"></i></div><div class="paper-board paper-depth-far" aria-hidden="true"><i></i><i></i><i></i></div><div class="paper-side-table paper-depth-mid" aria-hidden="true"><i class="paper-pot"></i><i class="paper-leaves"></i><i class="paper-books"></i></div><div class="paper-cup paper-depth-near" aria-hidden="true"><i>♟</i></div><div class="room-lamp lamp-right" aria-hidden="true"></div>`);
-  ghost.querySelector('svg').innerHTML=`<g class="ghost-wing ghost-wing-left"><path d="M37 66 L14 76 L7 96 L34 91 L43 82Z" fill="#c5cabe"/><path d="M14 76 L37 66 L31 86Z" fill="#f1efdf"/></g><g class="ghost-wing ghost-wing-right"><path d="M103 66 L126 76 L133 96 L106 91 L97 82Z" fill="#b5bcb0"/><path d="M103 66 L126 76 L110 87Z" fill="#f2f1e3"/></g><g class="ghost-body"><path d="M36 40 L70 9 L107 34 L113 100 L96 115 L81 106 L69 124 L56 108 L40 116 L29 97Z" fill="#e9eadc"/><path d="M70 9 L107 34 L84 46 L54 35Z" fill="#f7f4e5"/><path d="M54 35 L84 46 L70 90 L30 97 L36 40Z" fill="#eeeee1"/><path d="M84 46 L107 34 L113 100 L96 115 L70 90Z" fill="#ccd2c3"/><path d="M30 97 L70 90 L69 124 L56 108 L40 116Z" fill="#dce1d2"/></g><g class="ghost-face"><path d="M43 52 l23 5 -3 10 -22 -6z M79 57 l23 -7 3 10 -23 7z" fill="#26302b"/><path d="M63 79 Q76 90 94 77 Q82 104 63 79" fill="#26302b"/></g>`;
-  const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  function say(s){speech.textContent='“'+s+'”'}
-  function go(url){const target=new URL('../'+url,location.href).href;if(embedded)window.parent.location.href=target;else location.href=target}
-  function render(){ $('count').textContent=`${hand.length} / 5`; $('remaining').textContent=`(${deck.length})`; $('hand').dataset.count=hand.length; $('hand').innerHTML=hand.map((i,n)=>{const offset=n-(hand.length-1)/2;return `<div class="card-wrap" style="--angle:${offset*7}deg;--lift:${Math.abs(offset)*7}px;--order:${n}"><button class="card" data-id="${i}" aria-label="查看 ${escape(projects[i].title)}"><span class="card-icon">${icons[i]||'✦'}</span><b>${escape(projects[i].title)}</b><small>${escape(projects[i].category||'项目作品')}</small></button><button class="return-card" data-return="${i}" aria-label="将 ${escape(projects[i].title)} 放回牌库">放回</button></div>`}).join('');}
-  const reduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
-  function fly(card,from,to,done){if(reduced()||!card?.animate){done();return}animating=true;const clone=card.cloneNode(true);clone.classList.add('flying-card');document.body.appendChild(clone);clone.style.width=to.width+'px';clone.style.height=to.height+'px';clone.style.left='0';clone.style.top='0';const animation=clone.animate([{transform:`translate(${from.left}px,${from.top}px) scale(.68) rotate(10deg)`,opacity:.45},{transform:`translate(${to.left}px,${to.top}px) scale(1) rotate(0deg)`,opacity:1}],{duration:460,easing:'cubic-bezier(.2,.75,.2,1)'});animation.finished.catch(()=>{}).then(()=>{clone.remove();animating=false;done()})}
-  function attack(i){if(busy||!hand.includes(i))return;busy=true;say('呜哇！你还真打啊！');ghost.classList.add('hurt');$('scene').classList.add('struck');$('transition-title').textContent=projects[i].title;setTimeout(()=>{$('transition').classList.add('active');setTimeout(()=>go('projects/'+encodeURIComponent(projects[i].id)+'.html'+(params.has('preview')?'?preview=1':'')),450)},850)}
-  function putBack(i){if(!hand.includes(i)||animating)return;const card=$('hand').querySelector(`[data-id="${i}"]`),from=card.getBoundingClientRect(),to=$('deck').getBoundingClientRect();card.style.visibility='hidden';fly(card,from,to,()=>{hand=hand.filter(x=>x!==i);deck.push(i);say('收回去啦？再抽一张试试看！');render()})}
-  $('deck').onclick=()=>{if(animating||busy)return;if(hand.length>=5){say('手牌满啦！把一张牌放回牌库吧。');return}if(!deck.length){say('牌库空啦，把手牌放回来再抽吧！');return}const from=$('deck').getBoundingClientRect(),i=deck.shift();hand.push(i);render();const card=$('hand').querySelector(`[data-id="${i}"]`),to=card.getBoundingClientRect();card.style.visibility='hidden';fly(card,from,to,()=>{card.style.visibility='';say('新的作品牌！敢拿它来挑战我吗？')})};
-  $('hand').addEventListener('click',e=>{const back=e.target.closest('[data-return]');if(back){putBack(Number(back.dataset.return));return}const c=e.target.closest('.card');if(c&&e.detail===0)attack(Number(c.dataset.id))});
-  $('hand').addEventListener('pointerdown',e=>{const c=e.target.closest('.card');if(!c||e.button!==0||busy||animating)return;drag={card:c,id:Number(c.dataset.id),x:e.clientX,y:e.clientY,moved:false,clone:null};c.setPointerCapture(e.pointerId)});
-  $('hand').addEventListener('pointermove',e=>{if(!drag)return;if(!drag.moved&&Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>7){drag.moved=true;drag.clone=drag.card.cloneNode(true);drag.clone.classList.add('drag-clone');document.body.appendChild(drag.clone);drag.card.classList.add('dragging');say('等等……有话好说！')}if(!drag.moved)return;drag.clone.style.left=e.clientX+'px';drag.clone.style.top=e.clientY+'px';for(const target of [ghost,$('deck')]){const r=target.getBoundingClientRect();target.classList.toggle('over',e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom)}});
-  function finish(e,cancel){if(!drag)return;const d=drag;drag=null;d.card.classList.remove('dragging');d.clone?.remove();const target=[ghost,$('deck')].find(t=>{const r=t.getBoundingClientRect();return e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom});ghost.classList.remove('over');$('deck').classList.remove('over');if(cancel)return;if(!d.moved||target===ghost)attack(d.id);else if(target===$('deck'))putBack(d.id);else say('没打中！再试一次。')}
-  $('hand').addEventListener('pointerup',e=>finish(e,false));$('hand').addEventListener('pointercancel',e=>finish(e,true));
-  ghost.onclick=()=>$('about').showModal();$('close').onclick=()=>$('about').close();$('end').onclick=()=>{say('回合结束！去看看最新动态吧。');setTimeout(()=>{if(embedded){window.parent.location.hash='updates';window.parent.document.getElementById('updates')?.scrollIntoView({behavior:'smooth'})}else location.href='../index.html#updates'},600)};
-  const arena=$('arena');arena.addEventListener('pointermove',e=>{if(e.pointerType!=='mouse'||matchMedia('(prefers-reduced-motion: reduce)').matches)return;const r=arena.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;arena.style.setProperty('--look-x',x.toFixed(3));arena.style.setProperty('--look-y',y.toFixed(3));});arena.addEventListener('pointerleave',()=>{arena.style.setProperty('--look-x',0);arena.style.setProperty('--look-y',0)});render();
+(() => {
+  const params = new URLSearchParams(location.search);
+  const preview = params.has("preview");
+  const embedded = params.has("embed") && window.parent !== window;
+  let content = window.PORTFOLIO_CONTENT;
+  if (preview) {
+    try {
+      content = JSON.parse(localStorage.getItem("portfolio-editor-draft-v2")) || content;
+    } catch (_) { /* The published content is available offline. */ }
+  }
+  const projects = content.projects || [];
+  const deck = projects.map((_, i) => i);
+  const hand = deck.splice(0, 3);
+  const get = id => document.getElementById(id);
+  const ghost = get("ghost");
+  const pile = get("deck");
+  const tray = get("hand");
+  const arena = get("arena");
+  const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const say = text => { get("speech").textContent = text; };
+  let locked = false;
+  let pointer = null;
+
+  const homeUrl = new URL("../index.html", location.href);
+  if (preview) homeUrl.searchParams.set("preview", "1");
+  document.querySelectorAll('a[href^="../index.html"]').forEach(link => {
+    const target = new URL(homeUrl);
+    target.hash = link.hash;
+    link.href = target;
+    if (embedded && target.hash) link.addEventListener("click", event => {
+      if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      if (get("about").open) get("about").close();
+      window.parent.postMessage({ type: "portfolio-section", section: target.hash.slice(1) }, "*");
+    });
+  });
+  const profile = content.profile || {};
+  get("title").textContent = profile.name || "作品集";
+  get("byline").textContent = profile.eyebrow || profile.headline || "";
+  get("about-name").textContent = profile.name ? "你好，我是" + profile.name + "。" : "关于我";
+  get("about-copy").textContent = profile.profileCopy || profile.intro || "";
+  function navigate(url) {
+    (embedded ? window.parent : window).location.href = url;
+  }
+  function render() {
+    get("count").textContent = hand.length + " / 5";
+    get("remaining").textContent = deck.length;
+    tray.replaceChildren();
+    hand.forEach((id, n) => {
+      const project = projects[id];
+      const wrap = document.createElement("div");
+      const offset = n - (hand.length - 1) / 2;
+      wrap.className = "card-wrap";
+      wrap.style.setProperty("--angle", offset * 3 + "deg");
+      wrap.style.setProperty("--lift", Math.abs(offset) * 3 + "px");
+      const card = document.createElement("button");
+      card.className = "card";
+      card.dataset.id = id;
+      card.dataset.tone = id % 3;
+      card.setAttribute("aria-label", "查看 " + project.title);
+      card.innerHTML = '<span class="folio" aria-hidden="true"><span></span><span>✦</span></span><span class="card-image" aria-hidden="true"></span><b></b><small class="card-type"></small>';
+      card.querySelector(".folio span").textContent = project.number || String(id + 1).padStart(2, "0");
+      card.querySelector("b").textContent = project.title;
+      card.querySelector(".card-type").textContent = project.category || "项目作品";
+      const cardImage = project.cover?.cardSrc || project.cover?.src;
+      if (cardImage) {
+        const img = new Image();
+        img.alt = "";
+        img.draggable = false;
+        img.addEventListener("error", () => img.remove(), { once: true });
+        img.src = new URL(cardImage, homeUrl).href;
+        card.querySelector(".card-image").append(img);
+      }
+      const back = document.createElement("button");
+      back.className = "return-card";
+      back.textContent = "放回";
+      back.setAttribute("aria-label", "将 " + project.title + " 放回牌库");
+      back.onclick = event => putBack(id, event.detail === 0);
+      wrap.append(card, back);
+      tray.append(wrap);
+    });
+    if (!hand.length) tray.textContent = deck.length ? "手牌空了，抽一张继续。" : "暂无项目卡。";
+  }
+
+  async function fly(card, from, to) {
+    if (reduced() || !card.animate) return;
+    const clone = card.cloneNode(true);
+    clone.classList.add("flying-card");
+    clone.setAttribute("aria-hidden", "true");
+    clone.tabIndex = -1;
+    Object.assign(clone.style, { visibility: "visible", width: to.width + "px", height: to.height + "px", left: to.left + "px", top: to.top + "px", transformOrigin: "0 0" });
+    document.body.append(clone);
+    const transform = "translate(" + (from.left - to.left) + "px," + (from.top - to.top) + "px) scale(" + from.width / to.width + "," + from.height / to.height + ")";
+    try {
+      await clone.animate([{ transform, opacity: .65 }, { transform: "none", opacity: 1 }], { duration: 300, easing: "ease-out" }).finished;
+    } finally { clone.remove(); }
+  }
+  pile.onclick = async () => {
+    if (locked || pointer) return;
+    if (hand.length >= 5) return say("手牌满了，先放回一张吧。");
+    if (!deck.length) return say("牌库空了，把手牌放回来再抽吧。");
+    locked = true;
+    hand.push(deck.shift());
+    render();
+    const card = tray.lastElementChild.querySelector(".card");
+    card.style.visibility = "hidden";
+    try { await fly(card, pile.getBoundingClientRect(), card.getBoundingClientRect()); }
+    finally { card.style.visibility = ""; locked = false; say("新牌到手，来试试看？"); }
+  };
+  async function putBack(id, keyboard) {
+    if (locked || pointer || !hand.includes(id)) return;
+    locked = true;
+    const index = hand.indexOf(id);
+    const card = tray.children[index].querySelector(".card");
+    card.style.visibility = "hidden";
+    try { await fly(card, card.getBoundingClientRect(), pile.getBoundingClientRect()); }
+    finally {
+      hand.splice(index, 1);
+      deck.push(id);
+      render();
+      locked = false;
+      say("收到，已经放回牌库了。");
+      if (keyboard) (tray.children[Math.min(index, hand.length - 1)]?.querySelector(".card") || pile).focus();
+    }
+  }
+  async function attack(id, delivered = false) {
+    if (locked || !hand.includes(id)) return;
+    locked = true;
+    const source=tray.querySelector('.card[data-id="'+id+'"]');
+    if (!delivered && !reduced() && source?.animate) {
+      const from=source.getBoundingClientRect(),to=ghost.getBoundingClientRect();
+      const thrown=source.cloneNode(true);
+      thrown.classList.add("flying-card");
+      thrown.setAttribute("aria-hidden","true");
+      thrown.tabIndex=-1;
+      Object.assign(thrown.style,{left:from.left+"px",top:from.top+"px",width:from.width+"px",height:from.height+"px"});
+      document.body.append(thrown);
+      const dx=to.left+(to.width-from.width)/2-from.left,dy=to.top+(to.height-from.height)/2-from.top;
+      try {
+        await thrown.animate([{transform:"scale(1)"},{transform:"translate("+dx+"px,"+dy+"px) scale(.19) rotate(-12deg)"}],
+          {duration:230,easing:"cubic-bezier(.28,.55,.58,1)",fill:"forwards"}).finished;
+      } catch { /* Complete the hit even if the visual was interrupted. */ }
+      finally { thrown.remove(); }
+    }
+    ghost.classList.add("hurt");
+    arena.dispatchEvent(new Event("cabin-hit"));
+    say("哎呀，算你赢！翻开这件作品吧。");
+    get("transition-title").textContent = projects[id].title;
+    const url = new URL("../projects/" + encodeURIComponent(projects[id].id) + ".html", location.href);
+    if (preview) url.searchParams.set("preview", "1");
+    setTimeout(() => {
+      get("transition").classList.add("active");
+      setTimeout(() => navigate(url), reduced() ? 0 : 340);
+    }, reduced() ? 100 : 620);
+  }
+  tray.addEventListener("click", event => {
+    const card = event.target.closest(".card");
+    if (card && event.detail === 0) attack(Number(card.dataset.id));
+  });
+  tray.addEventListener("pointerdown", event => {
+    const card = event.target.closest(".card");
+    if (!card || pointer || locked || !event.isPrimary || event.button !== 0) return;
+    pointer = { card, id: event.pointerId, x: event.clientX, y: event.clientY, clone: null };
+    card.setPointerCapture(event.pointerId);
+  });
+  function dropTarget(event) {
+    return [ghost, pile].find(target => {
+      const rect = target.getBoundingClientRect();
+      return event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
+    });
+  }
+  tray.addEventListener("pointermove", event => {
+    if (pointer?.id !== event.pointerId) return;
+    if (!pointer.clone) {
+      if (Math.hypot(event.clientX - pointer.x, event.clientY - pointer.y) <= 7) return;
+      pointer.clone = pointer.card.cloneNode(true);
+      pointer.clone.classList.add("drag-clone");
+      pointer.clone.tabIndex = -1;
+      pointer.clone.setAttribute("aria-hidden", "true");
+      document.body.append(pointer.clone);
+      pointer.card.classList.add("dragging");
+      say("等等……有话好说！");
+    }
+    pointer.clone.style.left = event.clientX + "px";
+    pointer.clone.style.top = event.clientY + "px";
+    const target = dropTarget(event);
+    ghost.classList.toggle("over", target === ghost);
+    pile.classList.toggle("over", target === pile);
+  });
+  function finish(event) {
+    if (pointer?.id !== event.pointerId) return;
+    const { card, clone } = pointer;
+    pointer = null;
+    clone?.remove();
+    card.classList.remove("dragging");
+    ghost.classList.remove("over");
+    pile.classList.remove("over");
+    if (event.type !== "pointerup") return;
+    const id = Number(card.dataset.id);
+    const target = dropTarget(event);
+    if (!clone || target === ghost) attack(id, Boolean(clone));
+    else if (target === pile) putBack(id, false);
+    else say("没打中，再试一次？");
+  }
+  ["pointerup", "pointercancel", "lostpointercapture"].forEach(type => tray.addEventListener(type, finish));
+  ghost.onclick = () => { if (!locked) get("about").showModal(); };
+  get("close").onclick = () => get("about").close();
+  get("end").onclick = () => {
+    if (locked || pointer) return;
+    locked = true;
+    say("回合结束，去看看最新动态吧。");
+    setTimeout(() => {
+      locked = false;
+      if (embedded) window.parent.postMessage({ type: "portfolio-section", section: "updates" }, "*");
+      else navigate(homeUrl.href + "#updates");
+    }, reduced() ? 0 : 350);
+  };
+  window.addEventListener("pageshow", () => {
+    locked = false;
+    ghost.classList.remove("hurt");
+    get("transition").classList.remove("active");
+  });
+  render();
+  if (embedded) {
+    new ResizeObserver(() => window.parent.postMessage({ type: "portfolio-table-height", height: Math.ceil(arena.getBoundingClientRect().height) }, "*")).observe(arena);
+  }
 })();
