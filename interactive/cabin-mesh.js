@@ -128,9 +128,9 @@ window.buildCabinMesh = function buildCabinMesh() {
     const ox=-d*.48*Math.sin(yaw), oz=-d*.48*Math.cos(yaw);
     box(x+ox,y+h/2,z+oz,w,h,.07,color,0,yaw);
   }
-  book(-3.69,1.53,3.94,1.30,.81,.18,-.15,"784932");
-  book(-3.63,1.71,3.94,1.14,.76,.16,.08,"5a6750");
-  bottle(-3.84,1.87,3.98,.44,"375e55");
+  book(-5.02,1.53,1.95,1.30,.81,.18,-.15,"784932");
+  book(-4.96,1.71,1.95,1.14,.76,.16,.08,"5a6750");
+  bottle(-5.17,1.87,1.99,.44,"375e55");
   function candle(x,y,z,r,h) {
     turned(x,z,[[y,r*1.23],[y+.08,r*1.17],[y+.13,r],[y+h-.07,r],[y+h,r*.85]],8,"c29658");
     // Small separate wax ridges hang down over the faceted front.
@@ -157,6 +157,53 @@ window.buildCabinMesh = function buildCabinMesh() {
     turned(x,z+.04,[[y+.055,.018],[y+.14,r*.25],[y+.28,.006]],5,"fff2b4",1);
     return {x,y,z,phase:index*2.13,start,end:vertices.length};
   });
+  // Tabletop props are local-space solids. The renderer places their feet on the table.
+  function part(build) {
+    const start = vertices.length;
+    build();
+    return { start, end: vertices.length };
+  }
+  function slab(width, depth, bottom, top, bevel, edges, lid) {
+    const w = width / 2, d = depth / 2, b = bevel;
+    const corners = [[-w+b,-d],[w-b,-d],[w,-d+b],[w,d-b],[w-b,d],[-w+b,d],[-w,d-b],[-w,-d+b]];
+    const ring = y => corners.map(([x,z]) => [x,y,z]);
+    const low = ring(bottom), high = ring(top);
+    for (let i=0; i<8; i++) {
+      const j = (i+1)%8;
+      face([low[i],low[j],high[j],high[i]],edges,0,.40);
+    }
+    face(high,lid,0,.55);
+  }
+  const deckBase = part(() => {
+    slab(1.37,1.82,0,.09,.14,"39271c","7c5730");
+    slab(1.29,1.73,.09,.125,.10,"ad814a","373a31");
+  });
+  const leaves = Array.from({length: 7}, () => part(() => {
+    slab(1.13,1.56,0,.052,.07,"c7a87a","caaa73");
+    slab(1.05,1.48,.052,.062,.05,"68513a","304740");
+    const y = .066;
+    for (let i=0;i<8;i++) {
+      const a = Math.PI*i/4;
+      const point = (angle,rx,rz) => [rx*Math.cos(angle),y,rz*Math.sin(angle)];
+      const tip = i%2 ? .22 : .36;
+      face([[0,y,0],point(a-Math.PI/8,.155,.205),point(a,tip,tip*1.3)],"dab778",0,.82);
+      face([[0,y,0],point(a,tip,tip*1.3),point(a+Math.PI/8,.155,.205)],"a98556",0,.65);
+    }
+  }));
+  const bellBase = part(() => {
+    turned(0,0,[[0,.62],[.06,.71],[.15,.72],[.22,.63]],12,"754334",.34);
+    turned(0,0,[[.16,.70],[.19,.71],[.21,.65]],12,"bc9155",.52);
+    turned(0,0,[[.22,.57],[.32,.55],[.35,.47]],12,"503b28",.32);
+  });
+  const dome = part(() => {
+    turned(0,0,[[.29,.57],[.34,.59],[.40,.54],[.53,.48],[.65,.36],[.73,.21],[.75,.08]],12,"c69956",.22);
+    turned(0,0,[[.32,.59],[.35,.61],[.38,.56]],12,"d1aa6e",.46);
+  });
+  const plunger = part(() => {
+    turned(0,0,[[.735,.055],[.89,.055]],8,"725934",.46);
+    turned(0,0,[[.86,.10],[.89,.16],[.95,.16],[.98,.09]],8,"e0be7b",.50);
+  });
+  const props = { deckBase, leaves, bellBase, dome, plunger };
   const shadowStart=vertices.length;
   for (const [radius,color,height] of [[.94,"473022",1.534],[.66,"362820",1.536]]) {
     const rim=Array.from({length:14},(_,i)=>{
@@ -194,5 +241,5 @@ window.buildCabinMesh = function buildCabinMesh() {
     }
     paper([lip(i/10,false),lip((i+1)/10,false),lip((i+1)/10,true),lip(i/10,true)],"29251e");
   }
-  return {vertices:new Float32Array(vertices),flames,clusterStart,clusterEnd,shadowStart,ghostStart};
+  return {vertices:new Float32Array(vertices),props,flames,clusterStart,clusterEnd,shadowStart,ghostStart};
 };

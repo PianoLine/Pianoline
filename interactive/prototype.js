@@ -30,21 +30,18 @@
     if (embedded && target.hash) link.addEventListener("click", event => {
       if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
       event.preventDefault();
-      if (get("about").open) get("about").close();
       window.parent.postMessage({ type: "portfolio-section", section: target.hash.slice(1) }, "*");
     });
   });
   const profile = content.profile || {};
   get("title").textContent = profile.name || "作品集";
   get("byline").textContent = profile.eyebrow || profile.headline || "";
-  get("about-name").textContent = profile.name ? "你好，我是" + profile.name + "。" : "关于我";
-  get("about-copy").textContent = profile.profileCopy || profile.intro || "";
   function navigate(url) {
     (embedded ? window.parent : window).location.href = url;
   }
   function render() {
-    get("count").textContent = hand.length + " / 5";
     get("remaining").textContent = deck.length;
+    arena.dispatchEvent(new CustomEvent("deck-size", { detail: deck.length }));
     tray.replaceChildren();
     hand.forEach((id, n) => {
       const project = projects[id];
@@ -82,7 +79,7 @@
     if (!hand.length) tray.textContent = deck.length ? "手牌空了，抽一张继续。" : "暂无项目卡。";
   }
 
-  async function fly(card, from, to) {
+  async function fly(card, from, to, drawing = false) {
     if (reduced() || !card.animate) return;
     const clone = card.cloneNode(true);
     clone.classList.add("flying-card");
@@ -90,9 +87,16 @@
     clone.tabIndex = -1;
     Object.assign(clone.style, { visibility: "visible", width: to.width + "px", height: to.height + "px", left: to.left + "px", top: to.top + "px", transformOrigin: "0 0" });
     document.body.append(clone);
-    const transform = "translate(" + (from.left - to.left) + "px," + (from.top - to.top) + "px) scale(" + from.width / to.width + "," + from.height / to.height + ")";
+    const dx=from.left-to.left, dy=from.top-to.top;
+    const sx=from.width/to.width, sy=from.height/to.height;
+    const transform=(x,y,scaleX,scaleY,tilt) =>
+      "translate("+x+"px,"+y+"px) scale("+scaleX+","+scaleY+") rotate("+tilt+"deg)";
     try {
-      await clone.animate([{ transform, opacity: .65 }, { transform: "none", opacity: 1 }], { duration: 300, easing: "ease-out" }).finished;
+      await clone.animate([
+        { transform: transform(dx,dy,sx,sy,drawing ? -7 : 0) },
+        { offset: .48, transform: transform(dx*.5,dy*.5-26,(1+sx)*.5,(1+sy)*.5,drawing ? -4 : 4) },
+        { transform: "none", opacity: drawing ? 1 : .45 }
+      ], { duration: 320, easing: "cubic-bezier(.24,.64,.38,1)" }).finished;
     } finally { clone.remove(); }
   }
   pile.onclick = async () => {
@@ -100,23 +104,25 @@
     if (hand.length >= 5) return say("手牌满了，先放回一张吧。");
     if (!deck.length) return say("牌库空了，把手牌放回来再抽吧。");
     locked = true;
+    arena.dispatchEvent(new Event("deck-draw"));
     hand.push(deck.shift());
     render();
     const card = tray.lastElementChild.querySelector(".card");
     card.style.visibility = "hidden";
-    try { await fly(card, pile.getBoundingClientRect(), card.getBoundingClientRect()); }
+    try { await fly(card, pile.querySelector(".control-art").getBoundingClientRect(), card.getBoundingClientRect(), true); }
     finally { card.style.visibility = ""; locked = false; say("新牌到手，来试试看？"); }
   };
-  async function putBack(id, keyboard) {
+  async function putBack(id, keyboard, droppedFrom) {
     if (locked || pointer || !hand.includes(id)) return;
     locked = true;
     const index = hand.indexOf(id);
     const card = tray.children[index].querySelector(".card");
     card.style.visibility = "hidden";
-    try { await fly(card, card.getBoundingClientRect(), pile.getBoundingClientRect()); }
+    try { await fly(card, droppedFrom || card.getBoundingClientRect(), pile.querySelector(".control-art").getBoundingClientRect()); }
     finally {
       hand.splice(index, 1);
       deck.push(id);
+      arena.dispatchEvent(new Event("deck-return"));
       render();
       locked = false;
       say("收到，已经放回牌库了。");
@@ -191,6 +197,7 @@
     if (pointer?.id !== event.pointerId) return;
     const { card, clone } = pointer;
     pointer = null;
+    const droppedFrom = clone?.getBoundingClientRect();
     clone?.remove();
     card.classList.remove("dragging");
     ghost.classList.remove("over");
@@ -199,21 +206,32 @@
     const id = Number(card.dataset.id);
     const target = dropTarget(event);
     if (!clone || target === ghost) attack(id, Boolean(clone));
-    else if (target === pile) putBack(id, false);
+    else if (target === pile) putBack(id, false, droppedFrom);
     else say("没打中，再试一次？");
   }
   ["pointerup", "pointercancel", "lostpointercapture"].forEach(type => tray.addEventListener(type, finish));
-  ghost.onclick = () => { if (!locked) get("about").showModal(); };
-  get("close").onclick = () => get("about").close();
+  const chatter = [
+    "你坐稳啦？这张桌子有点晃。",
+    "我没有袖子，藏不了牌。",
+    "别吹蜡烛，我还想看看你的下一张牌。",
+    "看中哪件作品了？把那张牌递给我吧。"
+  ];
+  let nextLine = 0;
+  ghost.onclick = () => {
+    if (locked || pointer) return;
+    say(chatter[nextLine]);
+    nextLine = (nextLine + 1) % chatter.length;
+  };
   get("end").onclick = () => {
     if (locked || pointer) return;
     locked = true;
+    arena.dispatchEvent(new Event("ring-bell"));
     say("回合结束，去看看最新动态吧。");
     setTimeout(() => {
       locked = false;
       if (embedded) window.parent.postMessage({ type: "portfolio-section", section: "updates" }, "*");
       else navigate(homeUrl.href + "#updates");
-    }, reduced() ? 0 : 350);
+    }, reduced() ? 0 : 540);
   };
   window.addEventListener("pageshow", () => {
     locked = false;

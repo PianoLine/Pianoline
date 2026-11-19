@@ -41,7 +41,7 @@
     const basics = [
       field("meta.siteTitle","浏览器标签标题"), field("profile.name","首页姓名"),
       field("profile.eyebrow","姓名下方的职业方向"), field("profile.headline","首页辅助标题"),
-      field("profile.profileTitle","简介区标题"), field("profile.profileCopy","个人简介正文","textarea","这段文字也会出现在小幽灵的简介窗口。"),
+      field("profile.profileTitle","简介区标题"), field("profile.profileCopy","个人简介正文","textarea","显示在首页的个人简介区域。"),
       field("home.aboutIntro","简介区引言","textarea"), field("home.projectsIntro","项目区引言","textarea")
     ].join("");
     const contact=field("contact.heading","联系区标题")+field("contact.intro","联系区说明","textarea")+field("contact.email","邮箱")+field("contact.resumeUrl","简历 PDF 链接")+field("contact.videoUrl","视频主页链接")+field("contact.platformUrl","作品平台链接");

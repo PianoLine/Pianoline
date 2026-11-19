@@ -4,7 +4,16 @@
 
 - [网站首页](index.html)
 - [内容编辑器](editor.html)
-- [编辑、预览与备份](prototype/网站工作流程.md)
-- [互动规则与场景维护](prototype/方案说明.md)
 
-这个版本保存在 `draft/card-homepage` 分支。网站由静态 HTML、CSS、JavaScript 和本地素材组成，无需安装前端依赖。双击 `index.html` 可以浏览。要编辑草稿并导出整站，请按维护说明使用本机预览服务。
+## 互动首页的预览与发布
+
+普通首页和编辑器的整站 ZIP 使用 `interactive/` 中的发布版。即使只有从 Git 下载的网站，也可以直接打开 `index.html` 浏览。
+
+开发互动时，在项目根目录启动本机服务（例如 `python -m http.server 8201 --bind 127.0.0.1`）。下列入口分别用于预览工作稿和检查待发布版。
+
+- [本机互动工作稿](http://127.0.0.1:8201/?scene=prototype) 读取本机的 `prototype/`。这个目录由 Git 忽略。换电脑时可复制自己的工作目录，或复制 `interactive/` 并命名为 `prototype/` 作为起点。
+- [本机发布版](http://127.0.0.1:8201/) 读取 `interactive/`。在[本机编辑器](http://127.0.0.1:8201/editor.html) 中预览内容草稿和导出整站，也使用这份互动。
+- 确认效果后，从项目根目录在 PowerShell 运行 `.\scripts\sync-interactive.ps1`，将运行文件同步到 `interactive/`。同步到开发分支用于保存版本；更新主站需另行发布。
+- 本机工作目录里的《方案说明》和《网站工作流程》记录了台词、操作规则及编辑步骤。实验稿与维护笔记只保存在本机。
+
+增加新的互动运行文件时，同时更新同步脚本和 `assets/export-site.js` 的文件清单。

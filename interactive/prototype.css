@@ -52,11 +52,7 @@ button:focus-visible, a:focus-visible { outline: 3px solid #d75f36; outline-offs
 .table .return-card { color: var(--ink); }
 .table :focus-visible { outline-color: #98442d; }
 .table-inner { width: min(89%,1340px); margin: auto; padding: 4px 0 25px; }
-.table-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--rule); }
-.table-head h2 { display: flex; align-items: center; gap: 12px; font: 750 19px/1.2 var(--serif); }
-.table-head h2::before { content: "✦"; font-size: 17px; color: #9e4b30; }
-.table-head small { font: bold 12px var(--mono); }
-.table-head p, .deck-hint { color: #4a5b55; font-size: 12px; }
+.deck-hint { color: #4a5b55; font-size: 12px; }
 .end small { color: #3d5048; font-size: 12px; }
 .play-row { display: grid; grid-template-columns: minmax(115px,1fr) minmax(0,5fr) minmax(106px,1fr); align-items: center; gap: 8px; padding-top: 17px; }
 .deckzone { justify-self: start; display: grid; justify-items: center; gap: 8px; }
@@ -92,12 +88,6 @@ button:focus-visible, a:focus-visible { outline: 3px solid #d75f36; outline-offs
 .transition { position: absolute; z-index: 10; inset: 0; visibility: hidden; opacity: 0; display: grid; place-content: center; justify-items: center; gap: 10px; color: var(--ivory); background: #162e34f2; transition: opacity .3s; }
 .transition.active { visibility: visible; opacity: 1; }
 .transition strong { font: bold clamp(24px,5vw,70px) var(--serif); }
-dialog { width: min(420px,90vw); max-height: 85vh; padding: 30px; border: 2px solid var(--ink); color: var(--ink); background: var(--paper); box-shadow: 6px 6px 0 var(--ink); }
-dialog::backdrop { background: #0f262acc; }
-dialog h2 { font: bold 29px var(--serif); margin: 10px 0; }
-dialog p { white-space: pre-line; line-height: 1.7; font-size: 14px; }
-dialog .browse { color: #8a4026; }
-#close { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border: 0; background: transparent; font-size: 24px; }
 @keyframes bob { 50% { transform: translateY(-4px); } }
 @keyframes recoil { 30% { transform: rotate(12deg) translateX(8px); } 70% { transform: rotate(-8deg); } }
 @media (max-width: 720px) {
@@ -108,10 +98,6 @@ dialog .browse { color: #8a4026; }
   .ghost img { height: 88px; }
   .speech { font-size: 12px; }
   .table-inner { width: 92%; padding: 13px 0; }
-  .table-head { gap: 6px; }
-  .table-head h2 { font-size: 16px; gap: 5px; white-space: nowrap; }
-  .table-head h2::before { display: none; }
-  .table-head p { font-size: 10px; text-align: right; }
   .play-row { grid-template-columns: 1fr 1fr; gap: 13px; padding-top: 12px; }
   .hand { grid-column: 1 / -1; grid-row: 1; min-height: 130px; gap: 5px; flex-wrap: wrap; }
   .card-wrap { width: min(28.5%,114px); transform: rotate(var(--angle)); }
@@ -146,18 +132,13 @@ dialog .browse { color: #8a4026; }
 }
 .cabin-view.painted { opacity: 1; }
 .stage, .table { position: relative; }
-.table-head h2, .table-head p, .deck-copy, .deck-hint, .opening { text-shadow: 0 1px 3px #14110c, 0 2px 9px #100e0a; }
+.deck-copy, .deck-hint, .opening { text-shadow: 0 1px 3px #14110c, 0 2px 9px #100e0a; }
 /* Keep the lettering legible over the book spines without hiding the shelf. */
 .opening { position: relative; isolation: isolate; }
 .opening::before {
   content: ""; position: absolute; z-index: -1; pointer-events: none;
   inset: -22% -3% -20% -12%;
   background: radial-gradient(ellipse at 30% 53%, #140f0bd9, #140f0b97 46%, transparent 73%);
-}
-.table-head { position: relative; isolation: isolate; }
-.table-head::before {
-  content: ""; position: absolute; z-index: -1; inset: -5px 0 4px -8px;
-  background: linear-gradient(90deg, #1e170ee8 0 min(78%, 25rem), transparent min(95%, 34rem));
 }
 .deck-copy, .deck-hint { color: #ffebc7; }
 @media (min-width: 721px) {
@@ -169,7 +150,6 @@ dialog .browse { color: #8a4026; }
   .deck-art { width: clamp(62px, 4.6vw, 90px); height: auto; aspect-ratio: 62 / 78; }
   .deck-copy b, .end span { font-size: clamp(17px, 1.1vw, 22px); }
   .deck-hint, .deck-copy small { font-size: clamp(11px, .76vw, 15px); }
-  .table-head p { font-size: clamp(12px, .85vw, 16px); }
   .hand { gap: clamp(9px, 1.25vw, 30px); }
   .card-wrap { width: clamp(116px, 10.9vw, 233px); }
   .table-inner { padding-bottom: clamp(25px, 2.3vw, 50px); }
@@ -177,15 +157,13 @@ dialog .browse { color: #8a4026; }
 .stage { min-height: clamp(280px, 24vw, 384px); }
 .opening h1 { margin-block: 10px 8px; font-size: clamp(44px, 4.8vw, 78px); text-shadow: 0 3px 14px #110d09; }
 .edition, .browse { color: #e8bd80; }
-.byline, .table-head p, .deck-hint { color: #e2d2b5; }
+.byline, .deck-hint { color: #e2d2b5; }
 .browse:hover { color: #fff3d6; }
 .speech { border-color: #a78858; border-radius: 2px; background: #edddbc; }
 .ghost img { height: clamp(106px, 9.4vw, 154px); filter: drop-shadow(0 8px 6px #080604a6); }
 .ghost-label { color: #f1dcac; border-color: #9f8056; background: #1b1712d9; }
 .table { color: #f2dfbd; }
 .arena::after { content: ""; position: absolute; inset: 0; z-index: -2; pointer-events: none; background: radial-gradient(ellipse at 66% 48%, transparent 31%, #100e0b59 100%), linear-gradient(0deg, #140f0969, transparent 42%); }
-.table-head { justify-content: flex-start; column-gap: clamp(12px, 2vw, 28px); }
-.table-head h2::before { color: #dab57e; }
 .deck-art { background-color: #423422; border-color: #c3a574; box-shadow: 2px 3px #34291b,4px 5px #baa57c,6px 7px #2d2418; }
 .deck-art i { color: #e2c18a; background: #382d20; }
 .card { --paper-face: #332b22; color: #f5e7cb; border-color: #ab8a5b;
@@ -199,9 +177,6 @@ dialog .browse { color: #8a4026; }
 .end:hover { background: #54402a; }
 .table :focus-visible, button:focus-visible, a:focus-visible { outline-color: #f5b55f; }
 .transition { background: #201910f5; }
-dialog { color: #f1e4cb; background: #22211d; border-color: #827052; box-shadow: 0 12px 40px #0009; }
-dialog .edition, dialog .browse { color: #edc993; }
-dialog::backdrop { background: #0b0b0ace; }
 @media (max-width: 720px) {
   .arena::before { background-position: 58% center; }
   .stage { min-height: 233px; }
@@ -256,4 +231,28 @@ dialog::backdrop { background: #0b0b0ace; }
   .card-wrap { width: min(27%,108px); }
   .card { padding-bottom: 28px; }
   .scene-edges { --side-fade: 5vw; --top-fade: 42px; --foot-fade: 20px; }
+}
+
+/* Each transparent hit area reserves room for its model and keeps the caption accessible. */
+.modeled .speech { max-width: min(24em, 43vw); white-space: normal; }
+.deckzone, .end { justify-self: center; }
+.deck, .end {
+  display: grid; justify-items: center; align-content: end; gap: 4px; padding: 0;
+  text-align: center; color: #ffe7b9; border: 0; background: transparent;
+  text-shadow: 0 1px 3px #161008, 0 2px 7px #161008;
+}
+.end:hover { background: transparent; }
+.ghost, .deck, .end { -webkit-tap-highlight-color: transparent; }
+.control-art { display: block; width: clamp(78px,7vw,130px); height: clamp(62px,5.7vw,103px); }
+.modeled .deck-art {
+  width: clamp(78px,7vw,130px); height: clamp(62px,5.7vw,103px);
+  aspect-ratio: auto; transform: none; background: none; border: 0; outline: 0; box-shadow: none;
+}
+.modeled .deck-art i { display: none; }
+.end:hover > span:not(.control-art), .deck:hover b { color: #fff3d7; }
+.deck-hint { margin-left: 0; }
+@media (max-width:720px) {
+  .deckzone, .end { justify-self: center; justify-items: center; }
+  .modeled .deck-art, .control-art { width: 72px; height: 52px; }
+  .modeled .speech { max-width: 43vw; font-size: 12px; padding: 5px 8px; }
 }

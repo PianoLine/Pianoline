@@ -7,7 +7,7 @@
   canvas.className = "cabin-view";
   canvas.setAttribute("aria-hidden", "true");
   arena.prepend(canvas);
-  const {vertices:rest,flames,clusterStart,clusterEnd,shadowStart,ghostStart}=window.buildCabinMesh();
+  const {vertices:rest,props,flames,clusterStart,clusterEnd,shadowStart,ghostStart}=window.buildCabinMesh();
   const mesh=rest.slice();
   const movingStart=clusterStart;
   const movingVertices=mesh.subarray(movingStart);
@@ -170,6 +170,41 @@ void main(){
     clearTimeout(idleTimer);
     if(!frame && visible && !document.hidden) frame=requestAnimationFrame(render);
   }
+  const deckButton = document.getElementById("deck");
+  const deckArt = deckButton.querySelector(".control-art");
+  const bellArt = document.querySelector("#end .control-art");
+  let remaining = 0, drawAt = -Infinity, returnedAt = -Infinity, bellAt = -Infinity;
+  arena.addEventListener("deck-size", event => { remaining = event.detail; schedule(); });
+  arena.addEventListener("deck-draw", () => { drawAt = performance.now(); schedule(); });
+  arena.addEventListener("deck-return", () => { returnedAt = performance.now(); schedule(); });
+  arena.addEventListener("ring-bell", () => { bellAt = performance.now(); schedule(); });
+
+  function placePart(part, base, height=0, yaw=0, tilt=0, visible=true) {
+    const co=Math.cos(yaw), si=Math.sin(yaw), ct=Math.cos(tilt), st=Math.sin(tilt);
+    const scale=visible ? base.scale : 0;
+    for (let i=part.start;i<part.end;i+=7) {
+      const x=rest[i], y=rest[i+1], z=rest[i+2];
+      const rz=z*ct+y*st;
+      mesh[i]=base.x+scale*(x*co+rz*si);
+      mesh[i+1]=1.533+scale*(height+y*ct-z*st);
+      mesh[i+2]=base.z+scale*(rz*co-x*si);
+    }
+  }
+  // Intersect each accessible control's screen ray with the wooden tabletop.
+  function tableAnchor(marker, diameter, camera, lift, focal, w, h, bounds) {
+    const rect=marker.getBoundingClientRect();
+    const cssX=rect.left-bounds.left+rect.width*.5-x*rect.width*.07;
+    const cssY=rect.top-bounds.top+rect.height*.74+y*rect.height*.025;
+    const u=(cssX/bounds.width-.5)*w/focal;
+    const v=(.5-cssY/bounds.height)*h/focal-lift;
+    const [right,shiftedUp,forward]=camera;
+    const up=shiftedUp.map((n,i)=>n-lift*forward[i]);
+    const eye=i=>-right[i]*right[3]-up[i]*up[3]-forward[i]*forward[3];
+    const ray=i=>right[i]*u+up[i]*v+forward[i];
+    const distance=(1.533-eye(1))/ray(1);
+    return { x:eye(0)+ray(0)*distance, z:eye(2)+ray(2)*distance,
+      scale:rect.width*w/bounds.width*distance/focal/diameter };
+  }
   function render(now){
     frame=0;
     const width=canvas.clientWidth,height=canvas.clientHeight;
@@ -218,9 +253,9 @@ void main(){
     encounter.style.height=(bottom-top)*height/h+"px";
     // On a portrait display bring the candleholder into the right side of the shot.
     const narrow=width<=720;
-    const candleScale=narrow ? .62 : 1;
-    const clusterX=narrow ? .29*w/focal*3.9 : 3.12;
-    const clusterZ=narrow ? 3.84 : 2.45;
+    const candleScale=narrow ? .52 : 1;
+    const clusterX=narrow ? .43*w/focal*6.5 : 3.12;
+    const clusterZ=narrow ? 1.2 : 2.45;
     for(let i=clusterStart;i<clusterEnd;i+=7){
       mesh[i]=clusterX+(rest[i]-3.12)*candleScale;
       mesh[i+1]=1.53+(rest[i+1]-1.53)*candleScale;
@@ -250,11 +285,31 @@ void main(){
       glow.style.transform="translate("+cx+"px,"+cy+"px) translate(-50%,-50%)";
       glow.style.width=size+"px"; glow.style.height=size+"px"; glow.style.opacity=.58+.10*pulse;
     }
+    const bounds=canvas.getBoundingClientRect();
+    const deckAnchor=tableAnchor(deckArt,1.95,camera,lift,focal,w,h,bounds);
+    const bellAnchor=tableAnchor(bellArt,1.75,camera,lift,focal,w,h,bounds);
+    const elapsed=t=>motion.matches ? Infinity : Math.max(0,now-t);
+    const drawTime=elapsed(drawAt), returnTime=elapsed(returnedAt), bellTime=elapsed(bellAt);
+    const pulse=(t,duration)=>t<duration ? Math.sin(Math.PI*t/duration) : 0;
+    const count=Math.min(props.leaves.length,remaining);
+    const liftTop=.13*pulse(drawTime,250)+.09*pulse(returnTime,240);
+    const receive=deckButton.classList.contains("over") && !motion.matches ? .10 : 0;
+    const angle=.28;
+    placePart(props.deckBase,deckAnchor,0,angle);
+    props.leaves.forEach((leaf,i)=>{
+      const top=i===count-1;
+      placePart(leaf,deckAnchor,.13+i*.067+(top ? liftTop+receive : 0),
+        angle+.038*Math.sin(i*3.8),top ? -.12*pulse(drawTime,250) : 0,i<count);
+    });
+    placePart(props.bellBase,bellAnchor);
+    const wobble=bellTime<500 ? .12*Math.sin(bellTime*.054)*Math.exp(-bellTime/145) : 0;
+    placePart(props.dome,bellAnchor,0,0,wobble);
+    placePart(props.plunger,bellAnchor,-.14*pulse(bellTime,190),0,wobble);
     draw(camera,focal,Math.sin(4.7*sceneTime),clusterX,1.53+1.05*candleScale,clusterZ);
     canvas.classList.add("painted");
     arena.classList.add("modeled");
     if(!motion.matches) {
-      if(kick || seconds<.6 || Math.abs(targetX-x)+Math.abs(targetY-y)>.001) schedule();
+      if(drawTime<250 || returnTime<240 || bellTime<500 || kick || seconds<.6 || Math.abs(targetX-x)+Math.abs(targetY-y)>.001) schedule();
       else idleTimer=setTimeout(schedule,gpu ? 50 : 105);
     }
   }
