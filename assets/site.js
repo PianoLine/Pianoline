@@ -84,7 +84,7 @@
 
   function renderHeader(prefix = "") {
     const name = escapeHtml(content.profile?.name || "作品集");
-    return `<header class="topbar"><div class="container topbar-inner"><a class="brand" href="${prefix}index.html${previewQuery}#top" aria-label="回到首页"><span class="brand-mark" aria-hidden="true"></span><span>${pageType === "home" ? "PAN HOULIN" : `${name} · 作品集`}</span></a><nav class="nav" aria-label="页面导航"><a href="${prefix}index.html${previewQuery}#about">简介</a><a href="${prefix}index.html${previewQuery}#projects">项目</a><a href="${prefix}index.html${previewQuery}#updates">动态</a><a href="${prefix}index.html${previewQuery}#contact">联系</a></nav></div></header>`;
+    return `<header class="topbar"><div class="container topbar-inner"><a class="brand" href="${prefix}index.html${previewQuery}#top" aria-label="回到首页"><span class="brand-mark" aria-hidden="true"></span><span>${pageType === "home" ? "PIANOLINE" : `${name} · 作品集`}</span></a><nav class="nav" aria-label="页面导航"><a href="${prefix}index.html${previewQuery}#about">简介</a><a href="${prefix}index.html${previewQuery}#projects">项目</a><a href="${prefix}index.html${previewQuery}#updates">动态</a><a href="${prefix}index.html${previewQuery}#contact">联系</a></nav></div></header>`;
   }
 
   function renderFooter(prefix = "") {
