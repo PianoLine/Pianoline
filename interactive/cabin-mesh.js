@@ -121,6 +121,28 @@ window.buildCabinMesh = function buildCabinMesh() {
     box(0,1.39,z,16.8,.28,.793,["855a37","93613b","805436","936840","855c3b"][i%5],1);
   }
   box(0,1.19,-1.98,16.8,.25,.14,"4c3021",1);
+  // Faded brass-coloured lines follow the boards, in the same depth pass as the props.
+  function tableLine(x1,z1,x2,z2,width=.048) {
+    const dx=x2-x1, dz=z2-z1, k=width/(2*Math.hypot(dx,dz));
+    const ox=-dz*k, oz=dx*k, y=1.539;
+    face([[x1+ox,y,z1+oz],[x2+ox,y,z2+oz],[x2-ox,y,z2-oz],[x1-ox,y,z1-oz]],"b08a60",1);
+  }
+  // Three open-corner card places keep the wood visible through their centres.
+  for(const x of [-1.48,0,1.48]) {
+    for(const side of [-1,1]) {
+      const edge=x+side*.56;
+      tableLine(edge,.29,edge,1.48);
+      for(const z of [.20,1.57]) {
+        tableLine(x+side*.09,z,x+side*.48,z,.085);
+      }
+    }
+  }
+  const dividerZ=1.96;
+  for(const side of [-1,1]) {
+    tableLine(side*.20,dividerZ,side*2.24,dividerZ,.032);
+    tableLine(0,dividerZ-.095,side*.12,dividerZ,.031);
+    tableLine(side*.12,dividerZ,0,dividerZ+.095,.031);
+  }
   function book(x,y,z,w,d,h,yaw,color) {
     box(x,y+.034,z,w,.068,d,color,0,yaw);
     box(x,y+h/2,z,w*.966,h-.09,d*.945,"c1a479",0,yaw);

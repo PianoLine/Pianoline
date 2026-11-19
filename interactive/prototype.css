@@ -65,9 +65,9 @@ button:focus-visible, a:focus-visible { outline: 3px solid #d75f36; outline-offs
 .deck-copy b, .end span { font: bold 17px/1.35 var(--serif); }
 .deck-copy small { font: 11px/1.6 var(--mono); }
 .deck-hint { font-size: 10px; }
-.hand { display: flex; justify-content: center; align-items: center; min-height: clamp(172px,14.4vw,223px); gap: clamp(4px,.65vw,12px); padding: 5px 0; }
-.card-wrap { position: relative; min-width: 0; width: clamp(116px,11.8vw,175px); transform: translateY(var(--lift)) rotate(var(--angle)); transition: transform .2s; transform-origin: center 90%; }
-.card-wrap:is(:hover,:focus-within) { transform: translateY(-7px); z-index: 2; }
+.hand { display: flex; justify-content: center; align-items: center; min-height: clamp(172px,14.4vw,223px); gap: 0; padding: 5px 0; }
+.card-wrap { position: relative; min-width: 0; width: clamp(116px,11.8vw,175px);  }
+
 .card { --paper-face: #fbefd6; position: relative; display: flex; width: 100%; aspect-ratio: .77; flex-direction: column; text-align: left; padding: 7px; border: 1.5px solid var(--ink); border-radius: 6px; color: var(--ink); background: var(--paper-face); box-shadow: 2px 3px 0 #203c3c7d; cursor: grab; touch-action: none; user-select: none; overflow: hidden; }
 .card[data-tone="1"] { --paper-face: #e5ebd9; }
 .card[data-tone="2"] { --paper-face: #f6d8bd; }
@@ -99,8 +99,8 @@ button:focus-visible, a:focus-visible { outline: 3px solid #d75f36; outline-offs
   .speech { font-size: 12px; }
   .table-inner { width: 92%; padding: 13px 0; }
   .play-row { grid-template-columns: 1fr 1fr; gap: 13px; padding-top: 12px; }
-  .hand { grid-column: 1 / -1; grid-row: 1; min-height: 130px; gap: 5px; flex-wrap: wrap; }
-  .card-wrap { width: min(28.5%,114px); transform: rotate(var(--angle)); }
+  .hand { grid-column: 1 / -1; grid-row: 1; min-height: 130px; gap: 0; flex-wrap: nowrap; }
+  .card-wrap { width: min(28.5%,114px); }
   .deckzone { justify-items: start; gap: 1px; }
   .deck { display: flex; gap: 12px; text-align: left; padding-left: 4px; }
   .deck-art { width: 26px; height: 35px; }
@@ -150,7 +150,6 @@ button:focus-visible, a:focus-visible { outline: 3px solid #d75f36; outline-offs
   .deck-art { width: clamp(62px, 4.6vw, 90px); height: auto; aspect-ratio: 62 / 78; }
   .deck-copy b, .end span { font-size: clamp(17px, 1.1vw, 22px); }
   .deck-hint, .deck-copy small { font-size: clamp(11px, .76vw, 15px); }
-  .hand { gap: clamp(9px, 1.25vw, 30px); }
   .card-wrap { width: clamp(116px, 10.9vw, 233px); }
   .table-inner { padding-bottom: clamp(25px, 2.3vw, 50px); }
 }
@@ -220,7 +219,6 @@ button:focus-visible, a:focus-visible { outline: 3px solid #d75f36; outline-offs
   .table-inner { padding-bottom: 0; }
   .play-row { padding-top: clamp(22px,2.8vw,50px); }
   .hand { position: relative; top: clamp(4px,.5vw,10px); }
-  .card-wrap:is(:hover,:focus-within) { transform: translateY(-26px) rotate(0); }
 }
 @media (max-width:720px) {
   .encounter { left: 57%; }
@@ -275,9 +273,8 @@ button:focus-visible, a:focus-visible { outline: 3px solid #d75f36; outline-offs
 }
 
 @media (min-width:1051px) {
+  .modeled .play-row { padding-top: clamp(72px, 7.7vw, 160px); }
   .modeled .hand { min-height: clamp(172px, 15.7vw, 342px); }
-  .modeled .hand:has(.card-wrap:nth-child(5)) { column-gap: 2px; }
-  .modeled .hand:has(.card-wrap:nth-child(5)) .card-wrap { width: min(9.1vw, 198px); }
 }
 @media (max-width:720px) {
   .modeled .play-row { grid-template-rows: 112px auto; }
@@ -310,3 +307,62 @@ button:focus-visible, a:focus-visible { outline: 3px solid #d75f36; outline-offs
 .arena:not(.modeled) .deck:is(.over,.returning) .control-art { outline: 2px solid #de7863; }
 
 .modeled .deck:is(:hover,.over) .deck-art { transform: none; }
+
+/* The stationary slot keeps hover steady while the card in it can lift into view. */
+.hand {
+  --hand-card-width: clamp(122px, 10.9vw, 233px);
+  --reveal-height: clamp(44px, 3.8vw, 72px);
+}
+.hand .card-wrap { flex: 0 0 var(--hand-card-width); width: var(--hand-card-width); }
+.hand .card-wrap + .card-wrap { margin-inline-start: calc(var(--hand-card-width) * -.40); }
+.hand-face {
+  position: relative; transform-origin: 50% 88%;
+  transform: translateY(var(--lift)) rotate(var(--angle));
+  transition: transform 240ms cubic-bezier(.22,.78,.3,1);
+}
+.card-wrap:has(:focus-visible) { z-index: 5; }
+.card-wrap:has(:focus-visible) .hand-face { transform: translateY(calc(-1 * var(--reveal-height))) scale(1.035); }
+.card-wrap:has(:focus-visible) .card { border-color: #dec599; }
+@media (hover:hover) {
+  .card-wrap:hover { z-index: 6; }
+  .card-wrap:hover .hand-face { transform: translateY(calc(-1 * var(--reveal-height))) scale(1.035); }
+  .card-wrap:hover .card { border-color: #dec599; }
+  .hand-face .return-card { top: auto; bottom: 8px; }
+}
+@media (max-width:720px) {
+  .hand { --hand-card-width: min(28vw, 116px); --reveal-height: 32px; }
+  .hand .card-wrap + .card-wrap { margin-inline-start: calc(var(--hand-card-width) * -.51); }
+}
+@media (hover:none) {
+  .hand-face .return-card { top: 16px; left: 4px; right: auto; }
+}
+
+.hand-face:has(.played) { visibility: hidden; }
+
+.hand.regrouping .card-wrap .hand-face { transform: translateY(var(--lift)) rotate(var(--angle)); }
+.hand.regrouping .return-card { opacity: 0; pointer-events: none; }
+.return-flight { position: fixed; z-index: 100; left: 0; top: 0; pointer-events: none; transform-origin: 0 0; }
+.flight-sides { width: 100%; height: 100%; transform-style: preserve-3d; }
+.flight-sides > * {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  backface-visibility: hidden; border-radius: 5px;
+}
+.flight-sides > .card { outline: 1.5px solid #e57260; }
+.flight-back {
+  transform: rotateY(180deg); background: #304740; border: 3px solid #bf9c67;
+  box-shadow: inset 0 0 0 3px #304740, inset 0 0 0 4px #ae925f;
+}
+.flight-back::before { content: ""; position: absolute; inset: 22% 24%; background: #d2ae70;
+  clip-path: polygon(50% 0,56% 34%,76% 17%,66% 43%,100% 50%,65% 57%,78% 82%,56% 66%,50% 100%,44% 66%,22% 82%,34% 57%,0 50%,34% 43%,22% 17%,44% 34%); }
+
+/* A brief action label pairs the first glint with its meaning. Details stay on hover. */
+.prop-cue .prop-outline, .prop-cue::before { animation: prop-glint 1.25s ease both; }
+.prop-cue::before {
+  content: "抽牌"; position: absolute; z-index: 1; left: 50%; bottom: calc(100% + 6px);
+  transform: translateX(-50%); padding: 2px 9px; white-space: nowrap; pointer-events: none;
+  font: 600 13px/1.5 var(--serif); color: #f6dda4; background: #211a12e8;
+  border: 1px solid #90734e; border-radius: 2px;
+}
+.end.prop-cue::before { content: "按铃"; }
+.prop-cue:is(:hover,:focus-visible)::before { visibility: hidden; }
+@keyframes prop-glint { 0%,100% { opacity: 0; } 23%,76% { opacity: .95; } }

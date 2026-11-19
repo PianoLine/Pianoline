@@ -200,6 +200,59 @@ void main(){
   arena.addEventListener("deck-return", () => { returnedAt = performance.now(); schedule(); });
   arena.addEventListener("ring-bell", () => { bellAt = performance.now(); schedule(); });
 
+  // Cue each prop once, when it is actually visible; a player's first action takes priority.
+  const cueStarted = new Map();
+  const cueTimers = new Map();
+  function clearCue(button) {
+    clearTimeout(cueTimers.get(button));
+    cueTimers.delete(button);
+    button.classList.remove("prop-cue");
+    cueStarted.delete(button);
+  }
+  const cueObserver = new IntersectionObserver(entries => {
+    for (const entry of entries) {
+      const button = entry.target;
+      clearCue(button);
+      if (entry.intersectionRatio < .5) continue;
+      cueTimers.set(button,setTimeout(() => {
+        cueObserver.unobserve(button);
+        if (document.hidden || button.matches(":hover,:focus-visible")) return;
+        cueStarted.set(button,performance.now());
+        button.classList.add("prop-cue");
+        cueTimers.set(button,setTimeout(() => clearCue(button),1250));
+      },button === deckButton ? 550 : 2150));
+    }
+  }, {threshold:.5});
+  for (const button of [deckButton,bellButton]) cueObserver.observe(button);
+  function endCues() {
+    cueObserver.disconnect();
+    clearCue(deckButton);
+    clearCue(bellButton);
+  }
+  arena.addEventListener("pointerdown",endCues,{once:true,capture:true});
+  document.addEventListener("keydown",endCues,{once:true,capture:true});
+
+  let deckView;
+  const leafYaw = i => -.18 + .038*Math.sin(i*3.8);
+  const leafHeight = i => .13 + i*.067;
+
+  // Project the four corners of the next card so the returning artwork lands on the stack.
+  arena.addEventListener("deck-landing", event => {
+    if (!deckView) return;
+    const {anchor,camera,focal,w,h} = deckView;
+    const bounds = canvas.getBoundingClientRect();
+    const layer = Math.min(remaining, props.leaves.length-1);
+    const yaw = leafYaw(layer), co = Math.cos(yaw), si = Math.sin(yaw);
+    const y = 1.533 + anchor.scale*(leafHeight(layer)+.062);
+    event.detail.corners = [[-.565,-.78],[.565,-.78],[.565,.78],[-.565,.78]].map(([u,v]) => {
+      const x = anchor.x+anchor.scale*(u*co+v*si);
+      const z = anchor.z+anchor.scale*(v*co-u*si);
+      const [right,up,depth] = camera.map(row => row[0]*x+row[1]*y+row[2]*z+row[3]);
+      return [bounds.left+bounds.width*(.5+focal/w*right/depth),
+        bounds.top+bounds.height*(.5-focal/h*up/depth)];
+    });
+  });
+
   function placePart(part, base, height=0, yaw=0, tilt=0, visible=true) {
     const co=Math.cos(yaw), si=Math.sin(yaw), ct=Math.cos(tilt), st=Math.sin(tilt);
     const scale=visible ? base.scale : 0;
@@ -231,7 +284,7 @@ void main(){
   function followModel(control, outline, first, last, camera, focal, w, h, width, height) {
     const {button,layer,ctx}=outline;
     const returning=button.matches(".over,.returning");
-    const highlighted=ctx && (returning || button.matches(":focus-visible") || (hoverInput.matches && button.matches(":hover")));
+    const highlighted=ctx && (returning || button.classList.contains("prop-cue") || button.matches(":focus-visible") || (hoverInput.matches && button.matches(":hover")));
     const [r,u,f]=camera;
     let left=Infinity, top=Infinity, right=-Infinity, bottom=-Infinity;
     for(let i=first;i<last;i+=7) {
@@ -299,7 +352,7 @@ void main(){
     const kick=seconds<.38 ? (1-seconds/.38)**2 : 0;
     const focal=width<=720 ? Math.max(w*.66,stage.offsetHeight*1.92*h/height) : Math.max(h*.94,w*.50);
     const cameraX=x*Math.min(1,width/1000);
-    const camera=cameraRows(cameraX,y,kick,kick ? seconds : 0);
+    const camera=cameraRows(cameraX,y*.78,kick,kick ? seconds : 0);
     // Shift the horizon as the mobile hand wraps; the far edge of the table stays in the stage.
     const dot=(row,px,py,pz)=>row[0]*px+row[1]*py+row[2]*pz+row[3];
     const baseY=1.66, baseZ=-1.17;
@@ -367,13 +420,16 @@ void main(){
       glow.style.width=size+"px"; glow.style.height=size+"px"; glow.style.opacity=.58+.10*pulse;
     }
     const compact=width<=1050;
-    const deckAnchor=tablePosition(compact ? .23 : .138, compact ? 2.84 : 3.59, narrow ? .51 : .45,w,focal,width);
-    const bellAnchor=tablePosition(compact ? .755 : .855, narrow ? 3.04 : compact ? 2.42 : 3.43, narrow ? .47 : .45,w,focal,width);
+    const deckAnchor=tablePosition(compact ? .245 : .168, compact ? 3.49 : 4.01, narrow ? .638 : .594,w,focal,width);
+    const bellAnchor=tablePosition(compact ? .745 : .835, narrow ? 3.63 : compact ? 3.11 : 3.93, .594,w,focal,width);
+    deckView={anchor:deckAnchor,camera,focal,w,h};
     const elapsed=t=>motion.matches ? Infinity : Math.max(0,now-t);
     const drawTime=elapsed(drawAt), returnTime=elapsed(returnedAt), bellTime=elapsed(bellAt);
     const pulse=(t,duration)=>t<duration ? Math.sin(Math.PI*t/duration) : 0;
+    const deckCue=pulse(elapsed(cueStarted.get(deckButton) ?? -Infinity),1250);
+    const bellCue=pulse(elapsed(cueStarted.get(bellButton) ?? -Infinity),1250);
     const count=Math.min(props.leaves.length,remaining);
-    const liftTop=.13*pulse(drawTime,250)+.09*pulse(returnTime,240);
+    const liftTop=.095*deckCue+.13*pulse(drawTime,250)+.035*pulse(returnTime,210);
     const receive=deckButton.classList.contains("over") && !motion.matches ? .10 : 0;
     const angle=-.18;
     placePart(props.deckShadow,deckAnchor,0,angle);
@@ -381,11 +437,11 @@ void main(){
     placePart(props.deckBase,deckAnchor,0,angle);
     props.leaves.forEach((leaf,i)=>{
       const top=i===count-1;
-      placePart(leaf,deckAnchor,.13+i*.067+(top ? liftTop+receive : 0),
-        angle+.038*Math.sin(i*3.8),top ? -.12*pulse(drawTime,250) : 0,i<count);
+      placePart(leaf,deckAnchor,leafHeight(i)+(top ? liftTop+receive : 0),
+        leafYaw(i),top ? -.12*pulse(drawTime,250) : 0,i<count);
     });
     placePart(props.bellBase,bellAnchor);
-    const wobble=bellTime<500 ? .12*Math.sin(bellTime*.054)*Math.exp(-bellTime/145) : 0;
+    const wobble=.045*Math.sin(2*Math.PI*bellCue)*bellCue + (bellTime<500 ? .12*Math.sin(bellTime*.054)*Math.exp(-bellTime/145) : 0);
     placePart(props.dome,bellAnchor,0,0,wobble);
     placePart(props.plunger,bellAnchor,-.14*pulse(bellTime,190),0,wobble);
     followModel(deckZone,deckOutline,props.deckBase.start,count ? props.leaves[count-1].end : props.deckBase.end,camera,focal,w,h,width,height);
