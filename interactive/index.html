@@ -6,27 +6,32 @@
   <title>个人作品集 · 作品卡</title>
   <script>
     const display = new URLSearchParams(location.search);
+    const tableKey = "portfolio-table-v1:" + new URL("../", location.href).pathname + (display.has("preview") ? ":preview" : "");
+    const resumeTable = display.has("resume") || performance.getEntriesByType("navigation")[0]?.type === "back_forward";
     if (display.has("embed")) document.documentElement.classList.add("embedded");
   </script>
   <link rel="stylesheet" href="../assets/fonts/titles.css?v=pixel-table-3">
-  <link rel="stylesheet" href="prototype.css?v=pixel-table">
+  <link rel="stylesheet" href="prototype.css?v=overhead-light">
 </head>
 <body>
-  <header class="standalone"><a href="../index.html"><span class="brand-mark" aria-hidden="true"></span>PIANOLINE</a><nav aria-label="页面导航"><a href="../index.html#about">简介</a><a href="../index.html#projects">项目</a><a href="../index.html#updates">动态</a><a href="../index.html#contact">联系</a></nav></header>
+  <header class="standalone"><a href="../index.html"><span class="brand-mark" aria-hidden="true"></span>PIANOLILNE</a><nav aria-label="页面导航"><a href="../index.html#about">简介</a><a href="../index.html#projects">项目</a><a href="../index.html#updates">动态</a><a href="../index.html#contact">联系</a></nav></header>
   <main class="arena" id="arena">
     <section class="stage" aria-labelledby="title">
       <div class="opening">
         <p class="edition"><i aria-hidden="true"></i> 个人作品集</p>
-        <h1 id="title">作品集</h1>
-        <p class="byline" id="byline"></p>
-        <a class="browse" target="_top" href="../index.html#projects">直接浏览全部作品 <span aria-hidden="true">↗</span></a>
+        <div class="opening-copy">
+          <h1 id="title">作品集</h1>
+          <p class="byline" id="byline"></p>
+          <p class="opening-note" id="opening-note" hidden></p>
+        </div>
+        <a class="browse" target="_top" href="../index.html#projects">浏览项目 <span aria-hidden="true">↗</span></a>
       </div>
     </section>
     <div class="encounter">
         <button class="ghost" id="ghost" type="button" aria-label="和小幽灵聊天，或把作品卡拖给它">
           <span class="speech" id="speech" role="status" aria-live="polite">想先看看哪个作品？</span>
           <img src="art/front-ghost.webp" alt="" draggable="false">
-          <span class="hit" aria-hidden="true">−128</span>
+          <span class="hit" aria-hidden="true"></span>
         </button>
     </div>
     <div class="scene-edges" aria-hidden="true"></div>
@@ -39,6 +44,10 @@
               <span class="prop-tip" id="deck-tip" role="tooltip"><b>抽一张</b><small>牌库余 <span id="remaining"></span> 张</small><small>拖到这里可放回</small></span>
             </button>
           </div>
+          <button type="button" id="shuffle" class="shuffle" aria-label="怀表：洗回所有手牌并重新抽三张" aria-describedby="shuffle-tip">
+            <span class="control-art shuffle-art" aria-hidden="true"></span>
+            <span class="prop-tip" id="shuffle-tip" role="tooltip"><b>洗牌重抽</b><small>收回手牌，重发三张</small></span>
+          </button>
           <div class="hand" id="hand"></div>
           <button class="end" id="end" aria-label="结束回合，前往动态" aria-describedby="bell-tip">
             <span class="control-art bell-art" aria-hidden="true"></span>
@@ -47,12 +56,12 @@
         </div>
       </div>
     </section>
-    <div id="transition" class="transition" aria-hidden="true"><span>翻开作品</span><strong id="transition-title"></strong></div>
+    <div id="transition" class="transition" aria-hidden="true"><div class="reveal-cover"><img id="transition-image" alt="" hidden><strong id="transition-title"></strong></div></div>
   </main>
   <script src="../assets/schema.js?v=pixel-table-3"></script>
   <script src="../assets/site-content.js?v=pixel-table-3"></script>
-  <script src="cabin-mesh.js?v=table-cues-2"></script>
-  <script src="cabin-view.js?v=table-cues-2"></script>
-  <script src="prototype.js?v=pixel-table"></script>
+  <script src="cabin-mesh.js?v=candlelight"></script>
+  <script src="cabin-view.js?v=resume-lights"></script>
+  <script src="prototype.js?v=resume-lights"></script>
 </body>
 </html>

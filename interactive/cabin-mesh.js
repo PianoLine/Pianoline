@@ -71,6 +71,8 @@ window.buildCabinMesh = function buildCabinMesh() {
       }
     }
   }
+  // Negative material tags identify scenery and features with their own night light.
+  for (let i=6;i<vertices.length;i+=7) vertices[i]=-1;
   const wood=["523321","483022","533726","493123","583d2a","4d3425"];
   box(-5,3.6,-5.78,14,8.5,.14,"221d17");
   box(9.87,3.6,-5.78,4.34,8.5,.14,"221d17");
@@ -152,8 +154,16 @@ window.buildCabinMesh = function buildCabinMesh() {
   }
   book(-5.02,1.53,1.95,1.30,.81,.18,-.15,"784932");
   book(-4.96,1.71,1.95,1.14,.76,.16,.08,"5a6750");
-  bottle(-5.17,1.87,1.99,.44,"375e55");
+  // Stand the ink bottle on the bare board to the right of both book covers.
+  const inkX=-3.97, inkZ=1.88;
+  const inkFoot=Array.from({length:8},(_,i)=>{
+    const a=i*Math.PI/4;
+    return [inkX+.025+.19*Math.cos(a),1.533,inkZ+.02+.16*Math.sin(a)];
+  });
+  face(inkFoot,"523a28",1);
+  bottle(inkX,1.534,inkZ,.44,"375e55");
   function candle(x,y,z,r,h) {
+    const waxStart=vertices.length;
     turned(x,z,[[y,r*1.23],[y+.08,r*1.17],[y+.13,r],[y+h-.07,r],[y+h,r*.85]],8,"c29658");
     // Small separate wax ridges hang down over the faceted front.
     for(const [offset,drop] of [[-.38,.21],[.43,.13]]) {
@@ -162,7 +172,8 @@ window.buildCabinMesh = function buildCabinMesh() {
     }
     turned(x,z,[[y+h-.01,r*.73],[y+h+.004,r*.65]],8,"aa804b");
     turned(x,z,[[y+h,.027],[y+h+.085,.018]],5,"35251c");
-    wicks.push({x,y:y+h,z,r});
+    for(let i=waxStart+6;i<vertices.length;i+=7) vertices[i]=-4;
+    wicks.push({x,y:y+h,z,r,h,waxStart,waxEnd:vertices.length});
   }
   const clusterStart=vertices.length;
   turned(3.12,2.45,[[1.53,.55],[1.58,.61],[1.65,.55]],9,"755538");
@@ -173,11 +184,13 @@ window.buildCabinMesh = function buildCabinMesh() {
   candle(-2.26,1.53,-.85,.15,.61);
   candle(6.44,1.99,-4.94,.16,.66);
   // Put moving geometry together so the room stays in its static vertex buffer.
-  const flames = wicks.map(({x,y,z,r}, index) => {
+  const flames = wicks.map((wick, index) => {
+    const {x,y,z,r}=wick;
     const start=vertices.length;
     turned(x,z,[[y+.055,.025],[y+.18,r*.48],[y+.46,.008,.02]],6,"ffae42",1);
     turned(x,z+.04,[[y+.055,.018],[y+.14,r*.25],[y+.28,.006]],5,"fff2b4",1);
-    return {x,y,z,phase:index*2.13,start,end:vertices.length};
+    for (let i=start+6;i<vertices.length;i+=7) vertices[i]=-3;
+    return {...wick,phase:index*2.13,start,end:vertices.length};
   });
   // Tabletop props are local-space solids. The renderer places their feet on the table.
   function part(build) {
@@ -209,6 +222,9 @@ window.buildCabinMesh = function buildCabinMesh() {
   const bellShadow=contactShadow(Array.from({length:14},(_,i)=>{
     const a=i*Math.PI/7; return [.71*Math.cos(a),.71*Math.sin(a)];
   }),.21,.23);
+  const watchShadow=contactShadow(Array.from({length:24},(_,i)=>{
+    const a=i*Math.PI/12; return [.54*Math.cos(a),.54*Math.sin(a)];
+  }),-.07,.045);
   const deckBase = part(() => {
     slab(1.37,1.82,0,.09,.14,"39271c","7c5730");
     slab(1.29,1.73,.09,.125,.10,"ad814a","373a31");
@@ -244,7 +260,33 @@ window.buildCabinMesh = function buildCabinMesh() {
     turned(0,0,[[.735,.073],[.89,.073]],8,"b38b51",.5);
     turned(0,0,[[.86,.10],[.89,.16],[.95,.16],[.98,.09]],8,"e0be7b",.50);
   });
-  const props = { deckShadow, bellShadow, deckBase, leaves, bellBase, dome, plunger };
+  // Pocket watch face lies in the local XZ plane; twelve o'clock points toward -Z.
+  const watchCase=part(()=>{
+    turned(0,0,[[0,.46],[.04,.54],[.11,.56],[.165,.52],[.17,.48]],24,"ba8d48",.56);
+    turned(0,0,[[.171,.47],[.178,.455]],24,"f0ddaf",.80);
+    for(let i=0;i<12;i++){
+      const a=i*Math.PI/6, major=i%3===0;
+      box(.384*Math.sin(a),.186,-.384*Math.cos(a),major?.034:.021,.012,major?.085:.048,"4d3926",0,-a);
+    }
+    // Ridged winding crown and a hollow bow with an actual opening.
+    box(0,.085,-.55,.085,.075,.15,"976733");
+    box(0,.09,-.625,.18,.12,.09,"d3ae67");
+    for(let i=0;i<14;i++){
+      const a=i*2*Math.PI/14, b=(i+1)*2*Math.PI/14;
+      const point=(angle,r,y)=>[r*Math.cos(angle),y,-.75+r*Math.sin(angle)];
+      const rim=(r,y)=>[point(a,r,y),point(b,r,y)];
+      const [outerA,outerB]=rim(.145,.106), [innerA,innerB]=rim(.105,.106);
+      face([outerA,outerB,innerB,innerA],"e0bf78",0,.7);
+      face([outerB,outerA,...rim(.145,.066)],"a17541",0,.5);
+      face([innerA,innerB,...rim(.105,.066).reverse()],"886038",0,.5);
+    }
+    box(-.095,.201,-.075,.047,.016,.275,"3a302a",0,.90);
+  });
+  const watchHand=part(()=>{
+    face([[-.025,.217,.066],[-.021,.217,-.22],[0,.217,-.34],[.021,.217,-.22],[.025,.217,.066]],"3d342b",0,.57);
+    turned(0,0,[[.22,.044],[.246,.033]],8,"946430",.6);
+  });
+  const props = { deckShadow, bellShadow, watchShadow, deckBase, leaves, bellBase, dome, plunger, watchCase, watchHand };
   const shadowStart=vertices.length;
   for (const [radius,color,height] of [[.94,"473022",1.534],[.66,"362820",1.536]]) {
     const rim=Array.from({length:14},(_,i)=>{
@@ -272,7 +314,7 @@ window.buildCabinMesh = function buildCabinMesh() {
     for(const [i,j,k,c] of [[0,1,4,"f3e1bd"],[1,2,4,"e2cdab"],[2,3,4,"c6b28d"],[3,0,4,"d9c5a2"],[0,3,2,"927f67"],[0,2,1,"bfa889"]]) paper([arm[i],arm[j],arm[k]],c);
     const eye=[ [.13,.99],[.22,1.09],[.40,1.21],[.39,1.15],[.49,1.19],[.45,1.12],[.51,1.14],[.23,.97],[.28,1.03] ]
       .map(([x,y])=>[sign*x,y,.331]);
-    for(let j=1;j<eye.length-1;j++) paper([eye[0],eye[j],eye[j+1]],"26241d");
+    for(let j=1;j<eye.length-1;j++) face([eye[0],eye[j],eye[j+1]],"26241d",-2,.77);
   }
   // A tapered ribbon forms the smile across the flat front panel.
   for(let i=0;i<10;i++){
@@ -280,7 +322,7 @@ window.buildCabinMesh = function buildCabinMesh() {
       const arch=Math.sin(t*Math.PI);
       return [(t-.5)*.47,.875-.095*arch-(lower ? .11*arch+.012 : 0),.332];
     }
-    paper([lip(i/10,false),lip((i+1)/10,false),lip((i+1)/10,true),lip(i/10,true)],"29251e");
+    face([lip(i/10,false),lip((i+1)/10,false),lip((i+1)/10,true),lip(i/10,true)],"29251e",-2,.77);
   }
   return {vertices:new Float32Array(vertices),props,flames,clusterStart,clusterEnd,shadowStart,ghostStart};
 };

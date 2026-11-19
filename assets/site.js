@@ -58,6 +58,7 @@
     style.setProperty("--accent-light", theme.accentLight || "#f18b67");
     style.setProperty("--teal", theme.teal || "#365e5c");
     style.setProperty("--max", `${safeNumber(theme.maxWidth, 1760, 860, 2300)}px`);
+    style.setProperty("--home-max", `${safeNumber(theme.homeMaxWidth, 1760, 860, 2300)}px`);
     style.setProperty("--section-space", `${safeNumber(theme.sectionSpace, 106, 48, 180)}px`);
     style.setProperty("--project-columns", `repeat(${safeNumber(theme.cardColumns, 2, 1, 3)}, minmax(0, 1fr))`);
     document.body.dataset.cardStyle = theme.cardStyle || "immersive";
@@ -83,8 +84,7 @@
   }
 
   function renderHeader(prefix = "") {
-    const name = escapeHtml(content.profile?.name || "作品集");
-    return `<header class="topbar"><div class="container topbar-inner"><a class="brand" href="${prefix}index.html${previewQuery}#top" aria-label="回到首页"><span class="brand-mark" aria-hidden="true"></span><span>${pageType === "home" ? "PIANOLINE" : `${name} · 作品集`}</span></a><nav class="nav" aria-label="页面导航"><a href="${prefix}index.html${previewQuery}#about">简介</a><a href="${prefix}index.html${previewQuery}#projects">项目</a><a href="${prefix}index.html${previewQuery}#updates">动态</a><a href="${prefix}index.html${previewQuery}#contact">联系</a></nav></div></header>`;
+    return `<header class="topbar"><div class="container topbar-inner"><a class="brand" href="${prefix}index.html${previewQuery}#top" aria-label="回到首页"><span class="brand-mark" aria-hidden="true"></span><span>PIANOLILNE</span></a><nav class="nav" aria-label="页面导航"><a href="${prefix}index.html${previewQuery}#about">简介</a><a href="${prefix}index.html${previewQuery}#projects">项目</a><a href="${prefix}index.html${previewQuery}#updates">动态</a><a href="${prefix}index.html${previewQuery}#contact">联系</a></nav></div></header>`;
   }
 
   function renderFooter(prefix = "") {
@@ -115,16 +115,20 @@
     const posts = visiblePosts(), id = new URLSearchParams(location.search).get("id"), post = posts.find(p => p.id === id);
     if (id) {
       const body = post ? `<article class="post-detail"><time>${escapeHtml(post.date || "")}</time><h1>${escapeHtml(post.title)}</h1>${(post.blocks || []).map(b => b.type === "image" && b.src ? `<figure><img src="${escapeHtml(pathForCurrentPage(b.src))}" alt="${escapeHtml(b.caption || "文章图片")}">${b.caption ? `<figcaption>${escapeHtml(b.caption)}</figcaption>` : ""}</figure>` : b.type === "text" ? `<p>${escapeHtml(b.text || "")}</p>` : "").join("")}</article>` : `<h1>没有找到这篇动态</h1>`;
-      root.innerHTML = `${renderHeader("")}<main class="container post-page"><a class="back-link" href="posts.html${previewQuery}">← 返回全部动态</a>${body}</main>${renderFooter("")}`;
+      root.innerHTML = `${renderHeader("")}<main class="container post-page"><a class="back-link" href="index.html${previewQuery}#top">← 返回首页</a>${body}</main>${renderFooter("")}`;
       if (post) document.title = `${post.title}｜${content.profile?.name || "作品集"}`;
-    } else root.innerHTML = `${renderHeader("")}<main class="container post-page"><a class="back-link" href="index.html${previewQuery}#updates">← 返回首页</a><header class="journal-head"><span class="micro-label">动态 / 开发日志</span><h1>全部动态</h1></header><div class="post-grid">${posts.map(postCard).join("") || "<p>暂时还没有发布动态。</p>"}</div></main>${renderFooter("")}`;
+    } else root.innerHTML = `${renderHeader("")}<main class="container post-page"><a class="back-link" href="index.html${previewQuery}#top">← 返回首页</a><header class="journal-head"><span class="micro-label">动态 / 开发日志</span><h1>全部动态</h1></header><div class="post-grid">${posts.map(postCard).join("") || "<p>暂时还没有发布动态。</p>"}</div></main>${renderFooter("")}`;
   }
   function renderHome() {
     const local = location.protocol === "file:" || ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
     const workingScene = local && new URLSearchParams(location.search).get("scene") === "prototype";
     const sceneDir = workingScene ? "prototype" : "interactive";
     // Reload the local work-in-progress entry on each visit so it supplies current asset versions.
-    const sceneVersion = workingScene ? Date.now().toString(36) : "pixel-table";
+    const sceneVersion = workingScene ? Date.now().toString(36) : "table-session";
+    const navigationType = performance.getEntriesByType("navigation")[0]?.type;
+    // Portfolio links back to the home page target one of its sections.
+    const resumeTable = navigationType === "back_forward" ||
+      (navigationType !== "reload" && ["#top", "#about", "#projects", "#updates", "#contact"].includes(location.hash));
     const profile = content.profile || {};
     const home = content.home || {};
     const contact = content.contact || {};
@@ -146,7 +150,7 @@
     ].filter(Boolean).join("");
     const videoNote = contactRows || `<p class="section-intro">联系方式与简历链接待本人补充。</p>`;
 
-    root.innerHTML = `${renderHeader("")}<main id="top"><section class="interactive-hero" aria-label="互动作品集"><h1 class="interactive-intro">${escapeHtml(profile.name || "")} · ${escapeHtml(profile.headline || "游戏与交互作品集")}</h1><iframe class="interactive-frame" title="作品卡与小幽灵" src="${sceneDir}/index.html?embed=1&v=${sceneVersion}${previewQuery ? "&preview=1" : ""}"></iframe></section>${aboutSection}<section class="section" id="projects"><div class="container"><div class="section-head reveal"><div><h2 class="section-title">项目案例</h2></div><p class="section-intro">${escapeHtml(home.projectsIntro || "")}</p></div><div class="project-grid">${projects.map(projectCard).join("")}</div></div></section><section class="section" id="updates"><div class="container"><div class="section-head"><div><h2 class="section-title">动态与开发日志</h2></div><a class="button" href="posts.html${previewQuery}">查看全部 ↗</a></div><div class="post-grid">${visiblePosts().slice(0,3).map(postCard).join("") || "<p class=\"section-intro\">还没有发布动态，敬请期待。</p>"}</div></div></section><section class="section" id="contact"><div class="container"><div class="contact-card reveal"><div><h2>${escapeHtml(contact.heading || "联系方式与简历")}</h2>${contact.intro ? `<p>${escapeHtml(contact.intro)}</p>` : ""}</div><div class="contact-list">${videoNote}</div></div></div></section></main>${renderFooter("")}`;
+    root.innerHTML = `${renderHeader("")}<main id="top"><section class="interactive-hero" aria-label="互动作品集"><h1 class="interactive-intro">${escapeHtml(profile.name || "")} · ${escapeHtml(profile.headline || "游戏与交互作品集")}</h1><iframe class="interactive-frame" title="作品卡与小幽灵" src="${sceneDir}/index.html?embed=1&v=${sceneVersion}${resumeTable ? "&resume=1" : ""}${previewQuery ? "&preview=1" : ""}"></iframe></section>${aboutSection}<section class="section" id="projects"><div class="container"><div class="section-head reveal"><div><h2 class="section-title">项目案例</h2></div><p class="section-intro">${escapeHtml(home.projectsIntro || "")}</p></div><div class="project-grid">${projects.map(projectCard).join("")}</div></div></section><section class="section" id="updates"><div class="container"><div class="section-head"><div><h2 class="section-title">动态与开发日志</h2></div><a class="button" href="posts.html${previewQuery}">查看全部 ↗</a></div><div class="post-grid">${visiblePosts().slice(0,3).map(postCard).join("") || "<p class=\"section-intro\">还没有发布动态，敬请期待。</p>"}</div></div></section><section class="section" id="contact"><div class="container"><div class="contact-card reveal"><div><h2>${escapeHtml(contact.heading || "联系方式与简历")}</h2>${contact.intro ? `<p>${escapeHtml(contact.intro)}</p>` : ""}</div><div class="contact-list">${videoNote}</div></div></div></section></main>${renderFooter("")}`;
   }
 
   if (pageType === "home") {
@@ -181,7 +185,7 @@
 
   function renderProject(project) {
     if (!project) {
-      root.innerHTML = `${renderHeader("../")}<main class="container"><section class="project-hero"><a class="back-link" href="../index.html#projects">← 返回项目总览</a><h1>未找到这个项目</h1></section></main>${renderFooter("../")}`;
+      root.innerHTML = `${renderHeader("../")}<main class="container"><section class="project-hero"><a class="back-link" href="../index.html${previewQuery}#top">← 返回首页</a><h1>未找到这个项目</h1></section></main>${renderFooter("../")}`;
       return;
     }
     const gallery = (project.gallery || []).map(item => `<figure class="gallery-figure">${imageMarkup(item, item.label || "项目截图", item.note || "")}${item.note || item.label ? `<figcaption>${escapeHtml(item.label)} ${escapeHtml(item.note)}</figcaption>` : ""}</figure>`).join("");
@@ -192,7 +196,7 @@
     const rolesSection = project.multiplayer ? sectionMarkup("职责分工", "", cardsMarkup(project.roles, "role-grid")) : "";
     const gallerySection = sectionMarkup("截图", project.galleryText, `<div class="gallery">${gallery}</div>${videoMarkup(project.video)}`);
 
-    root.innerHTML = `${renderHeader("../")}<main class="container"><section class="project-hero"><a class="back-link" href="../index.html#projects">← 返回项目总览</a><div class="project-spread"><div class="project-summary"><div class="project-title-row reveal"><div><span class="project-kicker">${escapeHtml(project.number)}　·　制作人数：${escapeHtml(project.teamSize)}</span><h1>${escapeHtml(project.title)}</h1></div></div><p class="project-intro reveal">${escapeHtml(project.intro)}</p></div><div class="meta-grid reveal">${(project.meta || []).filter(item => !/项目状态|人数/.test(item.label)).map(item => `<div class="meta-item"><b>${escapeHtml(item.label)}</b><span>${escapeHtml(item.value)}</span></div>`).join("")}</div><div class="project-hero-media reveal">${imageMarkup(project.cover, "项目封面", "", "tall")}</div></div></section>${purposeSection}${flowSection}${contributionSection}${rolesSection}${gallerySection}</main>${renderFooter("../")}`;
+    root.innerHTML = `${renderHeader("../")}<main class="container"><section class="project-hero"><a class="back-link" href="../index.html${previewQuery}#top">← 返回首页</a><div class="project-spread"><div class="project-summary"><div class="project-title-row reveal"><div><span class="project-kicker">${escapeHtml(project.number)}　·　制作人数：${escapeHtml(project.teamSize)}</span><h1>${escapeHtml(project.title)}</h1></div></div><p class="project-intro reveal">${escapeHtml(project.intro)}</p></div><div class="meta-grid reveal">${(project.meta || []).filter(item => !/项目状态|人数/.test(item.label)).map(item => `<div class="meta-item"><b>${escapeHtml(item.label)}</b><span>${escapeHtml(item.value)}</span></div>`).join("")}</div><div class="project-hero-media reveal">${imageMarkup(project.cover, "项目封面", "", "tall")}</div></div></section>${purposeSection}${flowSection}${contributionSection}${rolesSection}${gallerySection}</main>${renderFooter("../")}`;
   }
 
   applyTheme();
@@ -203,6 +207,12 @@
     const project = (content.projects || []).find(item => item.id === document.body.dataset.projectId);
     if (project) document.title = `${project.title}｜${content.profile?.name || "作品集"}`;
     renderProject(project);
+    try {
+      if (sessionStorage.getItem("portfolio-card-entry") === location.href) {
+        document.body.classList.add("from-table");
+        sessionStorage.removeItem("portfolio-card-entry");
+      }
+    } catch (_) { /* Direct and offline visits also render the project. */ }
   } else {
     renderHome();
   }

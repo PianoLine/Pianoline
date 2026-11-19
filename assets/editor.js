@@ -41,11 +41,12 @@
     const basics = [
       field("meta.siteTitle","浏览器标签标题"), field("profile.name","首页姓名"),
       field("profile.eyebrow","姓名下方的职业方向"), field("profile.headline","首页辅助标题"),
+      field("profile.intro","职业下方短文","textarea","显示在牌桌上的职业名称和「浏览项目」之间，支持换行。留空可隐藏。"),
       field("profile.profileTitle","简介区标题"), field("profile.profileCopy","个人简介正文","textarea","显示在首页的个人简介区域。"),
       field("home.aboutIntro","简介区引言","textarea"), field("home.projectsIntro","项目区引言","textarea")
     ].join("");
     const contact=field("contact.heading","联系区标题")+field("contact.intro","联系区说明","textarea")+field("contact.email","邮箱")+field("contact.resumeUrl","简历 PDF 链接")+field("contact.videoUrl","视频主页链接")+field("contact.platformUrl","作品平台链接");
-    const appearance=field("theme.accent","强调色","color")+field("theme.accentLight","强调浅色","color")+field("theme.teal","辅助色","color")+field("theme.cardColumns","桌面项目卡片列数（1–3）","number")+field("theme.maxWidth","内容最大宽度（像素）","number")+field("theme.sectionSpace","上下留白（像素）","number");
+    const appearance=field("theme.accent","强调色","color")+field("theme.accentLight","强调浅色","color")+field("theme.teal","辅助色","color")+field("theme.cardColumns","桌面项目卡片列数（1–3）","number")+field("theme.homeMaxWidth","首页栏目最大宽度（像素）","number")+field("theme.maxWidth","内容内页最大宽度（像素）","number")+field("theme.sectionSpace","上下留白（像素）","number");
     const tags=(draft.profile.tags||[]).map((_,i)=>field(`profile.tags.${i}`,`技能标签 ${i+1}`)).join("");
     const projects = `<section id="projects" class="editor-group"><div class="editor-group-head"><h2>项目作品</h2><p>展开一个作品，修改卡牌、详情、截图和视频。</p></div><div class="editor-project-list">${draft.projects.map(projectEditor).join("")}</div></section>`;
     root.innerHTML = [

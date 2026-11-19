@@ -1,5 +1,7 @@
 window.normalizePortfolio = function (value) {
   const data = JSON.parse(JSON.stringify(value));
+  data.theme ??= {};
+  data.theme.homeMaxWidth ??= Math.max(1760, Number(data.theme.maxWidth) || 0);
   data.posts = Array.isArray(data.posts) ? data.posts : [];
   for (const post of data.posts) { post.blocks = Array.isArray(post.blocks) ? post.blocks : []; post.visible = post.visible !== false; }
   for (const project of data.projects || []) {
