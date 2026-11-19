@@ -632,6 +632,17 @@ body { position: relative; isolation: isolate; min-height: 100vh; }
   @keyframes settle-cover { from { transform: scale(1.045); } to { transform: none; } }
 }
 
+.project-hero-media.cover-landed { transform: none; opacity: 1; transition: none; }
+.portal-arrival {
+  position: fixed; inset: 0; z-index: 1000; overflow: hidden;
+  pointer-events: none; background: #181712;
+}
+.portal-arrival img {
+  position: absolute; width: 100%; height: 100%; max-width: none;
+  object-fit: cover; transform: scale(1.035);
+}
+@media (prefers-reduced-motion: reduce) { .portal-arrival { display: none; } }
+
 .table-return-curtain {
   position: fixed;
   inset: 0;

@@ -276,7 +276,7 @@ void main(){
     layer.className="prop-outline";
     layer.hidden=true;
     host.append(layer);
-    for(const event of ["pointerenter","pointerleave","focus","blur"]) button.addEventListener(event,schedule);
+    for(const event of ["pointerenter","pointerleave"]) button.addEventListener(event,schedule);
     new MutationObserver(schedule).observe(button,{attributes:true,attributeFilter:["class"]});
     return {button, layer, ctx:layer.getContext("2d")};
   }
@@ -294,6 +294,7 @@ void main(){
   const candleOutlines=flames.map((_,index)=>{
     const button=document.createElement("button");
     button.type="button";
+    button.tabIndex=-1;
     button.className="candle-switch";
     button.setAttribute("aria-label",candleNames[index]);
     button.setAttribute("aria-pressed",String(candlesLit[index]));
@@ -301,6 +302,9 @@ void main(){
       candlesLit[index]=!candlesLit[index];
       button.setAttribute("aria-pressed",String(candlesLit[index]));
       saveCandles();
+      arena.dispatchEvent(new CustomEvent("candle-toggle", {
+        detail: {lit: candlesLit[index], count: candlesLit.filter(Boolean).length, total: candlesLit.length}
+      }));
       schedule();
     });
     arena.insertBefore(button,encounter);
@@ -371,7 +375,7 @@ void main(){
   function followModel(control, outline, first, last, camera, focal, w, h, width, height) {
     const {button,layer,ctx}=outline;
     const returning=button === deckButton && button.matches(".over,.returning");
-    const highlighted=ctx && (button === ghostButton ? button.matches(".over") : returning || button.classList.contains("prop-cue") || button.matches(":focus-visible") || (hoverInput.matches && button.matches(":hover")));
+    const highlighted=ctx && (button === ghostButton ? button.matches(".over") : returning || button.classList.contains("prop-cue") || (hoverInput.matches && button.matches(":hover")));
     // Candles have separate wick hit targets; only project wax for a visible outline.
     if(control===layer && !highlighted){ layer.hidden=true; return; }
     const [r,u,f]=camera;
@@ -570,7 +574,7 @@ void main(){
       placePart(leaf,packet,leafHeight(i)+stackLift+(top ? liftTop : 0)+(upper ? Math.abs(cut)*.17 : 0),
         leafYaw(i)+cut*spread*.22,top ? -.12*pulse(drawTime,250) : 0,i<count);
     });
-    const watchTarget=shuffleButton.matches(":focus-visible") || (hoverInput.matches && shuffleButton.matches(":hover")) ? 1.17 : 0;
+    const watchTarget=(hoverInput.matches && shuffleButton.matches(":hover")) ? 1.17 : 0;
     watchTilt+=(watchTarget-watchTilt)*(motion.matches ? 1 : step);
     if(Math.abs(watchTarget-watchTilt)<.003) watchTilt=watchTarget;
     // Rotate around the front rim so the case keeps contact with the wood.
@@ -588,7 +592,7 @@ void main(){
     followModel(bellButton,bellOutline,props.bellBase.start,props.plunger.end,camera,focal,w,h,width,height);
     const over=hoverInput.matches ? litProps.findIndex(button=>button.matches(":hover")) : -1;
     const selected=deckButton.matches(".over") ? 0 : over>=0 ? over :
-      litProps.findIndex(button=>button.matches(":focus-visible,:active"));
+      litProps.findIndex(button=>button.matches(":active"));
     const amount=selected<0 ? 0 : Math.max(0,1-roomLight/.72);
     if(selected>=0 && selected!==lastSpot){
       lastSpot=selected;

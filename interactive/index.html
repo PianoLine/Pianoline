@@ -11,7 +11,7 @@
     if (display.has("embed")) document.documentElement.classList.add("embedded");
   </script>
   <link rel="stylesheet" href="../assets/fonts/titles.css?v=pixel-table-3">
-  <link rel="stylesheet" href="prototype.css?v=overhead-light">
+  <link rel="stylesheet" href="prototype.css?v=portrait-plate">
 </head>
 <body>
   <header class="standalone"><a href="../index.html"><span class="brand-mark" aria-hidden="true"></span>PIANOLILNE</a><nav aria-label="页面导航"><a href="../index.html#about">简介</a><a href="../index.html#projects">项目</a><a href="../index.html#updates">动态</a><a href="../index.html#contact">联系</a></nav></header>
@@ -28,28 +28,29 @@
       </div>
     </section>
     <div class="encounter">
-        <button class="ghost" id="ghost" type="button" aria-label="和小幽灵聊天，或把作品卡拖给它">
-          <span class="speech" id="speech" role="status" aria-live="polite">想先看看哪个作品？</span>
+        <button tabindex="-1" class="ghost" id="ghost" type="button" aria-label="和小幽灵聊天，或把作品卡拖给它">
+          <span class="speech" id="speech" aria-hidden="true"></span>
           <img src="art/front-ghost.webp" alt="" draggable="false">
           <span class="hit" aria-hidden="true"></span>
         </button>
     </div>
+    <span class="ghost-voice" id="ghost-voice" role="status" aria-atomic="true">看看你手里的卡牌吧</span>
     <div class="scene-edges" aria-hidden="true"></div>
     <section class="table" aria-label="作品手牌">
       <div class="table-inner">
         <div class="play-row">
           <div class="deckzone">
-            <button id="deck" class="deck" aria-label="抽一张作品卡" aria-describedby="deck-tip">
+            <button tabindex="-1" id="deck" class="deck" aria-label="抽一张作品卡" aria-describedby="deck-tip">
               <span class="control-art deck-art" aria-hidden="true"><i>✷</i></span>
               <span class="prop-tip" id="deck-tip" role="tooltip"><b>抽一张</b><small>牌库余 <span id="remaining"></span> 张</small><small>拖到这里可放回</small></span>
             </button>
           </div>
-          <button type="button" id="shuffle" class="shuffle" aria-label="怀表：洗回所有手牌并重新抽三张" aria-describedby="shuffle-tip">
+          <button tabindex="-1" type="button" id="shuffle" class="shuffle" aria-label="怀表：洗回手牌和已用牌，重新抽三张" aria-describedby="shuffle-tip">
             <span class="control-art shuffle-art" aria-hidden="true"></span>
-            <span class="prop-tip" id="shuffle-tip" role="tooltip"><b>洗牌重抽</b><small>收回手牌，重发三张</small></span>
+            <span class="prop-tip" id="shuffle-tip" role="tooltip"><b>洗牌重抽</b><small>洗回手牌和已用牌，重发三张</small></span>
           </button>
           <div class="hand" id="hand"></div>
-          <button class="end" id="end" aria-label="结束回合，前往动态" aria-describedby="bell-tip">
+          <button tabindex="-1" class="end" id="end" aria-label="结束回合，前往动态" aria-describedby="bell-tip">
             <span class="control-art bell-art" aria-hidden="true"></span>
             <span class="prop-tip" id="bell-tip" role="tooltip"><b>回合结束</b><small>按铃前往动态</small></span>
           </button>
@@ -61,7 +62,7 @@
   <script src="../assets/schema.js?v=pixel-table-3"></script>
   <script src="../assets/site-content.js?v=pixel-table-3"></script>
   <script src="cabin-mesh.js?v=candlelight"></script>
-  <script src="cabin-view.js?v=resume-lights"></script>
-  <script src="prototype.js?v=resume-lights"></script>
+  <script src="cabin-view.js?v=ghost-dialogue"></script>
+  <script src="prototype.js?v=portrait-plate"></script>
 </body>
 </html>

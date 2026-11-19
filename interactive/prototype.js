@@ -17,10 +17,11 @@
     }
   }
   const hand = [];
+  const spent = [];
   function saveTable(orderedDeck = deck) {
     try {
       const ids = indices => indices.map(index => projects[index].id);
-      sessionStorage.setItem(tableKey, JSON.stringify({ hand: ids(hand), deck: ids(orderedDeck) }));
+      sessionStorage.setItem(tableKey, JSON.stringify({ hand: ids(hand), deck: ids(orderedDeck), spent: ids(spent) }));
     } catch { /* The table also works without browser storage. */ }
   }
   function restoreTable() {
@@ -28,8 +29,11 @@
       const saved = JSON.parse(sessionStorage.getItem(tableKey));
       if (!Array.isArray(saved?.hand) || !Array.isArray(saved.deck) || saved.hand.length > 5) return false;
       const indices = new Map(projects.map((project, index) => [project.id, index]));
-      const all = [...saved.hand, ...saved.deck];
+      const savedSpent = saved.spent === undefined ? [] : saved.spent;
+      if (!Array.isArray(savedSpent)) return false;
+      const all = [...saved.hand, ...saved.deck, ...savedSpent];
       if (all.length !== projects.length || new Set(all).size !== all.length || !all.every(id => indices.has(id))) return false;
+      spent.push(...savedSpent.map(id => indices.get(id)));
       hand.push(...saved.hand.map(id => indices.get(id)));
       deck.splice(0, deck.length, ...saved.deck.map(id => indices.get(id)));
       return true;
@@ -44,12 +48,65 @@
   const arena = get("arena");
   const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
   const speech = get("speech");
-  const greeting = speech.textContent;
-  let farewell = false;
-  const say = (text, leaving = false) => {
-    speech.textContent = text;
+  const voice = get("ghost-voice");
+  const greeting = voice.textContent;
+  const segmenter = typeof Intl.Segmenter === "function" ? new Intl.Segmenter("zh") : null;
+  let farewell = false, spokenLine = "", speechFrame = 0;
+  let welcomeTimer;
+  function say(text, leaving = false) {
+    clearTimeout(welcomeTimer);
     farewell = leaving;
-  };
+    if (text === spokenLine) return 0;
+    spokenLine = text;
+    voice.textContent = text;
+    cancelAnimationFrame(speechFrame);
+    if (reduced() || document.hidden) {
+      speech.textContent = text;
+      return 0;
+    }
+    speech.replaceChildren();
+    const glyphs = segmenter ? Array.from(segmenter.segment(text), part => part.segment) : Array.from(text);
+    const beat = leaving ? 24 : 38;
+    let elapsed = 0;
+    const starts = glyphs.map(glyph => {
+      const start = elapsed;
+      elapsed += beat + (/[，、。！？…]/u.test(glyph) ? beat * 2 : 0);
+      return start;
+    });
+    const began = performance.now();
+    let index = 0;
+    function reveal(now) {
+      while (index < glyphs.length && starts[index] <= now - began) {
+        const glyph = document.createElement("span");
+        glyph.className = "speech-glyph";
+        glyph.textContent = glyphs[index++];
+        speech.append(glyph);
+      }
+      if (index < glyphs.length) speechFrame = requestAnimationFrame(reveal);
+    }
+    reveal(began);
+    return (starts.at(-1) || 0) + 140;
+  }
+  if (resumeTable) {
+    say(greeting);
+  } else {
+    const lineTime = say("这里是我的小屋");
+    welcomeTimer = setTimeout(() => say(greeting), lineTime + 1100);
+  }
+  function randomLine(lines) {
+    const choices = lines.filter(line => line !== spokenLine);
+    return choices[Math.floor(Math.random() * choices.length)];
+  }
+  arena.addEventListener("candle-toggle", ({ detail: { lit, count, total } }) => {
+    if (farewell) return;
+    if (!lit && count === total - 2) say("我喜欢这个感觉");
+    if (!lit && count === 0) say("啊哈哈哈！现在我可是“黑暗之魂”");
+    if (lit && count === 3) say("你怎么又给弄亮了…");
+    if (lit && count === total) say("呃呃…好刺眼…");
+  });
+  arena.addEventListener("mousedown", event => {
+    if (event.button === 0 && event.target.closest("button")) event.preventDefault();
+  });
   function restoreGreeting() {
     if (farewell) say(greeting);
   }
@@ -87,7 +144,7 @@
   }
   const prints = new Map();
   const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-  const inkLevels = [23, 46, 73, 101, 130, 160, 189, 216, 241];
+  const inkLevels = [28, 51, 88, 135, 180, 219, 248];
 
   async function printCover(image) {
     await image.decode();
@@ -122,7 +179,10 @@
       const x = i % canvas.width, y = Math.floor(i / canvas.width);
       const dither = ((bayer[(y % 4) * 4 + x % 4] + .5) / 16 - .5) * .2;
       const last = inkLevels.length - 1;
-      const level = Math.round((tones[i] - dark) / (light - dark) * last + dither);
+      const tone = (tones[i] - dark) / (light - dark);
+      // Reserve sparse paper cuts for middle shadows so highlights and lettering stay clear.
+      const cut = tone > .20 && tone < .53 && (x + 2 * y) % 11 === 0 ? .42 : 0;
+      const level = Math.round(tone * last + dither + cut);
       const ink = inkLevels[Math.max(0, Math.min(last, level))];
       data.fill(ink, i * 4, i * 4 + 3);
     }
@@ -145,6 +205,9 @@
     }
   });
 
+  const stampIds = ["scroll-of-phantom-city", "forging-simulator", "yellow-river-cleaner",
+    "greedy-ghost", "infinite-elevator", "mind-museum", "so-we-set-off"];
+
   function createHandSlot(id) {
     const project = projects[id];
     const wrap = document.createElement("div");
@@ -155,12 +218,14 @@
     const card = document.createElement("button");
     card.className = "card";
     card.dataset.id = id;
-    card.setAttribute("aria-keyshortcuts", "Delete");
+    card.tabIndex = -1;
     card.setAttribute("aria-label", "查看 " + project.title);
-    card.innerHTML = '<span class="folio" aria-hidden="true"><span></span><span>✦</span></span><card-print class="card-image" aria-hidden="true"></card-print><b></b><small class="card-type"></small>';
-    card.querySelector(".folio span").textContent = project.number || String(id + 1).padStart(2, "0");
+    card.innerHTML = '<b></b><card-print class="card-image" aria-hidden="true"></card-print><span class="folio"><span class="card-number"></span><i class="card-stamp" aria-hidden="true"></i><small class="card-type"></small></span>';
     card.querySelector("b").textContent = project.title;
+    card.querySelector(".card-number").textContent = project.number || String(id + 1).padStart(2, "0");
     card.querySelector(".card-type").textContent = project.category || "项目作品";
+    const stamp = stampIds.indexOf(project.id) + 1;
+    card.style.setProperty("--stamp-offset", (stamp * 100 / 7) + "%");
     const cardImage = project.cover?.cardSrc || project.cover?.src;
     if (cardImage) {
       const image = new Image();
@@ -179,7 +244,7 @@
     arena.dispatchEvent(new CustomEvent("deck-size", { detail: count }));
   }
 
-  function render(removedIndex = -1, animate = true) {
+  function render(animate = true) {
     // Removing even one flex item immediately re-centres every surviving slot.
     // Capture the entire visible fan before changing any children or cancelling a slide.
     const slots = new Map(Array.from(tray.children, slot => [Number(slot.dataset.id), slot]));
@@ -192,8 +257,10 @@
         slots.delete(id);
       }
     }
+    tray.classList.toggle("hand-empty", !hand.length && projects.length > 0);
     if (!hand.length) {
-      tray.textContent = deck.length || removedIndex >= 0 ? "手牌空了，抽一张继续。" : "暂无项目卡。";
+      tray.textContent = projects.length ? "手牌为空，抽一张以继续" : "暂无项目卡。";
+      if (spent.length === projects.length && spent.length) tray.textContent = "牌已用尽，点击怀表重新发牌";
       return;
     }
     if (!slots.size) tray.replaceChildren();
@@ -277,10 +344,10 @@
   }
   pile.onclick = async () => {
     if (locked || pointer) return;
-    if (hand.length >= 5) return say("手牌满了，先放回一张吧。");
-    if (!deck.length) return say("牌库空了，把手牌放回来再抽吧。");
+    if (hand.length >= 5) return say("游戏王的卡牌上限有6张，但是我们不是游戏王");
+    if (!deck.length) return say("这个时候应该出现一个冒骷髅头的牌");
     locked = true;
-    try { await dealOne(); say("新牌到手，来试试看？"); }
+    try { await dealOne(); say("神之一手！…我是说魂之一手"); }
     finally { locked = false; }
   };
   function cardCorners(element, transformedElement) {
@@ -374,7 +441,7 @@
   }
 
   let returnFeedbackTimer;
-  async function putBack(id, keyboard, draggedCorners) {
+  async function putBack(id, draggedCorners) {
     if (locked || pointer || !hand.includes(id)) return;
     locked = true;
     clearTimeout(returnFeedbackTimer);
@@ -385,7 +452,7 @@
     tray.classList.add("regrouping");
     hand.splice(index, 1);
     saveTable([...deck, id]);
-    render(index);
+    render();
     try { await flight; }
     finally {
       deck.push(id);
@@ -394,8 +461,6 @@
       returnFeedbackTimer=setTimeout(() => pile.classList.remove("returning"), 70);
       tray.classList.remove("regrouping");
       locked = false;
-      say("收到，已经放回牌库了。");
-      if (keyboard) (tray.children[Math.min(index, hand.length - 1)]?.querySelector(".card") || pile).focus();
     }
   }
   const shuffleButton = get("shuffle");
@@ -411,13 +476,13 @@
       const collected = hand.splice(0);
       render();
       await Promise.all(flights);
-      deck.push(...collected);
+      deck.push(...collected, ...spent.splice(0));
       shuffleDeck();
       updateDeck();
       arena.dispatchEvent(new Event("deck-shuffle"));
       if (!reduced()) await new Promise(resolve => setTimeout(resolve, 330));
       await dealHand();
-      say("洗好啦，看看这手牌！");
+      say("并非时间倒流");
     } finally {
       arena.classList.remove("shuffling");
       shuffleButton.removeAttribute("aria-busy");
@@ -426,45 +491,133 @@
   };
   let projectExitTimer;
   let playingProject = false;
-  let hitCard = null;
-  async function attack(id, delivered = false) {
+  let playedCard = null;
+  let liftedCard, portal;
+  function clearPortal() {
+    for (const layer of [liftedCard, portal]) {
+      layer?.getAnimations().forEach(animation => animation.cancel());
+      layer?.remove();
+    }
+    arena.classList.remove("entering-card");
+    liftedCard = portal = null;
+  }
+
+  async function enterCard(source, url, lineTime) {
+    const bounds = source.getBoundingClientRect();
+    const face = new DOMMatrix(getComputedStyle(source.parentElement).transform);
+    const angle = Math.atan2(face.b, face.a) * 180 / Math.PI;
+    const zoom = Math.min(1.65, innerHeight * .60 / source.offsetHeight, innerWidth * .78 / source.offsetWidth);
+    const x = innerWidth * .5 - (bounds.left + bounds.width / 2);
+    const y = innerHeight * .54 - (bounds.top + bounds.height / 2);
+    liftedCard = source.cloneNode(true);
+    liftedCard.classList.add("flying-card", "played-cover");
+    liftedCard.setAttribute("aria-hidden", "true");
+    Object.assign(liftedCard.style, {
+      left: (bounds.left + (bounds.width - source.offsetWidth) / 2) + "px",
+      top: (bounds.top + (bounds.height - source.offsetHeight) / 2) + "px",
+      width: source.offsetWidth + "px", height: source.offsetHeight + "px",
+      filter: getComputedStyle(source).filter
+    });
+    document.body.append(liftedCard);
+    source.classList.add("played");
+    arena.classList.add("entering-card");
+    try {
+      const startScale = Math.hypot(face.a, face.b);
+      const lean = Math.max(-7, Math.min(7, x / 28));
+      await liftedCard.animate([
+        {transform: "perspective(900px) rotate(" + angle + "deg) scale(" + startScale + ")",
+          easing: "cubic-bezier(.18,.64,.28,1)"},
+        {offset: .68, transform: "perspective(900px) translate(" + x*.92 + "px," + (y-5) + "px) rotateY(" + lean + "deg) scale(" + zoom*.92 + ")",
+          easing: "cubic-bezier(.26,.38,.58,1)"},
+        {transform: "perspective(900px) translate(" + x + "px," + y + "px) rotateY(0deg) scale(" + zoom + ")"}
+      ], {duration: Math.max(345, lineTime + 75), fill: "forwards"}).finished;
+
+      const art = liftedCard.querySelector(".card-image");
+      const frame = art.getBoundingClientRect();
+      // The artwork crosses the iframe edge so the header also disappears into the picture.
+      let host = document, offsetX = 0, offsetY = 0;
+      if (embedded && window.frameElement) {
+        const iframe = window.frameElement;
+        const origin = iframe.getBoundingClientRect();
+        host = iframe.ownerDocument;
+        offsetX = origin.left + iframe.clientLeft;
+        offsetY = origin.top + iframe.clientTop;
+      }
+      const image = art.querySelector("img");
+      portal = host.createElement("div");
+      portal.setAttribute("aria-hidden", "true");
+      Object.assign(portal.style, {
+        position: "fixed", inset: "0", zIndex: "2000", pointerEvents: "none",
+        overflow: "hidden", background: "#211e17"
+      });
+      host.body.append(portal);
+      const view = portal.getBoundingClientRect();
+      const scale = frame.width / art.offsetWidth;
+      const left = offsetX + frame.left + art.clientLeft * scale;
+      const top = offsetY + frame.top + art.clientTop * scale;
+      const width = art.clientWidth * scale, height = art.clientHeight * scale;
+      const right = view.width - left - width, bottom = view.height - top - height;
+      const timing = {duration: 365, easing: "cubic-bezier(.37,.08,.23,1)", fill: "both"};
+
+      // Move the picture uniformly while its window opens from portrait to landscape.
+      // Matching the source crop here keeps details in place as they cross the paper edge.
+      if (image?.naturalWidth) {
+        const picture = host.createElement("img");
+        picture.alt = "";
+        picture.src = image.currentSrc || image.src;
+        portal.append(picture);
+        const startFit = Math.max(width / image.naturalWidth, height / image.naturalHeight);
+        const endFit = Math.max(view.width / image.naturalWidth, view.height / image.naturalHeight);
+        // Use the uncropped source plane: wide covers can extend outside both windows.
+        const planeWidth = image.naturalWidth * endFit, planeHeight = image.naturalHeight * endFit;
+        Object.assign(picture.style, {position: "absolute", display: "block", maxWidth: "none", width: planeWidth + "px", height: planeHeight + "px",
+          left: (view.width - planeWidth)/2 + "px", top: (view.height - planeHeight)/2 + "px"});
+        const dx = left + width/2 - view.width/2, dy = top + height/2 - view.height/2;
+        picture.animate([
+          {transform: "translate(" + dx + "px," + dy + "px) scale(" + startFit / endFit + ")"},
+          {transform: "translate(0,0) scale(1.035)"}
+        ], timing);
+      }
+      await portal.animate([
+        {clipPath: "inset(" + top + "px " + right + "px " + bottom + "px " + left + "px)", filter: liftedCard.style.filter},
+        {clipPath: "inset(0px 0px 0px 0px)", filter: "brightness(1)"}
+      ], timing).finished;
+    } catch { /* Navigation also works when an animation is interrupted. */ }
+    if (playedCard === null) return;
+    try { sessionStorage.setItem("portfolio-card-entry", "portal:" + url.href); } catch (_) {}
+    navigate(url);
+  }
+
+  function playCard(id, delivered) {
     if (locked || !hand.includes(id)) return;
     locked = true;
     playingProject = true;
-    const source=tray.querySelector('.card[data-id="'+id+'"]');
-    if (!delivered && !reduced() && source?.animate) {
-      const from=source.getBoundingClientRect(),to=ghost.getBoundingClientRect();
-      const thrown=source.cloneNode(true);
-      thrown.classList.add("flying-card", "played-cover");
-      thrown.setAttribute("aria-hidden","true");
-      thrown.tabIndex=-1;
-      Object.assign(thrown.style,{left:from.left+"px",top:from.top+"px",width:from.width+"px",height:from.height+"px"});
-      document.body.append(thrown);
-      source.classList.add("played");
-      const dx=to.left+(to.width-from.width)/2-from.left,dy=to.top+(to.height-from.height)/2-from.top;
-      try {
-        await thrown.animate([
-          {transform:"scale(1)"},
-          {offset:.40, transform:"translate("+dx*.38+"px,"+(dy*.38-24)+"px) scale(.77) rotate(-6deg)"},
-          {transform:"translate("+dx+"px,"+dy+"px) scale(.19) rotate(-12deg)"}
-        ], {duration:255,easing:"cubic-bezier(.3,.54,.6,1)",fill:"forwards"}).finished;
-      } catch { /* Complete the hit even if the visual was interrupted. */ }
-      finally { thrown.remove(); }
-    }
-    if (!playingProject) return;
-    hitCard = id;
-    source?.classList.add("played");
-    const mode = delivered ? "drag" : "tap";
-    const damage = delivered ? 36 + Math.floor(Math.random() * 19) : 12 + Math.floor(Math.random() * 13);
-    ghost.dataset.impact = mode;
-    ghost.querySelector(".hit").textContent = "−" + damage;
-    ghost.classList.add("hurt");
-    arena.dispatchEvent(new CustomEvent("cabin-hit", {detail: {mode, damage}}));
-    say("哎呀，算你赢！翻开这件作品吧。", true);
-
+    playedCard = id;
+    // Commit the move once. Keep its visible slot through the exit animation.
+    spent.push(...hand.splice(hand.indexOf(id), 1));
+    saveTable();
+    const source = tray.querySelector('.card[data-id="'+id+'"]');
     const project = projects[id];
     const url = new URL("../projects/" + encodeURIComponent(project.id) + ".html", location.href);
     if (preview) url.searchParams.set("preview", "1");
+
+    if (!delivered) {
+      const lineTime = say(randomLine(["拜拜~", "神秘的传送魔法"]), true);
+      if (reduced() || !source.animate) {
+        projectExitTimer = setTimeout(() => navigate(url), Math.max(330, lineTime + 120));
+      } else {
+        enterCard(source, url, lineTime);
+      }
+      return;
+    }
+
+    source.classList.add("played");
+    const damage = 36 + Math.floor(Math.random() * 19);
+    ghost.dataset.impact = "drag";
+    ghost.querySelector(".hit").textContent = "−" + damage;
+    ghost.classList.add("hurt");
+    arena.dispatchEvent(new CustomEvent("cabin-hit", {detail: {mode: "drag", damage}}));
+    const lineTime = say(randomLine(["呃啊！我该让你交点罚款…", "有点疼…"]), true);
     const transition = get("transition");
     const image = get("transition-image");
     const cover = project.cover?.src || project.cover?.cardSrc;
@@ -482,19 +635,8 @@
         try { sessionStorage.setItem("portfolio-card-entry", url.href); } catch (_) {}
         navigate(url);
       }, 480);
-    }, reduced() ? 330 : delivered ? 460 : 350);
+    }, Math.max(reduced() ? 330 : 460, lineTime + 140));
   }
-  tray.addEventListener("click", event => {
-    const card = event.target.closest(".card");
-    if (card && event.detail === 0) attack(Number(card.dataset.id));
-  });
-  tray.addEventListener("keydown", event => {
-    const card = event.target.closest(".card");
-    if (card && event.key === "Delete" && !event.repeat) {
-      event.preventDefault();
-      putBack(Number(card.dataset.id), true);
-    }
-  });
   tray.addEventListener("pointerdown", event => {
     const card = event.target.closest(".card-wrap")?.querySelector(".card");
     if (!card || pointer || locked || !event.isPrimary || event.button !== 0) return;
@@ -517,7 +659,7 @@
       pointer.clone.setAttribute("aria-hidden", "true");
       document.body.append(pointer.clone);
       pointer.card.classList.add("dragging");
-      say("等等……有话好说！");
+      say("不要甩到家具！");
     }
     pointer.clone.style.left = event.clientX + "px";
     pointer.clone.style.top = event.clientY + "px";
@@ -539,10 +681,9 @@
     if (event.type !== "pointerup") return;
     const id = Number(card.dataset.id);
     const target = dropTarget(event);
-    if (!clone || target === ghost) attack(id, Boolean(clone));
-    else if (target === pile) putBack(id, false, draggedCorners);
+    if (!clone || target === ghost) playCard(id, Boolean(clone));
+    else if (target === pile) putBack(id, draggedCorners);
     else {
-      say("没打中，再试一次？");
       locked = true;
       card.style.visibility = "hidden";
       try { await fly(card, droppedFrom, card.getBoundingClientRect(), "recover", true); }
@@ -551,55 +692,38 @@
   }
   ["pointerup", "pointercancel", "lostpointercapture"].forEach(type => tray.addEventListener(type, finish));
   const chatter = [
-    "你坐稳啦？这张桌子有点晃。",
-    "我没有袖子，藏不了牌。",
-    "别吹蜡烛，我还想看看你的下一张牌。",
-    "看中哪件作品了？把那张牌递给我吧。"
+    "我要是有实体就自己把蜡烛吹灭了",
+    "别看了，我的袖口可藏不了牌",
+    "右边那几本书有魔法的力量…",
+    "是不是该换个装扮？"
   ];
-  let nextLine = 0;
   ghost.onclick = () => {
-    if (locked || pointer) return;
-    say(chatter[nextLine]);
-    nextLine = (nextLine + 1) % chatter.length;
+    if (!locked && !pointer) say(randomLine(chatter));
   };
   get("end").onclick = () => {
     if (locked || pointer) return;
     locked = true;
     arena.dispatchEvent(new Event("ring-bell"));
-    say("回合结束，去看看最新动态吧。", true);
+    const lineTime = say("回合结束，去看看最新动态吧。", true);
     setTimeout(() => {
       locked = false;
       if (embedded) window.parent.postMessage({ type: "portfolio-section", section: "updates" }, "*");
       else navigate(homeUrl.href + "#updates");
-    }, 540);
+    }, Math.max(540, lineTime + 140));
   };
-  const propButtons = [pile, shuffleButton, get("end")];
-  for (const button of propButtons) {
-    for (const event of ["pointerenter", "focus"]) {
-      button.addEventListener(event, () => button.classList.remove("tip-dismissed"));
-    }
-  }
-  document.addEventListener("keydown", event => {
-    if (event.key === "Escape") propButtons.forEach(button => button.classList.add("tip-dismissed"));
-  });
   window.addEventListener("pagehide", () => {
     clearTimeout(projectExitTimer);
-    if (hitCard === null) return;
-    // Keep the visible fan still through the hit and project reveal.
-    const index = hand.indexOf(hitCard);
-    hand.splice(index, 1);
-    deck.push(hitCard);
-    hitCard = null;
-    saveTable();
-    updateDeck();
-    render(index, false);
+    clearPortal();
+    if (playedCard === null) return;
+    playedCard = null;
+    render(false);
   });
   window.addEventListener("pageshow", event => {
     if (!event.persisted) return;
+    say(greeting);
     if (playingProject) {
       playingProject = false;
       locked = false;
-      say(greeting);
     }
     tray.querySelector(".played")?.classList.remove("played");
     ghost.classList.remove("hurt");
@@ -620,7 +744,7 @@
       if (entry.intersectionRatio < .5) continue;
       cueTimers.set(button,setTimeout(() => {
         cueObserver.unobserve(button);
-        if (document.hidden || button.matches(":hover,:focus-visible")) return;
+        if (document.hidden || button.matches(":hover")) return;
         button.dataset.cueStart = performance.now();
         button.classList.add("prop-cue");
         cueTimers.set(button,setTimeout(() => clearCue(button),1250));
@@ -636,7 +760,6 @@
     clearCue(get("end"));
   }
   arena.addEventListener("pointerdown",endCues,{once:true,capture:true});
-  document.addEventListener("keydown",endCues,{once:true,capture:true});
 
   updateDeck();
   if (resumed) {

@@ -199,6 +199,59 @@
     root.innerHTML = `${renderHeader("../")}<main class="container"><section class="project-hero"><a class="back-link" href="../index.html${previewQuery}#top">← 返回首页</a><div class="project-spread"><div class="project-summary"><div class="project-title-row reveal"><div><span class="project-kicker">${escapeHtml(project.number)}　·　制作人数：${escapeHtml(project.teamSize)}</span><h1>${escapeHtml(project.title)}</h1></div></div><p class="project-intro reveal">${escapeHtml(project.intro)}</p></div><div class="meta-grid reveal">${(project.meta || []).filter(item => !/项目状态|人数/.test(item.label)).map(item => `<div class="meta-item"><b>${escapeHtml(item.label)}</b><span>${escapeHtml(item.value)}</span></div>`).join("")}</div><div class="project-hero-media reveal">${imageMarkup(project.cover, "项目封面", "", "tall")}</div></div></section>${purposeSection}${flowSection}${contributionSection}${rolesSection}${gallerySection}</main>${renderFooter("../")}`;
   }
 
+  // The full-screen card art lands in the real cover slot, with its original proportions.
+  async function landCardCover(project) {
+    const media = document.querySelector(".project-hero-media");
+    const target = media?.querySelector("img");
+    if (!target || !target.animate || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const layer = document.createElement("div");
+    layer.className = "portal-arrival";
+    layer.setAttribute("aria-hidden", "true");
+    const art = new Image();
+    art.alt = "";
+    art.src = pathForCurrentPage(project.cover.cardSrc || project.cover.src);
+    layer.append(art);
+    document.body.append(layer);
+    function clear() {
+      for (const animation of layer.getAnimations({subtree: true})) animation.cancel();
+      layer.remove();
+      window.removeEventListener("pagehide", clear);
+      window.removeEventListener("resize", clear);
+      window.removeEventListener("scroll", clear);
+    }
+    window.addEventListener("pagehide", clear);
+    window.addEventListener("resize", clear);
+    window.addEventListener("scroll", clear, {passive: true});
+    try {
+      // An uncached or unavailable image must never keep the project covered.
+      if (!art.naturalWidth) {
+        await Promise.race([art.decode(), new Promise(resolve => setTimeout(resolve, 160))]);
+      }
+      if (!layer.isConnected || !art.naturalWidth) return;
+      media.classList.add("cover-landed", "visible");
+      const to = target.getBoundingClientRect();
+      const view = layer.getBoundingClientRect();
+      if (to.bottom <= 0 || to.top >= view.height || !to.width || !to.height) {
+        await layer.animate([{opacity: 1}, {opacity: 0}], 180).finished;
+        return;
+      }
+      const fit = Math.min(to.width / art.naturalWidth, to.height / art.naturalHeight);
+      const width = art.naturalWidth * fit, height = art.naturalHeight * fit;
+      const left = to.left + (to.width - width) / 2, top = to.top + (to.height - height) / 2;
+      Object.assign(art.style, {width: width + "px", height: height + "px", left: left + "px", top: top + "px"});
+      const dx = (view.width - width) / 2 - left, dy = (view.height - height) / 2 - top;
+      const scale = 1.035 * Math.max(view.width / width, view.height / height);
+      const timing = {duration: 485, easing: "cubic-bezier(.24,.7,.24,1)", fill: "both"};
+      art.animate([{transform: "translate(" + dx + "px," + dy + "px) scale(" + scale + ")"},
+        {transform: "none"}], timing);
+      const crop = "inset(" + to.top + "px " + (view.width - to.right) + "px " +
+        (view.height - to.bottom) + "px " + to.left + "px)";
+      await layer.animate([{clipPath: "inset(0px)"}, {clipPath: crop}], timing).finished;
+      if (art.src !== target.src) await layer.animate([{opacity: 1}, {opacity: 0}], 100).finished;
+    } catch { /* Page changes and failed images fall straight through to the project. */ }
+    finally { clear(); }
+  }
+
   applyTheme();
   document.title = content.meta?.siteTitle || "游戏设计作品集";
   if (pageType === "posts") {
@@ -208,7 +261,11 @@
     if (project) document.title = `${project.title}｜${content.profile?.name || "作品集"}`;
     renderProject(project);
     try {
-      if (sessionStorage.getItem("portfolio-card-entry") === location.href) {
+      const entry = sessionStorage.getItem("portfolio-card-entry");
+      if (entry === "portal:" + location.href) {
+        sessionStorage.removeItem("portfolio-card-entry");
+        landCardCover(project);
+      } else if (entry === location.href) {
         document.body.classList.add("from-table");
         sessionStorage.removeItem("portfolio-card-entry");
       }
