@@ -8,7 +8,7 @@
     const display = new URLSearchParams(location.search);
     if (display.has("embed")) document.documentElement.classList.add("embedded");
   </script>
-  <link rel="stylesheet" href="prototype.css?v=tabletop">
+  <link rel="stylesheet" href="prototype.css?v=near-table">
 </head>
 <body>
   <header class="standalone"><a href="../index.html">PAN HOULIN</a><nav aria-label="页面导航"><a href="../index.html#about">简介</a><a href="../index.html#projects">项目</a><a href="../index.html#updates">动态</a><a href="../index.html#contact">联系</a></nav></header>
@@ -34,19 +34,24 @@
       <div class="table-inner">
         <div class="play-row">
           <div class="deckzone">
-            <button id="deck" class="deck" aria-label="抽取一张项目卡"><span class="control-art deck-art" aria-hidden="true"><i>✷</i></span><span class="deck-copy"><b>抽一张 <span aria-hidden="true">＋</span></b><small>牌库余 <span id="remaining"></span> 张</small></span></button>
-            <span class="deck-hint">拖到牌库可放回</span>
+            <button id="deck" class="deck" aria-label="抽一张作品卡" aria-describedby="deck-tip">
+              <span class="control-art deck-art" aria-hidden="true"><i>✷</i></span>
+              <span class="prop-tip" id="deck-tip" role="tooltip"><b>抽一张</b><small>牌库余 <span id="remaining"></span> 张</small><small>拖到这里可放回</small></span>
+            </button>
           </div>
           <div class="hand" id="hand"></div>
-          <button class="end" id="end"><span class="control-art bell-art" aria-hidden="true"></span><span>回合结束 <i aria-hidden="true">↗</i></span><small>前往动态</small></button>
+          <button class="end" id="end" aria-label="结束回合，前往动态" aria-describedby="bell-tip">
+            <span class="control-art bell-art" aria-hidden="true"></span>
+            <span class="prop-tip" id="bell-tip" role="tooltip"><b>回合结束</b><small>按铃前往动态</small></span>
+          </button>
         </div>
       </div>
     </section>
     <div id="transition" class="transition" aria-hidden="true"><span>翻开作品</span><strong id="transition-title"></strong></div>
   </main>
   <script src="../assets/site-content.js?v=woodcut"></script>
-  <script src="cabin-mesh.js?v=tabletop"></script>
-  <script src="cabin-view.js?v=tabletop"></script>
-  <script src="prototype.js?v=tabletop"></script>
+  <script src="cabin-mesh.js?v=near-table"></script>
+  <script src="cabin-view.js?v=near-table"></script>
+  <script src="prototype.js?v=near-table"></script>
 </body>
 </html>

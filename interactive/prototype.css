@@ -60,7 +60,7 @@ button:focus-visible, a:focus-visible { outline: 3px solid #d75f36; outline-offs
 .deck-art { position: relative; width: 62px; height: 78px; display: grid; place-items: center; border: 3px solid var(--paper); outline: 1px solid var(--ink); border-radius: 4px; background: repeating-linear-gradient(50deg, transparent 0 4px, #d9e7cc38 4px 5px),var(--ink); box-shadow: 3px 3px var(--ink),5px 5px var(--paper),6px 6px var(--ink); transform: rotate(-8deg); transition: transform .18s; }
 .deck-art i { display: grid; place-items: center; width: 34px; height: 48px; font: 36px/1 var(--serif); background: var(--ink); color: #f2bc91; border: 1px solid currentColor; border-radius: 50%; }
 .deck:is(:hover,.over) .deck-art { transform: translateY(-3px) rotate(-3deg); }
-.deck.over { outline: 3px dashed #b8482c; outline-offset: 5px; }
+
 .deck-copy { display: grid; }
 .deck-copy b, .end span { font: bold 17px/1.35 var(--serif); }
 .deck-copy small { font: 11px/1.6 var(--mono); }
@@ -256,3 +256,57 @@ button:focus-visible, a:focus-visible { outline: 3px solid #d75f36; outline-offs
   .modeled .deck-art, .control-art { width: 72px; height: 52px; }
   .modeled .speech { max-width: 43vw; font-size: 12px; padding: 5px 8px; }
 }
+
+/* The hand stays in layout; the accessible prop controls follow the world-space models. */
+.modeled .table { position: static; }
+.modeled .deckzone, .modeled .end {
+  position: absolute; width: max-content; transform: translateX(-50%);
+  justify-self: auto; z-index: 4; gap: 2px;
+}
+.modeled .control-art, .modeled .deck-art {
+  display: block; width: var(--prop-width); height: var(--prop-height);
+  min-width: 44px; min-height: 44px; transition: none;
+}
+.modeled .deck { gap: 2px; }
+.modeled .hand { grid-column: 2; }
+@media (max-width:1050px) {
+  .modeled .play-row { grid-template-columns: minmax(0,1fr); grid-template-rows: clamp(128px,14vw,152px) auto; }
+  .modeled .hand { grid-row: 2; grid-column: 1; }
+}
+
+@media (min-width:1051px) {
+  .modeled .hand { min-height: clamp(172px, 15.7vw, 342px); }
+  .modeled .hand:has(.card-wrap:nth-child(5)) { column-gap: 2px; }
+  .modeled .hand:has(.card-wrap:nth-child(5)) .card-wrap { width: min(9.1vw, 198px); }
+}
+@media (max-width:720px) {
+  .modeled .play-row { grid-template-rows: 112px auto; }
+}
+
+/* Keep instructions next to the object without covering the point being clicked. */
+.deck { position: relative; }
+.deck .prop-tip, .end .prop-tip {
+  position: absolute; z-index: 1; bottom: calc(100% + 7px); left: 50%;
+  transform: translateX(calc(-50% + var(--tip-shift, 0px)));
+  display: grid; gap: 2px; width: max-content; max-width: 146px; padding: 7px 12px;
+  visibility: hidden; opacity: 0; pointer-events: none; transition: opacity .12s ease;
+  border: 1px solid #947849; border-radius: 3px; background: #251e16f5; color: #f3dfb7;
+  box-shadow: 0 3px 9px #100c0966; font: 13px/1.4 var(--serif); text-shadow: none;
+}
+.prop-tip::after { content: ""; position: absolute; top: 100%; left: 0; width: 100%; height: 8px; }
+.prop-tip b { font-size: 15px; }
+.prop-tip small { color: #dac7a5; font: 12px/1.4 system-ui, sans-serif; }
+@media (hover: hover) {
+  :is(.deck,.end):hover:not(.tip-dismissed) .prop-tip { visibility: visible; opacity: 1; pointer-events: auto; }
+}
+:is(.deck,.end):focus-visible:not(.tip-dismissed) .prop-tip { visibility: visible; opacity: 1; pointer-events: auto; }
+.deck:is(.over,.returning) .prop-tip { visibility: hidden; opacity: 0; pointer-events: none; }
+.control-art { position: relative; }
+.prop-outline { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.modeled :is(.deck,.end):focus-visible { outline: none; }
+.card:is(.drag-clone,.flying-card).return-target { outline: 2px solid #de7863; outline-offset: 1px; }
+.arena:not(.modeled) .bell-art::after { content: "♢"; color: #c59f60; font: 38px/1 serif; }
+.arena:not(.modeled) :is(.deck,.end):hover .control-art { outline: 1px solid #ebca7d; }
+.arena:not(.modeled) .deck:is(.over,.returning) .control-art { outline: 2px solid #de7863; }
+
+.modeled .deck:is(:hover,.over) .deck-art { transform: none; }

@@ -83,6 +83,7 @@
     if (reduced() || !card.animate) return;
     const clone = card.cloneNode(true);
     clone.classList.add("flying-card");
+    if (!drawing) clone.classList.add("return-target");
     clone.setAttribute("aria-hidden", "true");
     clone.tabIndex = -1;
     Object.assign(clone.style, { visibility: "visible", width: to.width + "px", height: to.height + "px", left: to.left + "px", top: to.top + "px", transformOrigin: "0 0" });
@@ -112,9 +113,12 @@
     try { await fly(card, pile.querySelector(".control-art").getBoundingClientRect(), card.getBoundingClientRect(), true); }
     finally { card.style.visibility = ""; locked = false; say("新牌到手，来试试看？"); }
   };
+  let returnFeedbackTimer;
   async function putBack(id, keyboard, droppedFrom) {
     if (locked || pointer || !hand.includes(id)) return;
     locked = true;
+    clearTimeout(returnFeedbackTimer);
+    pile.classList.add("returning");
     const index = hand.indexOf(id);
     const card = tray.children[index].querySelector(".card");
     card.style.visibility = "hidden";
@@ -122,6 +126,7 @@
     finally {
       hand.splice(index, 1);
       deck.push(id);
+      returnFeedbackTimer=setTimeout(() => pile.classList.remove("returning"), 230);
       arena.dispatchEvent(new Event("deck-return"));
       render();
       locked = false;
@@ -192,6 +197,7 @@
     const target = dropTarget(event);
     ghost.classList.toggle("over", target === ghost);
     pile.classList.toggle("over", target === pile);
+    pointer.clone.classList.toggle("return-target", target === pile);
   });
   function finish(event) {
     if (pointer?.id !== event.pointerId) return;
@@ -233,6 +239,15 @@
       else navigate(homeUrl.href + "#updates");
     }, reduced() ? 0 : 540);
   };
+  const propButtons = [pile, get("end")];
+  for (const button of propButtons) {
+    for (const event of ["pointerenter", "focus"]) {
+      button.addEventListener(event, () => button.classList.remove("tip-dismissed"));
+    }
+  }
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape") propButtons.forEach(button => button.classList.add("tip-dismissed"));
+  });
   window.addEventListener("pageshow", () => {
     locked = false;
     ghost.classList.remove("hurt");

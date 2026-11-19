@@ -53,6 +53,7 @@ varying vec3 world,color; varying float material;
 uniform float lightPulse;
 uniform vec3 clusterLight;
 void main(){
+ if(material>4.5){gl_FragColor=vec4(.045,.029,.018,material-5.);return;}
  vec3 c=color;
  if(material>.5 && material<3.5){
    vec2 grain=material<1.5 ? vec2(world.x,world.y+world.z) : material<2.5 ? vec2(world.y,world.x+world.z) : vec2(world.z,world.x+world.y);
@@ -87,6 +88,7 @@ void main(){
     const scale=gl.getUniformLocation(program,"scale");
     const cluster=gl.getUniformLocation(program,"clusterLight");
     const light=gl.getUniformLocation(program,"lightPulse");
+    gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
     gl.enable(gl.DEPTH_TEST); gl.clearColor(.12,.18,.17,1);
     return (camera,focal,pulse,clusterX,clusterY,clusterZ) => {
       gl.bufferSubData(gl.ARRAY_BUFFER,movingStart*4,movingVertices);
@@ -133,6 +135,7 @@ void main(){
         if(Math.abs(det)<.08 || Math.min(d,xyDepth[j+5],xyDepth[j+8])<=0) continue;
         const left=Math.max(0,Math.floor(Math.min(x,x+bx,x+cx))), rightX=Math.min(w-1,Math.ceil(Math.max(x,x+bx,x+cx)));
         const top=Math.max(0,Math.floor(Math.min(y,y+by,y+cy))), bottom=Math.min(h-1,Math.ceil(Math.max(y,y+by,y+cy)));
+        const shadow=mesh[i*7+6]-5;
         const ux=cy/det,uy=-cx/det,vx=-by/det,vy=bx/det, db=xyDepth[j+5]-d,dc=xyDepth[j+8]-d;
         for(let py=top;py<=bottom;py++){
           let u=(left+.5-x)*ux+(py+.5-y)*uy, v=(left+.5-x)*vx+(py+.5-y)*vy;
@@ -140,7 +143,13 @@ void main(){
             if(u<0 || v<0 || u+v>1) continue;
             const index=py*w+px, z=d+u*db+v*dc;
             if(z<=depths[index]) continue;
-            depths[index]=z; pixels[index]=palette[i/3*4+((px&1)+2*(py&1))];
+            depths[index]=z;
+            if(shadow>0) {
+              const base=pixels[index], keep=1-shadow;
+              pixels[index]=pack((base&255)*keep+11*shadow,((base>>>8)&255)*keep+7*shadow,((base>>>16)&255)*keep+5*shadow);
+              continue;
+            }
+            pixels[index]=palette[i/3*4+((px&1)+2*(py&1))];
           }
         }
       }
@@ -171,8 +180,20 @@ void main(){
     if(!frame && visible && !document.hidden) frame=requestAnimationFrame(render);
   }
   const deckButton = document.getElementById("deck");
-  const deckArt = deckButton.querySelector(".control-art");
-  const bellArt = document.querySelector("#end .control-art");
+  const deckZone = deckButton.closest(".deckzone");
+  const bellButton = document.getElementById("end");
+  const hoverInput=matchMedia("(hover: hover)");
+  const projected=new Float32Array(mesh.length/7*2);
+  function prepareOutline(button) {
+    const layer=document.createElement("canvas");
+    layer.className="prop-outline";
+    layer.hidden=true;
+    button.querySelector(".control-art").append(layer);
+    for(const event of ["pointerenter","pointerleave","focus","blur"]) button.addEventListener(event,schedule);
+    new MutationObserver(schedule).observe(button,{attributes:true,attributeFilter:["class"]});
+    return {button, layer, ctx:layer.getContext("2d")};
+  }
+  const deckOutline=prepareOutline(deckButton), bellOutline=prepareOutline(bellButton);
   let remaining = 0, drawAt = -Infinity, returnedAt = -Infinity, bellAt = -Infinity;
   arena.addEventListener("deck-size", event => { remaining = event.detail; schedule(); });
   arena.addEventListener("deck-draw", () => { drawAt = performance.now(); schedule(); });
@@ -190,20 +211,79 @@ void main(){
       mesh[i+2]=base.z+scale*(rz*co-x*si);
     }
   }
-  // Intersect each accessible control's screen ray with the wooden tabletop.
-  function tableAnchor(marker, diameter, camera, lift, focal, w, h, bounds) {
-    const rect=marker.getBoundingClientRect();
-    const cssX=rect.left-bounds.left+rect.width*.5-x*rect.width*.07;
-    const cssY=rect.top-bounds.top+rect.height*.74+y*rect.height*.025;
-    const u=(cssX/bounds.width-.5)*w/focal;
-    const v=(.5-cssY/bounds.height)*h/focal-lift;
-    const [right,shiftedUp,forward]=camera;
-    const up=shiftedUp.map((n,i)=>n-lift*forward[i]);
-    const eye=i=>-right[i]*right[3]-up[i]*up[3]-forward[i]*forward[3];
-    const ray=i=>right[i]*u+up[i]*v+forward[i];
-    const distance=(1.533-eye(1))/ray(1);
-    return { x:eye(0)+ray(0)*distance, z:eye(2)+ray(2)*distance,
-      scale:rect.width*w/bounds.width*distance/focal/diameter };
+  // Depth and size are room units. Only the horizontal framing adapts to screen width.
+  function tablePosition(fraction, z, scale, w, focal, width) {
+    const sp=Math.sin(-.151), cp=Math.cos(-.151), dy=1.53-3.73;
+    const baseDepth=dy*sp-(z-7.65)*cp;
+    // On ultrawide screens keep the props within arm's reach in the visible strip of table.
+    const wide=Math.max(1,width/1920);
+    if(wide>1) {
+      const back=(-2.07*cp-8.82*sp)/(-2.07*sp+8.82*cp);
+      const slope=back+((dy*cp+(z-7.65)*sp)/baseDepth-back)/wide;
+      z=7.65+dy*(slope*sp-cp)/(sp+slope*cp);
+    }
+    const depth=dy*sp-(z-7.65)*cp;
+    scale*=depth/(baseDepth*wide);
+    return { x:(fraction-.5)*w*depth/focal, z, scale };
+  }
+
+  // Fit the native button to the rendered silhouette, including the raised bell knob.
+  function followModel(control, outline, first, last, camera, focal, w, h, width, height) {
+    const {button,layer,ctx}=outline;
+    const returning=button.matches(".over,.returning");
+    const highlighted=ctx && (returning || button.matches(":focus-visible") || (hoverInput.matches && button.matches(":hover")));
+    const [r,u,f]=camera;
+    let left=Infinity, top=Infinity, right=-Infinity, bottom=-Infinity;
+    for(let i=first;i<last;i+=7) {
+      const x=mesh[i], y=mesh[i+1], z=mesh[i+2];
+      const d=f[0]*x+f[1]*y+f[2]*z+f[3];
+      const px=width*(.5+focal/w*(r[0]*x+r[1]*y+r[2]*z+r[3])/d);
+      const py=height*(.5-focal/h*(u[0]*x+u[1]*y+u[2]*z+u[3])/d);
+      if(highlighted) {
+        const j=(i-first)/7*2;
+        projected[j]=px; projected[j+1]=py;
+      }
+      left=Math.min(left,px); right=Math.max(right,px);
+      top=Math.min(top,py); bottom=Math.max(bottom,py);
+    }
+    const hitWidth=Math.max(44,right-left+4);
+    const hitHeight=Math.max(44,bottom-top+4);
+    const cx=(left+right)/2;
+    const tipCenter=Math.min(width-80,Math.max(80,cx));
+    control.style.setProperty("--tip-shift",(tipCenter-cx)+"px");
+    control.style.left=(left+right)/2+"px";
+    control.style.top=bottom+2-hitHeight+"px";
+    control.style.setProperty("--prop-width", hitWidth+"px");
+    control.style.setProperty("--prop-height", hitHeight+"px");
+
+    layer.hidden=!highlighted;
+    if(!highlighted) return;
+    const dpr=Math.min(2,window.devicePixelRatio || 1);
+    const lw=Math.ceil(hitWidth*dpr), lh=Math.ceil(hitHeight*dpr);
+    if(layer.width!==lw || layer.height!==lh) { layer.width=lw; layer.height=lh; }
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.clearRect(0,0,lw,lh);
+    const sx=lw/hitWidth, sy=lh/hitHeight;
+    ctx.setTransform(sx,0,0,sy,(hitWidth/2-cx)*sx,(hitHeight-bottom-2)*sy);
+
+    // Stroke the projected triangles and remove their union, leaving only the outside edge.
+    const path=new Path2D();
+    for(let j=0;j<(last-first)/7*2;j+=6) {
+      const ax=projected[j], ay=projected[j+1], bx=projected[j+2], by=projected[j+3];
+      const cx=projected[j+4], cy=projected[j+5];
+      const forward=(bx-ax)*(cy-ay)>(by-ay)*(cx-ax);
+      path.moveTo(ax,ay);
+      if(forward) { path.lineTo(bx,by); path.lineTo(cx,cy); }
+      else { path.lineTo(cx,cy); path.lineTo(bx,by); }
+      path.closePath();
+    }
+    ctx.lineJoin="round";
+    ctx.lineWidth=returning ? 3.8 : 2.8;
+    ctx.strokeStyle=returning ? "#e57260" : "#e8c574";
+    ctx.stroke(path);
+    ctx.globalCompositeOperation="destination-out";
+    ctx.fill(path);
+    ctx.globalCompositeOperation="source-over";
   }
   function render(now){
     frame=0;
@@ -218,7 +298,8 @@ void main(){
     const seconds=Math.max(0,(now-hit)/1000);
     const kick=seconds<.38 ? (1-seconds/.38)**2 : 0;
     const focal=width<=720 ? Math.max(w*.66,stage.offsetHeight*1.92*h/height) : Math.max(h*.94,w*.50);
-    const camera=cameraRows(x,y,kick,kick ? seconds : 0);
+    const cameraX=x*Math.min(1,width/1000);
+    const camera=cameraRows(cameraX,y,kick,kick ? seconds : 0);
     // Shift the horizon as the mobile hand wraps; the far edge of the table stays in the stage.
     const dot=(row,px,py,pz)=>row[0]*px+row[1]*py+row[2]*pz+row[3];
     const baseY=1.66, baseZ=-1.17;
@@ -233,7 +314,7 @@ void main(){
     const tilt=-.38*recoil, co=Math.cos(tilt),si=Math.sin(tilt);
     const hover=.032*Math.sin(sceneTime*2.1);
     // Turn the whole shell slightly toward the moving viewer, with its face printed on the mesh.
-    const yaw=Math.atan2(.76*x-actorX,7.65-baseZ);
+    const yaw=Math.atan2(.76*cameraX-actorX,7.65-baseZ);
     const cosYaw=Math.cos(yaw),sinYaw=Math.sin(yaw);
     for(let i=shadowStart;i<ghostStart;i+=7) mesh[i]=rest[i]+actorX;
     let left=Infinity,top=Infinity,right=-Infinity,bottom=-Infinity;
@@ -255,7 +336,7 @@ void main(){
     const narrow=width<=720;
     const candleScale=narrow ? .52 : 1;
     const clusterX=narrow ? .43*w/focal*6.5 : 3.12;
-    const clusterZ=narrow ? 1.2 : 2.45;
+    const clusterZ=narrow ? .65 : 1.65;
     for(let i=clusterStart;i<clusterEnd;i+=7){
       mesh[i]=clusterX+(rest[i]-3.12)*candleScale;
       mesh[i+1]=1.53+(rest[i+1]-1.53)*candleScale;
@@ -285,16 +366,18 @@ void main(){
       glow.style.transform="translate("+cx+"px,"+cy+"px) translate(-50%,-50%)";
       glow.style.width=size+"px"; glow.style.height=size+"px"; glow.style.opacity=.58+.10*pulse;
     }
-    const bounds=canvas.getBoundingClientRect();
-    const deckAnchor=tableAnchor(deckArt,1.95,camera,lift,focal,w,h,bounds);
-    const bellAnchor=tableAnchor(bellArt,1.75,camera,lift,focal,w,h,bounds);
+    const compact=width<=1050;
+    const deckAnchor=tablePosition(compact ? .23 : .138, compact ? 2.84 : 3.59, narrow ? .51 : .45,w,focal,width);
+    const bellAnchor=tablePosition(compact ? .755 : .855, narrow ? 3.04 : compact ? 2.42 : 3.43, narrow ? .47 : .45,w,focal,width);
     const elapsed=t=>motion.matches ? Infinity : Math.max(0,now-t);
     const drawTime=elapsed(drawAt), returnTime=elapsed(returnedAt), bellTime=elapsed(bellAt);
     const pulse=(t,duration)=>t<duration ? Math.sin(Math.PI*t/duration) : 0;
     const count=Math.min(props.leaves.length,remaining);
     const liftTop=.13*pulse(drawTime,250)+.09*pulse(returnTime,240);
     const receive=deckButton.classList.contains("over") && !motion.matches ? .10 : 0;
-    const angle=.28;
+    const angle=-.18;
+    placePart(props.deckShadow,deckAnchor,0,angle);
+    placePart(props.bellShadow,bellAnchor);
     placePart(props.deckBase,deckAnchor,0,angle);
     props.leaves.forEach((leaf,i)=>{
       const top=i===count-1;
@@ -305,6 +388,8 @@ void main(){
     const wobble=bellTime<500 ? .12*Math.sin(bellTime*.054)*Math.exp(-bellTime/145) : 0;
     placePart(props.dome,bellAnchor,0,0,wobble);
     placePart(props.plunger,bellAnchor,-.14*pulse(bellTime,190),0,wobble);
+    followModel(deckZone,deckOutline,props.deckBase.start,count ? props.leaves[count-1].end : props.deckBase.end,camera,focal,w,h,width,height);
+    followModel(bellButton,bellOutline,props.bellBase.start,props.plunger.end,camera,focal,w,h,width,height);
     draw(camera,focal,Math.sin(4.7*sceneTime),clusterX,1.53+1.05*candleScale,clusterZ);
     canvas.classList.add("painted");
     arena.classList.add("modeled");

@@ -174,6 +174,19 @@ window.buildCabinMesh = function buildCabinMesh() {
     }
     face(high,lid,0,.55);
   }
+  // Thin translucent footprints let the table grain show through the candle shadows.
+  function contactShadow(outline, dx, dz) {
+    return part(() => {
+      for(const [size,offset,y,opacity] of [[1.13,1,.002,.24],[1.03,.30,.004,.39]]) {
+        const rim=outline.map(([x,z])=>[x*size+dx*offset,y,z*size+dz*offset]);
+        face(rim,"100b07",5+opacity,1);
+      }
+    });
+  }
+  const deckShadow=contactShadow([[-.57,-.91],[.57,-.91],[.69,-.79],[.69,.79],[.57,.91],[-.57,.91],[-.69,.79],[-.69,-.79]],-.18,.09);
+  const bellShadow=contactShadow(Array.from({length:14},(_,i)=>{
+    const a=i*Math.PI/7; return [.71*Math.cos(a),.71*Math.sin(a)];
+  }),.21,.23);
   const deckBase = part(() => {
     slab(1.37,1.82,0,.09,.14,"39271c","7c5730");
     slab(1.29,1.73,.09,.125,.10,"ad814a","373a31");
@@ -182,6 +195,12 @@ window.buildCabinMesh = function buildCabinMesh() {
     slab(1.13,1.56,0,.052,.07,"c7a87a","caaa73");
     slab(1.05,1.48,.052,.062,.05,"68513a","304740");
     const y = .066;
+    // Corner rules leave the dark cloth and compass readable from the player's angle.
+    for(const sx of [-1,1]) for(const sz of [-1,1]) {
+      const ink=(x,z)=>[sx*x,y,sz*z];
+      face([ink(.44,.63),ink(.44,.40),ink(.42,.41),ink(.42,.61)],"c3a46c",0,.72);
+      face([ink(.44,.63),ink(.21,.63),ink(.22,.61),ink(.42,.61)],"c3a46c",0,.72);
+    }
     for (let i=0;i<8;i++) {
       const a = Math.PI*i/4;
       const point = (angle,rx,rz) => [rx*Math.cos(angle),y,rz*Math.sin(angle)];
@@ -200,10 +219,10 @@ window.buildCabinMesh = function buildCabinMesh() {
     turned(0,0,[[.32,.59],[.35,.61],[.38,.56]],12,"d1aa6e",.46);
   });
   const plunger = part(() => {
-    turned(0,0,[[.735,.055],[.89,.055]],8,"725934",.46);
+    turned(0,0,[[.735,.073],[.89,.073]],8,"b38b51",.5);
     turned(0,0,[[.86,.10],[.89,.16],[.95,.16],[.98,.09]],8,"e0be7b",.50);
   });
-  const props = { deckBase, leaves, bellBase, dome, plunger };
+  const props = { deckShadow, bellShadow, deckBase, leaves, bellBase, dome, plunger };
   const shadowStart=vertices.length;
   for (const [radius,color,height] of [[.94,"473022",1.534],[.66,"362820",1.536]]) {
     const rim=Array.from({length:14},(_,i)=>{
