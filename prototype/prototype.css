@@ -23,7 +23,6 @@ button:focus-visible, a:focus-visible { outline: 3px solid #d75f36; outline-offs
 .arena { position: relative; isolation: isolate; overflow: clip; }
 .stage {
   position: relative;
-  isolation: isolate;
   display: grid;
   grid-template-columns: 1fr minmax(195px, .76fr) 1fr;
   align-items: center;
