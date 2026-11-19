@@ -64,7 +64,7 @@ window.PORTFOLIO_CONTENT = {
     {
       "id": "scroll-of-phantom-city",
       "number": "01",
-      "category": "UE5 / 已完成",
+      "category": "UE5",
       "title": "幽都绘卷",
       "short": "一款以中国神话氛围为背景的 2D 类银河恶魔城项目，聚焦战斗状态机、敌人 AI 与空间引导。",
       "intro": "使用 Unreal Engine 5 开发。项目包含近战、消耗资源的远程攻击、闪避与跳劈等角色状态，并结合敌人行为树、探索路线和叙事道具构建关卡体验。",
@@ -230,7 +230,7 @@ window.PORTFOLIO_CONTENT = {
     {
       "id": "forging-simulator",
       "number": "02",
-      "category": "UE5 VR / 已完成",
+      "category": "UE5 VR",
       "title": "锻刀模拟器（VR）",
       "short": "一款以完整锻刀流程为核心的 VR 模拟器项目，从选取图纸、加热锻打到组装与试刀。",
       "intro": "使用 Unreal Engine 5 开发，主要探索 VR 制作流程。玩家可选择刀型图纸与钢材，完成加热、锻打、打磨、刀柄组装与劈砍试刀。",
@@ -382,7 +382,7 @@ window.PORTFOLIO_CONTENT = {
     {
       "id": "yellow-river-cleaner",
       "number": "03",
-      "category": "UNITY / 已完成",
+      "category": "UNITY",
       "title": "黄河清扫员",
       "short": "NCDA 未来设计师参赛作品；以类《杀戮尖塔》战斗流程为参照，探索模块化与表格化卡牌配置。",
       "intro": "使用 Unity 开发。项目以卡牌战斗流程为核心，并通过模块化、表格化配置支持快速调整或创建不同数值的卡牌。",
@@ -529,7 +529,7 @@ window.PORTFOLIO_CONTENT = {
     {
       "id": "greedy-ghost",
       "number": "04",
-      "category": "UNITY / 已完成",
+      "category": "UNITY",
       "title": "贪婪幽灵",
       "short": "一个围绕“同时旋转书架”展开的解谜小游戏 DEMO，玩家需要判断旋转是否会阻断道路。",
       "intro": "使用 Unity 开发。当前原型中，玩家可同时旋转所有带有蓝色发光书本的书架，需要提前考虑路径是否会被遮挡。",
@@ -648,7 +648,7 @@ window.PORTFOLIO_CONTENT = {
     {
       "id": "infinite-elevator",
       "number": "05",
-      "category": "UNITY / 已完成",
+      "category": "UNITY",
       "title": "无限电梯",
       "short": "一款在不断下降的电梯中完成即时反应挑战的小游戏 DEMO，结合区域判定、生命值、分数与随机因素。",
       "intro": "使用 Unity 开发。玩家每到达一层，都需要在限定时间内将指针停在绿色区域；红色区域或超时会直接失败，黄色区域扣除生命值，蓝色区域可恢复生命值。",
@@ -794,7 +794,7 @@ window.PORTFOLIO_CONTENT = {
     {
       "id": "mind-museum",
       "number": "06",
-      "category": "UNITY / 已完成",
+      "category": "UNITY",
       "title": "心灵博物馆",
       "short": "一款在随机房间中寻找文物、阅读描述并将文物放置到对应展台的探索与匹配游戏。",
       "intro": "使用 Unity 开发。随机地图中会生成没有名称的文物和对应描述；描述中包含名称与特征，玩家需要找到指定文物并放置到正确展台。",
@@ -952,7 +952,7 @@ window.PORTFOLIO_CONTENT = {
     {
       "id": "so-we-set-off",
       "number": "07",
-      "category": "UNITY / 已完成",
+      "category": "UNITY",
       "title": "So, we set off",
       "short": "一款将三消资源积累与回合制战斗结合的 Unity 原型，拥有模块化敌人与技能配置。",
       "intro": "玩家在类似《杀戮尖塔》的路径地图上进入节点战斗。每回合拥有指定步数；在棋盘中消除元素可触发伤害、治疗、恢复和冻结等效果，也可积累资源释放技能。",

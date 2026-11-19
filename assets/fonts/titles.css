@@ -1,0 +1,20 @@
+/* Fusion Pixel 12px Proportional, Simplified Chinese. See LICENSE.txt. */
+@font-face {
+  font-family: "Fusion Pixel";
+  src: url("./fusion-pixel-12-zh-hans.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+:root {
+  --title-font: "Fusion Pixel", "Microsoft YaHei", sans-serif;
+}
+
+/* Keep display lettering in the warm paper palette of the table. */
+:root {
+  --title-paper: #efe1c6;
+  --title-edge: 1px 1px 0 #705235;
+}
+
+.brand-mark { display: inline-block; flex: none; width: 40px; height: 40px; background: url("../ghost-mark.png") center / contain no-repeat; image-rendering: pixelated; }

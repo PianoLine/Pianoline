@@ -3,6 +3,11 @@ window.normalizePortfolio = function (value) {
   data.posts = Array.isArray(data.posts) ? data.posts : [];
   for (const post of data.posts) { post.blocks = Array.isArray(post.blocks) ? post.blocks : []; post.visible = post.visible !== false; }
   for (const project of data.projects || []) {
+    // Earlier saves included completion as a slash-separated category tag.
+    project.category = String(project.category || "").split(/\s*[/／|｜]\s*/)
+      .map(tag => tag.trim())
+      .filter(tag => tag && !/^(?:已完成|未完成|已完结|开发中|进行中|待完成|已完成项目|未完成项目|completed?|unfinished|in progress|wip)$/i.test(tag))
+      .join(" / ");
     const oldTeam = (project.meta || []).find(item => /人数|制作人数/.test(item.label));
     project.teamSize = project.teamSize ?? oldTeam?.value ?? "待填写";
     project.multiplayer = project.multiplayer ?? /团队|多人/.test(project.teamSize);

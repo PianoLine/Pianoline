@@ -8,7 +8,7 @@
       content = JSON.parse(localStorage.getItem("portfolio-editor-draft-v2")) || content;
     } catch (_) { /* The published content is available offline. */ }
   }
-  const projects = content.projects || [];
+  const projects = window.normalizePortfolio(content).projects || [];
   const deck = projects.map((_, i) => i);
   const hand = deck.splice(0, 3);
   const get = id => document.getElementById(id);
@@ -50,6 +50,7 @@
     card.className = "card";
     card.dataset.id = id;
     card.dataset.tone = id % 3;
+    card.setAttribute("aria-keyshortcuts", "Delete");
     card.setAttribute("aria-label", "查看 " + project.title);
     card.innerHTML = '<span class="folio" aria-hidden="true"><span></span><span>✦</span></span><span class="card-image" aria-hidden="true"></span><b></b><small class="card-type"></small>';
     card.querySelector(".folio span").textContent = project.number || String(id + 1).padStart(2, "0");
@@ -64,12 +65,7 @@
       img.src = new URL(cardImage, homeUrl).href;
       card.querySelector(".card-image").append(img);
     }
-    const back = document.createElement("button");
-    back.className = "return-card";
-    back.textContent = "放回";
-    back.setAttribute("aria-label", "将 " + project.title + " 放回牌库");
-    back.onclick = event => putBack(id, event.detail === 0);
-    face.append(card, back);
+    face.append(card);
     wrap.append(face);
     return wrap;
   }
@@ -292,8 +288,14 @@
     const card = event.target.closest(".card");
     if (card && event.detail === 0) attack(Number(card.dataset.id));
   });
+  tray.addEventListener("keydown", event => {
+    const card = event.target.closest(".card");
+    if (card && event.key === "Delete" && !event.repeat) {
+      event.preventDefault();
+      putBack(Number(card.dataset.id), true);
+    }
+  });
   tray.addEventListener("pointerdown", event => {
-    if (event.target.closest(".return-card")) return;
     const card = event.target.closest(".card-wrap")?.querySelector(".card");
     if (!card || pointer || locked || !event.isPrimary || event.button !== 0) return;
     pointer = { card, id: event.pointerId, x: event.clientX, y: event.clientY, clone: null };
