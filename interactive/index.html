@@ -11,15 +11,15 @@
     if (display.has("embed")) document.documentElement.classList.add("embedded");
   </script>
   <link rel="stylesheet" href="../assets/fonts/titles.css?v=pixel-table-3">
-  <link rel="stylesheet" href="prototype.css?v=global-music">
-  <link rel="stylesheet" href="../assets/site-music.css?v=global-music">
+  <link rel="stylesheet" href="prototype.css?v=brass-mirror">
+  <link rel="stylesheet" href="../assets/site-music.css?v=random-record">
 </head>
 <body>
   <header class="standalone"><a href="../index.html"><span class="brand-mark" aria-hidden="true"></span>PIANOLILNE</a><div class="site-music"></div><nav aria-label="页面导航"><a href="../index.html#about">简介</a><a href="../index.html#projects">项目</a><a href="../index.html#updates">动态</a><a href="../index.html#contact">联系</a></nav></header>
   <main class="arena" id="arena">
     <div class="audio-controls" role="group" aria-label="声音设置">
     <button id="sound-toggle" class="sound-toggle" type="button" tabindex="-1" aria-label="牌桌音效" aria-pressed="false" hidden>
-      <i class="speaker" aria-hidden="true"></i><span class="sound-state">音效 关</span>
+      <i class="speaker" aria-hidden="true"></i><span class="sound-state">点击开启音效</span>
     </button>
     </div>
     <section class="stage" aria-labelledby="title">
@@ -35,7 +35,7 @@
     </section>
     <div class="encounter">
         <button tabindex="-1" class="ghost" id="ghost" type="button" aria-label="和小幽灵聊天，或把作品卡拖给她">
-          <span class="speech" id="speech" aria-hidden="true"></span>
+          <span class="speech" id="speech" aria-hidden="true" hidden></span>
           <span class="ghost-portrait" aria-hidden="true">
             <span class="portrait-layer portrait-ink"><img src="art/celadon-ghost.png?v=eyelids" width="128" height="128" alt="" draggable="false"></span>
             <span class="portrait-layer warm-left"></span>
@@ -45,7 +45,7 @@
           <span class="hit" aria-hidden="true"></span>
         </button>
     </div>
-    <span class="ghost-voice" id="ghost-voice" role="status" aria-atomic="true">看看你手里的卡牌吧</span>
+    <span class="ghost-voice" id="ghost-voice" role="status" aria-atomic="true"></span>
     <div class="scene-edges" aria-hidden="true"></div>
     <section class="table" aria-label="作品手牌">
       <div class="table-inner">
@@ -73,11 +73,11 @@
   <script src="../assets/schema.js?v=playlist"></script>
   <script src="../assets/playlist-files.js"></script>
   <script src="../assets/site-content.js?v=pixel-table-3"></script>
-  <script src="cabin-mesh.js?v=reading-light"></script>
-  <script src="cabin-view.js?v=reading-light"></script>
+  <script src="cabin-mesh.js?v=brass-mirror"></script>
+  <script src="cabin-view.js?v=brass-mirror"></script>
   <script src="ghost-idle.js?v=portrait-layers"></script>
-  <script src="table-audio.js?v=desk-books"></script>
-  <script src="../assets/site-music.js?v=global-music"></script>
-  <script src="prototype.js?v=global-music"></script>
+  <script src="table-audio.js?v=first-gesture"></script>
+  <script src="../assets/site-music.js?v=unique-records"></script>
+  <script src="prototype.js?v=speech-timeout"></script>
 </body>
 </html>

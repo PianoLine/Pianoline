@@ -126,7 +126,7 @@
     const workingScene = local && new URLSearchParams(location.search).get("scene") === "prototype";
     const sceneDir = workingScene ? "prototype" : "interactive";
     // Reload the local work-in-progress entry on each visit so it supplies current asset versions.
-    const sceneVersion = workingScene ? Date.now().toString(36) : "global-music";
+    const sceneVersion = workingScene ? Date.now().toString(36) : "table-first-frame";
     const navigationType = performance.getEntriesByType("navigation")[0]?.type;
     // Portfolio links back to the home page target one of its sections.
     const resumeTable = returning || navigationType === "back_forward" ||
@@ -152,7 +152,7 @@
     ].filter(Boolean).join("");
     const videoNote = contactRows || `<p class="section-intro">联系方式与简历链接待本人补充。</p>`;
 
-    root.innerHTML = `<main id="top"><section class="interactive-hero" aria-label="互动作品集"><h1 class="interactive-intro">${escapeHtml(profile.name || "")} · ${escapeHtml(profile.headline || "游戏与交互作品集")}</h1><iframe class="interactive-frame" title="作品卡与小幽灵" src="${sceneDir}/index.html?embed=1&v=${sceneVersion}${resumeTable ? "&resume=1" : ""}${previewQuery ? "&preview=1" : ""}"></iframe></section>${aboutSection}<section class="section" id="projects"><div class="container"><div class="section-head reveal"><div><h2 class="section-title">项目案例</h2></div><p class="section-intro">${escapeHtml(home.projectsIntro || "")}</p></div><div class="project-grid">${projects.map(projectCard).join("")}</div></div></section><section class="section" id="updates"><div class="container"><div class="section-head"><div><h2 class="section-title">动态与开发日志</h2></div><a class="button" href="posts.html${previewQuery}">查看全部 ↗</a></div><div class="post-grid">${visiblePosts().slice(0,3).map(postCard).join("") || "<p class=\"section-intro\">还没有发布动态，敬请期待。</p>"}</div></div></section><section class="section" id="contact"><div class="container"><div class="contact-card reveal"><div><h2>${escapeHtml(contact.heading || "联系方式与简历")}</h2>${contact.intro ? `<p>${escapeHtml(contact.intro)}</p>` : ""}</div><div class="contact-list">${videoNote}</div></div></div></section></main>${renderFooter("")}`;
+    root.innerHTML = `<main id="top"><section class="interactive-hero" aria-label="互动作品集"><h1 class="interactive-intro">${escapeHtml(profile.name || "")} · ${escapeHtml(profile.headline || "游戏与交互作品集")}</h1><iframe class="interactive-frame" allow="autoplay" title="作品卡与小幽灵" src="${sceneDir}/index.html?embed=1&v=${sceneVersion}${resumeTable ? "&resume=1" : ""}${previewQuery ? "&preview=1" : ""}"></iframe></section>${aboutSection}<section class="section" id="projects"><div class="container"><div class="section-head reveal"><div><h2 class="section-title">项目案例</h2></div><p class="section-intro">${escapeHtml(home.projectsIntro || "")}</p></div><div class="project-grid">${projects.map(projectCard).join("")}</div></div></section><section class="section" id="updates"><div class="container"><div class="section-head"><div><h2 class="section-title">动态与开发日志</h2></div><a class="button" href="posts.html${previewQuery}">查看全部 ↗</a></div><div class="post-grid">${visiblePosts().slice(0,3).map(postCard).join("") || "<p class=\"section-intro\">还没有发布动态，敬请期待。</p>"}</div></div></section><section class="section" id="contact"><div class="container"><div class="contact-card reveal"><div><h2>${escapeHtml(contact.heading || "联系方式与简历")}</h2>${contact.intro ? `<p>${escapeHtml(contact.intro)}</p>` : ""}</div><div class="contact-list">${videoNote}</div></div></div></section></main>${renderFooter("")}`;
   }
 
   window.addEventListener("message", event => {
@@ -161,6 +161,11 @@
     // Chromium serializes messages from local files as "null", even when location.origin is "file://".
     const localFile = location.protocol === "file:" && event.origin === "null";
     if (!localFile && event.origin !== location.origin) return;
+    if (event.data?.type === "portfolio-table-ready") {
+      frame.dataset.ready = "true";
+      window.dispatchEvent(new Event("portfolio-table-ready"));
+      if (navigator.userActivation?.hasBeenActive) frame.contentWindow.postMessage({type:"portfolio-audio-unlock"}, "*");
+    }
     if (event.data?.type === "portfolio-table-height" && Number.isFinite(event.data.height)) {
       frame.style.height = Math.min(Math.max(event.data.height, 200), 5000) + "px";
     }
@@ -169,6 +174,12 @@
       document.getElementById(event.data.section)?.scrollIntoView();
     }
   });
+
+  function unlockTableAudio(event) {
+    if (!event.isTrusted) return;
+    document.querySelector(".interactive-frame")?.contentWindow?.postMessage({type:"portfolio-audio-unlock"}, "*");
+  }
+  for (const input of ["pointerdown", "click", "keydown"]) document.addEventListener(input, unlockTableAudio, true);
 
   function cardsMarkup(cards, className) {
     return `<div class="${className}">${(cards || []).map(card => `<article class="${className === "role-grid" ? "role-card" : "text-block"}"><b>${escapeHtml(card.title)}</b><p>${escapeHtml(card.text)}</p></article>`).join("")}</div>`;

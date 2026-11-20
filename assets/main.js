@@ -35,7 +35,7 @@ window.initSiteEffects = function initSiteEffects() {
     { opacity: .8, backgroundColor: "rgba(16, 16, 15, .25)", offset: .55 },
     { opacity: 1, backgroundColor: "#10100f" }
   ];
-  let curtain, readyTimer;
+  let curtain, readyTimer, revealWhenReady;
   function cover() {
     curtain = document.createElement("div");
     curtain.className = "table-return-curtain";
@@ -45,16 +45,16 @@ window.initSiteEffects = function initSiteEffects() {
   }
   function clear() {
     clearTimeout(readyTimer);
+    revealWhenReady = null;
     if (!curtain) return;
     curtain.getAnimations().forEach(animation => animation.cancel());
     curtain.remove();
     curtain = null;
   }
   window.addEventListener("pagehide", () => {
-    clear();
     if (!atHome()) {
       try { sessionStorage.setItem(key, "1"); } catch { /* Storage is optional. */ }
-    }
+    } else clear();
   });
 
   document.addEventListener("click", async event => {
@@ -73,6 +73,7 @@ window.initSiteEffects = function initSiteEffects() {
 
   function startReturn(cached, returning = false) {
     if (!atHome()) return;
+    if (returning && location.hash && location.hash !== "#top") { clear(); return; }
     const navigation = performance.getEntriesByType("navigation")[0];
     let fromPortfolio = false;
     try {
@@ -94,13 +95,17 @@ window.initSiteEffects = function initSiteEffects() {
       const fade = layer.animate(tones, {duration: 420, direction: "reverse", easing: "ease-in", fill: "both"});
       fade.onfinish = clear;
     };
-    if (cached) { reveal(); return; }
     const frame = document.querySelector(".interactive-frame");
-    frame?.addEventListener("load", reveal, {once: true});
-    readyTimer = setTimeout(reveal, 650);
+    if (cached || frame?.dataset.ready === "true") { reveal(); return; }
+    revealWhenReady = reveal;
+    // Leave the homepage usable even if an embedded resource fails completely.
+    readyTimer = setTimeout(reveal, 6000);
   }
+  window.addEventListener("portfolio-table-ready", () => revealWhenReady?.());
   window.addEventListener("portfolio-home-return", () => startReturn(false, true));
-  // site.js creates the table frame synchronously before DOMContentLoaded.
-  document.addEventListener("DOMContentLoaded", () => startReturn(false), {once: true});
-  window.addEventListener("pageshow", event => { if (event.persisted) startReturn(true); });
+  // Cover a native return before site.js mounts the iframe and starts loading its assets.
+  startReturn(false);
+  window.addEventListener("pageshow", event => {
+    if (event.persisted) { clear(); startReturn(true); }
+  });
 })();

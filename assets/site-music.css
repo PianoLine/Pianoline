@@ -1,4 +1,14 @@
 .site-music { display: flex; align-items: center; gap: 3px; margin-inline-start: auto; }
+.site-music .track-info { order: -1; width: clamp(190px, 21vw, 320px); min-width: 0; margin-inline-end: 10px; }
+.site-music .now-playing {
+  display: block; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; color: #d6c39f;
+  font: 400 15px/1.4 var(--title-font);
+}
+.track-timeline { display: flex; align-items: center; gap: 8px; }
+.track-time { color: #c3b49a; white-space: nowrap; font: 12px/1.2 monospace; font-variant-numeric: tabular-nums; }
+.site-music .track-seek { flex: 1; min-width: 0; height: 16px; margin: 0; accent-color: #dbba7c; cursor: pointer; }
+.site-music .track-seek:disabled { opacity: .5; cursor: default; }
 .site-music button {
   display: inline-flex; gap: 6px; align-items: center; justify-content: center;
   min-height: 32px; padding: 4px 9px; white-space: nowrap;
@@ -7,17 +17,14 @@
 }
 .site-music button:enabled:is(:hover, :focus-visible), .site-music [aria-pressed="true"] { color: #ffe5b0; border-color: #b7945c; }
 .site-music button:disabled { color: #aa9e88; cursor: default; }
-.site-music .track-controls { display: inline-flex; gap: 2px; }
 .site-music [hidden], .site-music audio { display: none; }
-.site-music [data-step] { width: 30px; padding: 0; }
-.site-music [data-step] i { width: 11px; height: 9px; background: currentColor; clip-path: polygon(0 0,75% 42%,75% 0,100% 0,100% 100%,75% 100%,75% 58%,0 100%); }
-.site-music [data-step="-1"] i { transform: scaleX(-1); }
 .standalone .site-music { margin-inline-end: 14px; }
-@media (max-width: 640px) {
+@media (max-width: 720px) {
+  .topbar-inner .site-music, .standalone .site-music { order: 3; flex: 1 0 100%; margin: 0; padding-bottom: 5px; }
+  .site-music .track-info { flex: 1; margin-inline-end: 6px; }
+  .site-music .now-playing { font-size: 13px; }
   .site-music .music-toggle { padding: 4px 6px; gap: 0; }
   .site-music .music-state { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   .site-music .music-note { min-width: 16px; }
-  .site-music [data-step] { width: 24px; }
   .topbar-inner, .standalone { flex-wrap: wrap; }
-  .standalone .site-music { margin-inline-end: 4px; }
 }

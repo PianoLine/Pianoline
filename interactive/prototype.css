@@ -67,6 +67,8 @@ a:focus-visible { outline: 3px solid #d75f36; outline-offset: 4px; }
   left: var(--pose-x, 0%); top: var(--pose-y, 0%);
 }
 .portrait-ink { filter: brightness(calc(.13 + .73 * var(--portrait-light, 1))) sepia(calc(.12 + .22 * var(--portrait-light, 1))); }
+.encounter[data-skin="garnet"] .portrait-ink > img:first-child { content: url("art/garnet-ghost.png"); }
+.encounter[data-skin="garnet"] .portrait-ink > .idle-sheet { content: url("art/garnet-idle.png"); }
 .ghost-portrait :is(.warm-left,.warm-right) { mix-blend-mode: soft-light; }
 .ghost-portrait :is(.warm-left,.warm-right) img { filter: brightness(0) invert(78%) sepia(61%) saturate(790%) hue-rotate(326deg); }
 .warm-left { opacity: var(--warm-left, .22); mask-image: linear-gradient(95deg, black, transparent 48%); }
@@ -258,12 +260,19 @@ a:focus-visible { outline-color: #f5b55f; }
   position: absolute; padding: 0; border: 0;
   background: transparent; cursor: pointer;
 }
-.prop-outline.book-outline, .prop-outline.candle-outline {
+.prop-outline.book-outline, .prop-outline.candle-outline, .prop-outline.gram-outline, .prop-outline.mirror-outline {
   inset: auto; width: var(--prop-width); height: var(--prop-height);
   transform: translateX(-50%); z-index: 3;
 }
 .modeled .opening { filter: brightness(calc(.39 + .61 * var(--candle-light, 1))); }
 .book-spine { z-index: 2; }
+.book-guard { position: absolute; z-index: 2; }
+.gramophone, .wall-mirror {
+  position: absolute; z-index: 2;
+  border: 0; padding: 0; background: transparent; cursor: pointer;
+}
+.gramophone:disabled { cursor: default; }
+.horn-note { position: absolute; top: 0; left: 0; z-index: 1; pointer-events: none; image-rendering: pixelated; }
 .prop-outline.book-outline { z-index: 3; }
 /* Hand cards and body-level animation copies share the room light. Light each
    surface once so the printed face, back and stock keep their 3D depth. */
@@ -397,7 +406,7 @@ a:focus-visible { outline-color: #f5b55f; }
 
 /* Keep instructions next to the object without covering the point being clicked. */
 .deck { position: relative; }
-.deck .prop-tip, .end .prop-tip, .shuffle .prop-tip {
+.deck .prop-tip, .end .prop-tip, .shuffle .prop-tip, .gram-tip {
   position: absolute; z-index: 1; bottom: calc(100% + 7px); left: 50%;
   transform: translateX(calc(-50% + var(--tip-shift, 0px)));
   display: grid; gap: 2px; width: max-content; max-width: 146px; padding: 7px 12px;
@@ -408,8 +417,10 @@ a:focus-visible { outline-color: #f5b55f; }
 .prop-tip::after { content: ""; position: absolute; top: 100%; left: 0; width: 100%; height: 8px; }
 .prop-tip b { font-size: 15px; }
 .prop-tip small { color: #dac7a5; font: 12px/1.4 var(--title-font); }
+.gram-tip { bottom: auto; z-index: 6; transform: translate(-50%,calc(-100% - 7px)); font-size: 15px; }
 @media (hover: hover) {
   :is(.deck,.end,.shuffle):hover .prop-tip { visibility: visible; opacity: 1; pointer-events: auto; }
+  .gramophone:enabled:hover + .gram-tip { visibility: visible; opacity: 1; }
 }
 .deck:is(.over,.returning) .prop-tip { visibility: hidden; opacity: 0; pointer-events: none; }
 .control-art { position: relative; }

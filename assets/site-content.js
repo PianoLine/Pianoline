@@ -1,34 +1,34 @@
 window.PORTFOLIO_CONTENT = {
   "meta": {
-    "siteTitle": "潘厚霖｜游戏设计",
+    "siteTitle": "PIANOLINE",
     "templateMode": false,
     "year": "2026"
   },
   "theme": {
-    "accent": "#a64a32",
-    "accentLight": "#f18b67",
-    "teal": "#365e5c",
-    "cardColumns": 3,
-    "maxWidth": 2100,
+    "accent": "#d3a062",
+    "accentLight": "#f3cd96",
+    "teal": "#a6d8cc",
+    "cardColumns": 2,
+    "maxWidth": 1240,
     "sectionSpace": 104,
     "cardStyle": "immersive",
-    "homeMaxWidth": 2100
+    "homeMaxWidth": 1760
   },
   "profile": {
-    "name": "PIANOLINE",
-    "eyebrow": "Game Designer / Systems Designer",
-    "headline": "游戏与交互",
+    "name": "Pianoline",
+    "eyebrow": "System Designer",
+    "headline": "GAME DESIGN",
     "intro": "",
     "heroImage": "assets/media/portfolio-docx/image3.png",
     "heroImageAlt": "《幽都绘卷》项目展示图",
-    "profileTitle": "游戏玩法设计 / 系统设计 / 技术设计",
+    "profileTitle": "游戏玩法策划 / 系统策划 ",
     "profileCopy": "硕士毕业于格拉斯哥大学（University of Glasgow）\n关注游戏玩法、交互与系统设计，擅长通过 Unity 和 Unreal Engine 5 搭建原型，把想法转化为可以体验和验证的内容。",
     "tags": [
       "Unity",
       "Unreal Engine 5",
-      "VR 交互",
-      "玩法系统",
-      "关卡与 AI"
+      "系统策划",
+      "关卡策划",
+      "AI"
     ],
     "facts": []
   },
@@ -178,8 +178,7 @@ window.PORTFOLIO_CONTENT = {
       "video": {
         "label": "演示视频",
         "note": "",
-        "url": "https://youtu.be/bar5t6Jo_HI",
-        "file": "assets/media/videos/scroll-of-phantom-city.mp4"
+        "url": "https://youtu.be/bar5t6Jo_HI"
       },
       "reflection": {
         "label": "05 / Responsibilities",
@@ -255,7 +254,6 @@ window.PORTFOLIO_CONTENT = {
       ],
       "cover": {
         "src": "assets/media/portfolio-docx/image5.png",
-        "cardSrc": "assets/media/forging-card.webp",
         "alt": "《锻刀模拟器》项目展示图"
       },
       "purpose": {
@@ -339,8 +337,7 @@ window.PORTFOLIO_CONTENT = {
       "video": {
         "label": "演示视频",
         "note": "",
-        "url": "https://youtu.be/WQ4W-9gLJy4",
-        "file": "assets/media/videos/forging-simulator.mp4"
+        "url": "https://youtu.be/WQ4W-9gLJy4"
       },
       "reflection": {
         "label": "05 / CURRENT STATUS",
@@ -490,8 +487,7 @@ window.PORTFOLIO_CONTENT = {
       "video": {
         "label": "演示视频",
         "note": "",
-        "url": "https://youtu.be/kLExD3jrNrs",
-        "file": "assets/media/videos/yellow-river-cleaner.mp4"
+        "url": "https://youtu.be/kLExD3jrNrs"
       },
       "reflection": {
         "label": "05 / CURRENT STATUS",
@@ -622,8 +618,7 @@ window.PORTFOLIO_CONTENT = {
       "video": {
         "label": "演示视频",
         "note": "",
-        "url": "https://youtu.be/6eprPL_2eqI",
-        "file": "assets/media/videos/greedy-ghost.mp4"
+        "url": "https://youtu.be/6eprPL_2eqI"
       },
       "reflection": {
         "label": "05 / NEXT STEP",
@@ -1119,8 +1114,12 @@ window.PORTFOLIO_CONTENT = {
   "posts": [],
   "playlist": [
     {
-      "title": "Eluvium - The Well-Meaning Professor",
+      "title": "mwoytxpi-6skbjk-Eluvium---The-Well-Meaning-Professor",
       "src": "assets/media/music/mwoytxpi-6skbjk-Eluvium---The-Well-Meaning-Professor.mp3"
+    },
+    {
+      "title": "my head is empty - i was only temporary 2 u (1)",
+      "src": "assets/media/music/my head is empty - i was only temporary 2 u (1).mp3"
     }
   ]
 };

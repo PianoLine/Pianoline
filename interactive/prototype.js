@@ -54,21 +54,49 @@
   const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
   const speech = get("speech");
   const voice = get("ghost-voice");
-  const greeting = voice.textContent;
   const segmenter = typeof Intl.Segmenter === "function" ? new Intl.Segmenter("zh") : null;
   let farewell = false, spokenLine = "", speechFrame = 0;
-  let welcomeTimer;
+  let welcomeTimer, dismissTimer, speechFade;
   let speechVisible = true;
-  function say(text, leaving = false, audible = true) {
+  function cancelDismissal() {
+    clearTimeout(dismissTimer);
+    dismissTimer = undefined;
+    speechFade?.cancel();
+    speechFade = undefined;
+  }
+  function holdSpeech() {
+    cancelDismissal();
+    const readingTime = Math.min(6500, Math.max(3000, spokenLine.length * 210));
+    dismissTimer = setTimeout(() => {
+      if (reduced() || !speech.animate) return clearSpeech();
+      speechFade = speech.animate([{opacity: 1}, {opacity: 0}], {duration: 200, fill: "forwards"});
+      speechFade.onfinish = () => { if (speechFade?.playState === "finished") clearSpeech(); };
+    }, readingTime);
+  }
+  function clearSpeech() {
+    clearTimeout(welcomeTimer);
+    cancelAnimationFrame(speechFrame);
+    cancelDismissal();
+    farewell = false;
+    voice.textContent = speech.textContent = "";
+    speech.hidden = true;
+  }
+  function say(text, leaving = false) {
     clearTimeout(welcomeTimer);
     farewell = leaving;
-    if (text === spokenLine) return 0;
+    if (!speech.hidden && text === spokenLine) {
+      if (dismissTimer !== undefined) holdSpeech();
+      return 0;
+    }
+    cancelDismissal();
     spokenLine = text;
+    speech.hidden = false;
     voice.textContent = text;
     cancelAnimationFrame(speechFrame);
     if (reduced() || document.hidden) {
       speech.textContent = text;
-      if (audible && speechVisible) tableAudio.glyph(text[0]);
+      if (speechVisible) tableAudio.glyph(text[0]);
+      holdSpeech();
       return 0;
     }
     speech.replaceChildren();
@@ -90,17 +118,16 @@
         glyph.textContent = glyphs[index++];
         speech.append(glyph);
       }
-      if (index > previous && audible && speechVisible) tableAudio.glyph(glyphs[index - 1]);
+      if (index > previous && speechVisible) tableAudio.glyph(glyphs[index - 1]);
       if (index < glyphs.length) speechFrame = requestAnimationFrame(reveal);
+      else holdSpeech();
     }
     reveal(began);
     return (starts.at(-1) || 0) + 140;
   }
-  if (resumeTable) {
-    say(greeting);
-  } else {
-    const lineTime = say("这里是我的小屋");
-    welcomeTimer = setTimeout(() => say(greeting), lineTime + 1100);
+  if (!resumeTable) {
+    const lineTime = say("新的访客？");
+    welcomeTimer = setTimeout(() => say("看看你的手牌吧"), lineTime + 1100);
   }
   function randomLine(lines) {
     const choices = lines.filter(line => line !== spokenLine);
@@ -108,25 +135,27 @@
   }
   arena.addEventListener("candle-toggle", ({ detail: { lit, count, total } }) => {
     if (farewell) return;
-    if (!lit && count === total - 2) say("我喜欢这个感觉");
-    if (!lit && count === 0) say("啊哈哈哈！现在我可是“黑暗之魂”");
+    if (!lit && count === total - 2) say("你也是夜猫子？");
+    if (!lit && count === 0) say("小心晚上会有喜欢在黑暗之魂出没");
     if (lit && count === 3) say("你怎么又给弄亮了…");
     if (lit && count === total) say("呃呃…好刺眼…");
   });
   arena.addEventListener("mousedown", event => {
     if (event.button === 0 && event.target.closest("button")) event.preventDefault();
   });
-  function restoreGreeting() {
-    if (farewell) say(greeting, false, false);
+  function clearFarewell() {
+    if (farewell) clearSpeech();
   }
   new IntersectionObserver(([entry]) => {
     speechVisible = entry.isIntersecting;
-    if (!speechVisible) restoreGreeting();
-  }).observe(speech);
-  window.addEventListener("pagehide", restoreGreeting);
+    if (!speechVisible) clearFarewell();
+  }).observe(ghost);
+  window.addEventListener("pagehide", clearSpeech);
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) restoreGreeting();
+    if (document.hidden) clearFarewell();
   });
+  arena.addEventListener("book-pull", () => { if (!farewell) say("想看看书？"); });
+  arena.addEventListener("record-change", () => { if (!farewell) say("换一首曲子"); });
   let locked = true;
   let pointer = null;
 
@@ -352,7 +381,7 @@
     if (hand.length >= 5) return say("游戏王的卡牌上限有6张，但是我们不是游戏王");
     if (!deck.length) return say("这个时候应该出现一个冒骷髅头的牌");
     locked = true;
-    try { await dealOne(); say("神之一手！…我是说魂之一手"); }
+    try { await dealOne(); say(randomLine(["我知道有很多人类非常热衷于抽卡", "新的卡牌也就意味着新的可能性"])); }
     finally { locked = false; }
   };
   function cardCorners(element, transformedElement) {
@@ -489,7 +518,7 @@
       arena.dispatchEvent(new Event("deck-shuffle"));
       if (!reduced()) await new Promise(resolve => setTimeout(resolve, 330));
       await dealHand();
-      say("并非时间倒流");
+      say(randomLine(["并非时间倒流", "也许这玩意旁边该放点小刀？"]));
     } finally {
       arena.classList.remove("shuffling");
       shuffleButton.removeAttribute("aria-busy");
@@ -540,6 +569,7 @@
         {transform: "perspective(900px) translate(" + x + "px," + y + "px) rotateY(0deg) scale(" + zoom + ")"}
       ], {duration: Math.max(345, lineTime + 75), fill: "forwards"}).finished;
 
+      tableAudio.play("card-open");
       const art = liftedCard.querySelector(".card-image");
       const frame = art.getBoundingClientRect();
       // The artwork crosses the iframe edge so the header also disappears into the picture.
@@ -612,9 +642,9 @@
     const url = new URL(window.portfolioProjectPath(project, preview), homeUrl);
 
     if (!delivered) {
-      tableAudio.play("lift");
       const lineTime = say(randomLine(["拜拜~", "神秘的传送魔法"]), true);
       if (reduced() || !source.animate) {
+        tableAudio.play("card-open");
         projectExitTimer = setTimeout(() => navigate(url), Math.max(330, lineTime + 120));
       } else {
         enterCard(source, url, lineTime);
@@ -628,7 +658,7 @@
     ghost.querySelector(".hit").textContent = "−" + damage;
     ghost.classList.add("hurt");
     arena.dispatchEvent(new CustomEvent("cabin-hit", {detail: {mode: "drag", damage}}));
-    const lineTime = say(randomLine(["呃啊！我该让你交点罚款…", "有点疼…"]), true);
+    const lineTime = say(randomLine(["有没有人类告诉你这是不礼貌的…", "有点疼…"]), true);
     const transition = get("transition");
     const image = get("transition-image");
     const cover = project.cover?.src || project.cover?.cardSrc;
@@ -639,15 +669,24 @@
     image.hidden = !cover;
     image.onerror = () => { image.hidden = true; };
     if (cover) image.src = new URL(cover, homeUrl).href;
+    const skipFlip = reduced();
+    const flipDelay = Math.max(skipFlip ? 330 : 460, lineTime + 140);
+    if (skipFlip) tableAudio.play("hit-transition", 1, (flipDelay - 245) / 1000);
     projectExitTimer = setTimeout(() => {
-      if (reduced()) { navigate(url); return; }
+      if (skipFlip) { navigate(url); return; }
+      tableAudio.play("hit-transition");
       transition.classList.add("active");
       projectExitTimer = setTimeout(() => {
         try { sessionStorage.setItem("portfolio-card-entry", url.href); } catch (_) {}
         navigate(url);
       }, 480);
-    }, Math.max(reduced() ? 330 : 460, lineTime + 140));
+    }, flipDelay);
   }
+  tray.addEventListener("pointerover", event => {
+    if (locked || pointer || event.buttons || event.pointerType === "touch") return;
+    const wrap = event.target.closest(".card-wrap");
+    if (wrap && !wrap.contains(event.relatedTarget)) tableAudio.play("card-hover");
+  });
   tray.addEventListener("pointerdown", event => {
     const card = event.target.closest(".card-wrap")?.querySelector(".card");
     if (!card || pointer || locked || !event.isPrimary || event.button !== 0) return;
@@ -670,7 +709,7 @@
       pointer.clone.setAttribute("aria-hidden", "true");
       document.body.append(pointer.clone);
       pointer.card.classList.add("dragging");
-      say("不要甩到家具！");
+      say(randomLine(["不要甩到家具", "不要想把牌偷偷藏起来", "不想要的牌可以放回牌组"]));
     }
     pointer.clone.style.left = event.clientX + "px";
     pointer.clone.style.top = event.clientY + "px";
@@ -703,8 +742,8 @@
   }
   ["pointerup", "pointercancel", "lostpointercapture"].forEach(type => tray.addEventListener(type, finish));
   const chatter = [
-    "我要是有实体就自己把蜡烛吹灭了",
-    "别看了，我的袖口可藏不了牌",
+    "把蜡烛吹灭试试？",
+    "这里的留声机放的都是我喜欢的歌",
     "右边那几本书有魔法的力量…",
     "是不是该换个装扮？"
   ];
@@ -715,7 +754,7 @@
     if (locked || pointer) return;
     locked = true;
     arena.dispatchEvent(new Event("ring-bell"));
-    const lineTime = say("回合结束，去看看最新动态吧。", true);
+    const lineTime = say("回合结束了哦", true);
     setTimeout(() => {
       locked = false;
       if (embedded) window.parent.postMessage({ type: "portfolio-section", section: "updates" }, "*");
@@ -730,7 +769,7 @@
   });
   window.addEventListener("pageshow", event => {
     if (!event.persisted) return;
-    say(greeting);
+    clearSpeech();
     if (playingProject) {
       clearPortal();
       leavingThroughPortal = false;
@@ -787,5 +826,11 @@
   }));
   if (embedded) {
     new ResizeObserver(() => window.parent.postMessage({ type: "portfolio-table-height", height: Math.ceil(arena.getBoundingClientRect().height) }, "*")).observe(arena);
+    const firstDraw = arena.classList.contains("modeled") || !arena.querySelector(".cabin-view")
+      ? Promise.resolve() : new Promise(resolve => arena.addEventListener("cabin-painted", resolve, {once:true}));
+    const images = arena.querySelectorAll(".portrait-ink img:first-child, .hand .card-image img");
+    Promise.allSettled([firstDraw, document.fonts.ready, ...Array.from(images, img => img.decode())]).then(() => {
+      requestAnimationFrame(() => requestAnimationFrame(() => window.parent.postMessage({type:"portfolio-table-ready"}, "*")));
+    });
   }
 })();

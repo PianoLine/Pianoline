@@ -45,6 +45,8 @@
     paths.add("interactive/ghost-idle.js");
     paths.add("interactive/art/celadon-idle.png");
     paths.add("interactive/art/celadon-idle-expression.png");
+    paths.add("interactive/art/garnet-ghost.png");
+    paths.add("interactive/art/garnet-idle.png");
     for (const project of draft.projects || []) {
       if (!project.sharedPage) paths.add(window.portfolioProjectPath(project));
     }

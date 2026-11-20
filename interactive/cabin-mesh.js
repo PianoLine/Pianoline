@@ -156,10 +156,10 @@ window.buildCabinMesh = function buildCabinMesh() {
     const ox=-d*.48*Math.sin(yaw), oz=-d*.48*Math.cos(yaw);
     box(x+ox,y+h/2,z+oz,w,h,.07,color,0,yaw);
   }
-  book(-5.02,1.53,1.95,1.30,.81,.18,-.15,"784932");
-  book(-4.96,1.71,1.95,1.14,.76,.16,.08,"5a6750");
-  // Stand the ink bottle on the bare board to the right of both book covers.
-  const inkX=-3.97, inkZ=1.88;
+  book(-5.46,1.53,.48,1.30,.81,.18,-.15,"784932");
+  book(-5.40,1.71,.48,1.14,.76,.16,.08,"5a6750");
+  // Leave bare tabletop between the books, the ink bottle behind them and the player.
+  const inkX=-5.58, inkZ=-.74;
   const inkFoot=Array.from({length:8},(_,i)=>{
     const a=i*Math.PI/4;
     return [inkX+.025+.19*Math.cos(a),1.533,inkZ+.02+.16*Math.sin(a)];
@@ -291,6 +291,54 @@ window.buildCabinMesh = function buildCabinMesh() {
     face([[-.025,.217,.066],[-.021,.217,-.22],[0,.217,-.34],[.021,.217,-.22],[.025,.217,.066]],"3d342b",0,.57);
     turned(0,0,[[.22,.044],[.246,.033]],8,"946430",.6);
   });
+  const gramShadow=contactShadow([[-.55,-.41],[.55,-.41],[.55,.41],[-.55,.41]],-.12,.08);
+  const gramHit=[];
+  const hornMouth=[.19,1.34,.10];
+  const gramBase=part(()=>{
+    slab(1.24,1.01,.02,.11,.09,"4c3327","81593b");
+    slab(1.16,.94,.11,.30,.055,"684534","886344");
+    slab(1.22,.99,.30,.35,.07,"a4814d","534735");
+    turned(-.44,-.29,[[.35,.105],[.41,.11],[.45,.073],[.87,.064]],8,"a78149",.31);
+    // An open, scalloped horn: its throat and widening inner facets are visible from the table.
+    const rings=[[-.44,.81,-.29,.066],[-.40,.94,-.26,.085],[-.31,1.02,-.20,.12],
+      [-.17,1.10,-.12,.19],[.005,1.22,-.025,.32],[...hornMouth,.47]];
+    const sides=12;
+    const ring=([x,y,z,r],inner,lip)=>Array.from({length:sides},(_,i)=>{
+      const a=i*Math.PI*2/sides, scallop=lip && i%2 ? .94 : 1;
+      const u=r*Math.cos(a)*inner*scallop,v=r*Math.sin(a)*inner*scallop;
+      return [x+.73*u-.32*v,y+.89*v,z-.68*u-.34*v];
+    });
+    const outer=rings.map((s,i)=>ring(s,1,i===rings.length-1));
+    const inner=rings.map((s,i)=>ring(s,.93,i===rings.length-1));
+    gramHit.push(...outer[0],...outer.at(-1));
+    for(const x of [-.59,.59]) for(const z of [-.47,.47]) {
+      gramHit.push([x,.02,z],[x,.35,z]);
+    }
+    for(let j=1;j<rings.length;j++) for(let i=0;i<sides;i++){
+      const k=(i+1)%sides;
+      face([outer[j-1][i],outer[j][i],outer[j][k],outer[j-1][k]],i%3===0?"bd9858":"987540",0,.27);
+      face([inner[j-1][k],inner[j][k],inner[j][i],inner[j-1][i]],j<3?"4c3522":i%2?"a47e43":"8c693a",0,.19);
+      if(j===rings.length-1) face([outer[j][i],inner[j][i],inner[j][k],outer[j][k]],"d1ae6d",0,.48);
+    }
+    face(inner[0],"282219");
+    turned(.41,-.28,[[.35,.07],[.55,.055]],8,"9e7c4c");
+    box(.35,.545,-.08,.045,.04,.43,"b09461",0,-.28);
+    box(.29,.51,.12,.082,.075,.075,"a98e60");
+  });
+  const gramRecord=part(()=>{
+    turned(0,0,[[.355,.425],[.375,.44],[.396,.435]],24,"292a28",.36);
+    turned(0,0,[[.397,.135],[.403,.135]],16,"a17442",.43);
+    turned(0,0,[[.405,.025],[.443,.016]],8,"bbac84",.47);
+    // Uneven arc lengths and a paper label mark make slow rotation readable at pixel scale.
+    for(const [r,a,arc] of [[.39,.2,1.0],[.31,.46,.73],[.36,3.5,.54]]){
+      for(let n=0;n<5;n++){
+        const p=(radius,t)=>[radius*Math.cos(t),.398,radius*Math.sin(t)];
+        const t=a+n*arc/5,u=t+arc/5;
+        face([p(r,t),p(r,u),p(r-.012,u),p(r-.012,t)],"6b6759",0,.46);
+      }
+    }
+    box(.072,.407,.02,.058,.006,.025,"e0c48a");
+  });
   // From the right edge, the open shelf faces across the table. The backboard and feet
   // extend behind the books; the low lip leaves a clear path to pull a volume out.
   const bindings=[
@@ -302,14 +350,28 @@ window.buildCabinMesh = function buildCabinMesh() {
   const rowWidth=bindings.reduce((sum,book)=>sum+book.width,0)+bookGap*(bindings.length-1);
   const bookend=rowWidth/2+.15;
   const shelfWidth=2*bookend+.18;
+  // The upright cheeks sit just outside the red and blue covers. Their bevel
+  // and open front leave a strip of binding to catch with the pointer.
+  const guards=bindings.map((book,i)=>{
+    if(i===0) return null;
+    const edge=rowWidth/2-bindings.slice(i+1).reduce((sum,b)=>sum+b.width+bookGap,0);
+    const x=edge+.026, h=i===2 ? .84 : .75, back=-.54, front=.43;
+    const profile=[[.18,back],[h+.18,back],[h+.18,front-.13],[h+.08,front],[.18,front]];
+    return [x,x+.052].map(px=>profile.map(([y,z])=>[px,y,z]));
+  });
   const shelf=part(()=>{
     box(0,.09,-.12,shelfWidth,.18,1.65,"745039",1);
     box(0,.145,.708,shelfWidth+.02,.055,.035,"b08a5a",1);
     box(0,.83,-.85,shelfWidth-.06,1.46,.13,"664838",1);
     box(0,1.57,-.85,shelfWidth+.01,.075,.18,"986e49",1);
-    for(const side of [-1,1]){
-      box(side*bookend,.35,-.06,.085,.44,.80,"765338",2);
-      box(side*bookend,.59,-.26,.085,.12,.41,"967148",1);
+    for(const guard of guards.filter(Boolean)){
+      const [inside,outside]=guard;
+      face(inside,"695039",2);
+      face([...outside].reverse(),"896448",2);
+      for(let i=0;i<inside.length;i++){
+        const j=(i+1)%inside.length;
+        face([inside[i],inside[j],outside[j],outside[i]],i===1||i===2 ? "b58b5b" : "715039",1);
+      }
     }
   });
   let bookLeft=-rowWidth/2;
@@ -338,9 +400,34 @@ window.buildCabinMesh = function buildCabinMesh() {
         box(coverX,height*(.5+edge*.415),0,.008,.018,depth*.80,"ae9168");
       }
     });
-    return {...geometry,offset,width,height,depth,label};
+    return {...geometry,offset,width,height,depth,label,guard:guards[index]?.flat()};
   });
-  const props = { deckShadow, bellShadow, watchShadow, deckBase, leaves, bellBase, dome, plunger, watchCase, watchHand, shelf, books };
+  // A pinned cord and stepped brass bezel stand proud of the back wall.
+  const mirrorX=-2.62, mirrorY=3.90, mirrorZ=-5.36;
+  const mirrorPoint=([x,y],depth)=>[mirrorX+x,mirrorY+y,mirrorZ+depth];
+  const octagon=[[-.36,.71],[.36,.71],[.65,.42],[.65,-.42],[.36,-.71],[-.36,-.71],[-.65,-.42],[-.65,.42]];
+  const rim=(scale,depth)=>octagon.map(([x,y])=>mirrorPoint([x*scale,y*scale],depth));
+  const mirrorMountStart=vertices.length;
+  beam(mirrorX-.35,mirrorY+.67,mirrorX,mirrorY+.96,mirrorZ+.052,.024,.020,"947451");
+  beam(mirrorX,mirrorY+.96,mirrorX+.35,mirrorY+.67,mirrorZ+.052,.024,.020,"6b5940");
+  box(mirrorX,mirrorY+.96,mirrorZ+.06,.078,.065,.050,"a07f50");
+  const mirrorRim=rim(1,.10);
+  const mirror=part(()=>{
+    const bevels=[rim(.97,.015),mirrorRim,rim(.944,.15),rim(.883,.15),rim(.85,.105)];
+    const brass=["665138","ba955a","927547","65523e"];
+    for(let j=0;j<bevels.length-1;j++) for(let i=0;i<8;i++){
+      const k=(i+1)%8;
+      face([bevels[j][i],bevels[j][k],bevels[j+1][k],bevels[j+1][i]],brass[j],0,.18);
+    }
+    face(bevels.at(-1),"586765",0,.21);
+    // Two silvery facets and a broken candle glint in smoked glass.
+    const glass=(points,paint)=>face(points.map(p=>mirrorPoint(p,.111)),paint,0,.21);
+    glass([[-.52,.31],[-.28,.57],[.14,.57],[-.52,-.15]],"687575");
+    glass([[-.43,-.35],[.35,.50],[.40,.45],[-.40,-.39]],"60706e");
+    glass([[-.24,-.33],[-.18,-.27],[-.15,-.34],[-.20,-.43]],"9a8967");
+    glass([[-.22,-.46],[-.17,-.43],[-.18,-.49]],"7a7660");
+  });
+  const props = { mirror, mirrorMountStart, mirrorRim, deckShadow, bellShadow, watchShadow, deckBase, leaves, bellBase, dome, plunger, watchCase, watchHand, gramShadow, gramBase, gramRecord, gramHit, hornMouth, shelf, books };
   const shadowStart=vertices.length;
   for (const [radius,color,height] of [[.78,"473022",1.534],[.52,"362820",1.536]]) {
     const rim=Array.from({length:14},(_,i)=>{

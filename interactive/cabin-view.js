@@ -37,6 +37,7 @@
   document.documentElement.style.setProperty("--candle-light",roomLight.toFixed(3));
   // World X/Z, footprint radius, and intensity of the overhead selection light.
   const spotlight=new Float32Array([0,0,1,0]);
+  const shaftAim=new Float32Array(3); // X/Z drift per unit height, and the height of the focal point.
 
   // The same perspective camera drives both renderers. Row 2 is positive camera depth.
   const eyeHeight=3.53, eyeZ=7.32, restPitch=-.137;
@@ -76,6 +77,7 @@ varying vec3 world,color; varying float material;
 uniform vec4 lamps[5];
 uniform float roomLight;
 uniform vec4 spotlight;
+uniform vec3 shaftAim;
 void main(){
  if(material>4.5){gl_FragColor=vec4(.045,.029,.018,(material-5.)*(.36+.64*roomLight));return;}
  vec3 c=color;
@@ -107,7 +109,7 @@ void main(){
    if(material< -3.5) c+=vec3(.055,.066,.065)*night;
    if(spotlight.w>0. && world.y>=1.51){
      float radius=max(spotlight.z*.45,spotlight.z-.19*(world.y-1.53));
-     vec2 offset=(world.xz-spotlight.xy)/radius;
+     vec2 offset=(world.xz-spotlight.xy-shaftAim.xy*(world.y-shaftAim.z))/radius;
      float falloff=max(0.,1.-dot(offset,offset));
      c+=(color*vec3(.77,.68,.50)+vec3(.052,.043,.029))*falloff*falloff*spotlight.w;
    }
@@ -133,6 +135,7 @@ void main(){
     const lamps=gl.getUniformLocation(program,"lamps[0]");
     const ambient=gl.getUniformLocation(program,"roomLight");
     const spot=gl.getUniformLocation(program,"spotlight");
+    const aim=gl.getUniformLocation(program,"shaftAim");
     gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
     gl.enable(gl.DEPTH_TEST); gl.clearColor(.12,.18,.17,1);
     return (camera,focal) => {
@@ -140,6 +143,7 @@ void main(){
       gl.uniform4fv(lamps,lampData);
       gl.uniform1f(ambient,roomLight);
       gl.uniform4fv(spot,spotlight);
+      gl.uniform3fv(aim,shaftAim);
       gl.viewport(0,0,canvas.width,canvas.height);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       camera.forEach((row,i)=>gl.uniform4fv(rows[i],row));
@@ -177,7 +181,7 @@ void main(){
         if(material===-4){addR+=14*night;addG+=17*night;addB+=17*night;}
         if(spotlight[3]>0 && y>=1.51){
           const radius=Math.max(spotlight[2]*.45,spotlight[2]-.19*(y-1.53));
-          const dx=x-spotlight[0], dz=z-spotlight[1];
+          const dx=x-spotlight[0]-shaftAim[0]*(y-shaftAim[2]), dz=z-spotlight[1]-shaftAim[1]*(y-shaftAim[2]);
           const falloff=Math.max(0,1-(dx*dx+dz*dz)/(radius*radius));
           const amount=falloff*falloff*spotlight[3];
           red+=.77*amount; green+=.68*amount; blue+=.50*amount;
@@ -295,6 +299,20 @@ void main(){
   arena.prepend(shaft);
   let lastSpot=-1;
   const candleNames=["烛台上的高蜡烛","烛台上的中蜡烛","烛台上的矮蜡烛","桌边的蜡烛","窗边的蜡烛"];
+  const mirror=document.createElement("button");
+  mirror.type="button";
+  mirror.className="wall-mirror";
+  mirror.setAttribute("aria-label","八角黄铜古镜，切换角色皮肤");
+  arena.insertBefore(mirror,encounter);
+  const mirrorOutline=prepareOutline(mirror,arena);
+  mirrorOutline.layer.classList.add("mirror-outline");
+  const skinKey=tableKey+":character-skin";
+  try { if(sessionStorage.getItem(skinKey)==="garnet") encounter.dataset.skin="garnet"; } catch {}
+  mirror.onclick=()=>{
+    const next=encounter.dataset.skin==="garnet" ? "celadon" : "garnet";
+    encounter.dataset.skin=next;
+    try { sessionStorage.setItem(skinKey,next); } catch {}
+  };
   const volumes=props.books.map(book=>{
     const target=document.createElement("span");
     target.className="book-spine";
@@ -303,9 +321,93 @@ void main(){
     arena.insertBefore(target,encounter);
     const outline=prepareOutline(target,arena);
     outline.layer.classList.add("book-outline");
-    return {book,target,outline,pull:0};
+    let guard;
+    if(book.guard){
+      guard=document.createElement("span");
+      guard.className="book-guard";
+      guard.setAttribute("aria-hidden","true");
+      arena.insertBefore(guard,encounter);
+    }
+    return {book,target,outline,guard,pull:0,selected:false};
   });
-  const litProps=[deckButton,shuffleButton,bellButton,...volumes.map(volume=>volume.target)];
+  const gram=document.createElement("button");
+  gram.type="button";
+  gram.className="gramophone";
+  gram.setAttribute("aria-label","留声机，随机播放一首");
+  arena.insertBefore(gram,encounter);
+  // Keep the caption outside the projected polygon that clips the button.
+  const gramTip=document.createElement("span");
+  gramTip.className="prop-tip gram-tip";
+  gramTip.id="gram-tip";
+  gramTip.setAttribute("role","tooltip");
+  gramTip.textContent="点击以切换音乐";
+  gram.setAttribute("aria-describedby",gramTip.id);
+  gram.after(gramTip);
+  const gramOutline=prepareOutline(gram,arena);
+  gramOutline.layer.classList.add("gram-outline");
+  const note=document.createElement("canvas");
+  note.className="horn-note";
+  note.width=9; note.height=9;
+  note.hidden=true;
+  note.setAttribute("aria-hidden","true");
+  arena.insertBefore(note,encounter);
+  const ink=note.getContext("2d");
+  const noteGlyphs=[
+    ["   ##","   ###","   # ##","   #","   #"," ###","####"," ##"],
+    ["   #####","   #####","   #   #","   #   #","   #   #"," ### ###","#### ###"," ##"],
+    ["    #","    ##","    ###","    # #","    #","  ###"," ####","  ##"]
+  ];
+  let nextNote=0, noteStart=-Infinity, noteDrift=0;
+  function drawHornNote(now,projectLocal){
+    if(!spinning || motion.matches || !ink){note.hidden=true; return;}
+    if(now>=nextNote){
+      noteStart=now;
+      nextNote=now+4200+Math.random()*3000;
+      noteDrift=.23+Math.random()*.24;
+      ink.clearRect(0,0,note.width,note.height);
+      ink.fillStyle="#dbc28a";
+      const glyph=noteGlyphs[Math.floor(Math.random()*noteGlyphs.length)];
+      glyph.forEach((row,y)=>{
+        for(let x=0;x<row.length;x++) if(row[x]==="#") ink.fillRect(x,y,1,1);
+      });
+    }
+    const t=(now-noteStart)/850;
+    note.hidden=t>=1;
+    if(note.hidden) return;
+    const [mx,my,mz]=props.hornMouth;
+    const [px,py]=projectLocal([mx+.16+t*noteDrift,my+.13+.57*t,mz+.18]);
+    const size=1+Math.max(1,Math.min(3,Math.round((projectLocal([mx,my,mz])[1]-projectLocal([mx,my+1,mz])[1])/55)));
+    note.style.width=note.style.height=(note.width*size)+"px";
+    note.style.transform="translate("+Math.round(px-note.width*size/2)+"px,"+Math.round(py-note.height*size/2)+"px)";
+    note.style.opacity=(.48+.24*roomLight)*Math.min(1,t/.18,(1-t)/.26);
+  }
+  let spinning=false, recordAngle=0;
+  const embeddedTable=window.parent!==window && new URLSearchParams(location.search).has("embed");
+  function requestMusic(action){
+    if(embeddedTable) window.parent.postMessage({type:action},"*");
+    else window.dispatchEvent(new Event(action));
+  }
+  function reflectMusic(state){
+    gram.disabled=!state.available;
+    if(state.playing!==spinning){
+      note.hidden=true;
+      noteStart=-Infinity;
+      nextNote=performance.now()+1400+Math.random()*1200;
+    }
+    spinning=state.playing;
+    schedule();
+  }
+  window.addEventListener("message",event=>{
+    if(embeddedTable && event.source===window.parent && event.data?.type==="portfolio-music-state") reflectMusic(event.data);
+  });
+  window.addEventListener("portfolio-music-state",event=>reflectMusic(event.detail));
+  gram.onclick=()=>{
+    requestMusic("portfolio-music-shuffle");
+    arena.dispatchEvent(new Event("record-change"));
+  };
+  requestMusic("portfolio-music-query");
+  window.addEventListener("pageshow",()=>requestMusic("portfolio-music-query"));
+  const litProps=[deckButton,shuffleButton,bellButton,gram,...volumes.map(volume=>volume.target)];
   const candleOutlines=flames.map((_,index)=>{
     const button=document.createElement("button");
     button.type="button";
@@ -509,7 +611,9 @@ void main(){
     const resolution=Math.min(.64,(gpu?860:510)/width,(gpu?530:330)/height);
     const w=Math.max(1,Math.round(width*resolution)),h=Math.max(1,Math.round(height*resolution));
     if(canvas.width!==w || canvas.height!==h){ canvas.width=w; canvas.height=h; }
-    const step=1-Math.exp(-Math.min(48,previous ? now-previous : 16)/80);
+    const delta=Math.min(100,previous ? now-previous : 16);
+    const step=1-Math.exp(-Math.min(48,delta)/80);
+    if(spinning) recordAngle=(recordAngle+delta*.001*2.6)%(2*Math.PI);
     previous=now;
     x+=(targetX-x)*step; y+=(targetY-y)*step;
     const seconds=Math.max(0,(now-hit)/1000);
@@ -558,6 +662,14 @@ void main(){
       return [width*(.5+focal/w*dot(camera[0],px,py,pz)/d),
         height*(.5-focal/h*dot(camera[1],px,py,pz)/d)];
     };
+    // On narrow screens the title occupies the lower left wall.
+    const mirrorDX=narrow ? 1.8 : 0, mirrorDY=narrow ? 1.22 : 0;
+    for(let i=props.mirrorMountStart;i<props.mirror.end;i+=7){
+      mesh[i]=rest[i]+mirrorDX;
+      mesh[i+1]=rest[i+1]+mirrorDY;
+    }
+    fitHitPolygon(mirror,props.mirrorRim.map(([x,y,z])=>project(x+mirrorDX,y+mirrorDY,z)),0);
+    followModel(mirrorOutline.layer,mirrorOutline,props.mirror.start,props.mirror.end,camera,focal,w,h,width,height);
     let changingLight=false;
     let portraitLight=0, availableLight=0, leftWarmth=0, rightWarmth=0;
     for(const [index,flame] of flames.entries()){
@@ -628,26 +740,49 @@ void main(){
     const compact=width<=1050;
     const deckAnchor=tablePosition(compact ? .235 : .125, narrow ? 3.49 : compact ? 2.87 : 3.76, compact ? .55 : .52,w,focal,width);
     const shuffleAnchor=tablePosition(narrow ? .48 : compact ? .43 : .245, narrow ? 3.72 : compact ? 3.13 : 3.83, narrow ? .48 : .55,w,focal,width);
-    const bellAnchor=tablePosition(narrow ? .69 : compact ? .72 : .758, narrow ? 3.63 : compact ? 3.02 : 3.59, .594,w,focal,width);
-    const shelfAnchor=tablePosition(narrow ? .885 : .925, narrow ? 2.12 : 3.02,
-      narrow ? .53 : Math.min(1.13,width/1370)*1.04,w,focal,width);
-    const shelfYaw=narrow ? -1.13 : -1.47, co=Math.cos(shelfYaw), si=Math.sin(shelfYaw);
+    const bellAnchor=tablePosition(narrow ? .69 : compact ? .72 : .735, narrow ? 3.73 : compact ? 3.45 : 3.66, .594,w,focal,width);
+    const gramAnchor=tablePosition(narrow ? .19 : .202, narrow ? 1.82 : 1.67,narrow ? .57 : .90,w,focal,width);
+    const gramYaw=.15, gc=Math.cos(gramYaw), gs=Math.sin(gramYaw);
+    placePart(props.gramShadow,gramAnchor,0,gramYaw);
+    placePart(props.gramBase,gramAnchor,0,gramYaw);
+    placePart(props.gramRecord,gramAnchor,0,gramYaw,0,true,recordAngle);
+    const projectGram=([gx,gy,gz])=>project(gramAnchor.x+(gx*gc+gz*gs)*gramAnchor.scale,
+      1.533+gy*gramAnchor.scale,gramAnchor.z+(gz*gc-gx*gs)*gramAnchor.scale);
+    const gramHull=fitHitPolygon(gram,props.gramHit.map(projectGram),2);
+    const [hornX]=projectGram(props.hornMouth);
+    gramTip.style.left=Math.min(width-70,Math.max(70,hornX))+"px";
+    gramTip.style.top=Math.min(...gramHull.map(p=>p[1]))+"px";
+    drawHornNote(now,projectGram);
+    followModel(gramOutline.layer,gramOutline,props.gramBase.start,props.gramRecord.end,camera,focal,w,h,width,height);
+    const shelfAnchor=tablePosition(narrow ? .88 : .913, narrow ? 2.36 : compact ? 2.78 : 3.42,
+      narrow ? .46 : Math.min(1.06,width/1370)*.88,w,focal,width);
+    const shelfYaw=narrow ? -1.17 : -1.36, co=Math.cos(shelfYaw), si=Math.sin(shelfYaw);
     placePart(props.shelf,shelfAnchor,0,shelfYaw);
     let bookMoving=false;
     for(const volume of volumes){
       const {book,target}=volume;
       const hover=(hoverInput.matches && target.matches(":hover")) || target.matches(":active");
+      if(hover && !volume.selected && volume.pull < .5) arena.dispatchEvent(new Event("book-pull"));
+      volume.selected=hover;
       const goal=hover ? 1 : 0;
       volume.pull+=(goal-volume.pull)*(motion.matches ? 1 : step*.85);
       if(Math.abs(goal-volume.pull)<.003) volume.pull=goal;
       else bookMoving=true;
-      const scale=shelfAnchor.scale, slide=.40*volume.pull, lean=.16*volume.pull;
-      const heel=book.depth*.5*Math.sin(lean);
+      const scale=shelfAnchor.scale, lean=.13*volume.pull;
+      const heel=book.depth*.5*Math.sin(lean)+.12*volume.pull;
       const x=shelfAnchor.x+book.offset*co*scale, z=shelfAnchor.z-book.offset*si*scale;
+      // Keep the entire swept cover clear of the bell, even on intermediate aspect ratios.
+      const reach=book.depth*.5+book.height*Math.sin(.13);
+      const radius=.72*bellAnchor.scale+.07;
+      const leftRoom=((x-bellAnchor.x-radius)/scale-book.width*.5*co)/-si-reach;
+      const backRoom=((bellAnchor.z-z-radius)/scale+book.width*.5*si)/co-reach;
+      const slide=volume.pull*Math.max(0,Math.min(.76,Math.max(leftRoom,backRoom)));
       placePart(book,{x:x+si*slide*scale,z:z+co*slide*scale,scale},.18+heel,shelfYaw,lean);
-      // Aim at the exposed spine, including the lean, rather than the middle of the shelf.
-      const spineDepth=slide+book.depth*.45*Math.cos(lean)+book.height*.65*Math.sin(lean);
-      volume.lightAnchor={x:x+si*spineDepth*scale,z:z+co*spineDepth*scale,scale};
+      const coverDepth=.08*book.depth, coverHeight=.56*book.height;
+      const coverZ=slide+coverDepth*Math.cos(lean)+coverHeight*Math.sin(lean);
+      volume.lightAnchor={x:x+(co*book.width*.5+si*coverZ)*scale,
+        z:z+(-si*book.width*.5+co*coverZ)*scale,scale,
+        y:1.533+(.18+heel+coverHeight*Math.cos(lean)-coverDepth*Math.sin(lean))*scale};
       // Include the resting spine while it is pulled out, keeping a stationary pointer attached.
       const resting=[], pulled=[];
       for(const dx of [-book.width/2,book.width/2]) for(const dy of [0,book.height]){
@@ -662,6 +797,10 @@ void main(){
       }
       const hit=fitHitPolygon(target,volume.pull ? resting.concat(pulled) : resting,0);
       volume.silhouette=volume.pull ? convexHull(pulled) : hit;
+      if(volume.guard){
+        volume.guardRim=fitHitPolygon(volume.guard,book.guard.map(([gx,gy,gz])=>project(
+          shelfAnchor.x+(gx*co+gz*si)*scale,1.533+gy*scale,shelfAnchor.z+(gz*co-gx*si)*scale)),0);
+      }
     }
     // Mask the yellow edge where a closer volume hides the selected cover.
     for(const [index,{book,outline}] of volumes.entries()){
@@ -669,8 +808,9 @@ void main(){
       if(outline.layer.hidden) continue;
       const ctx=outline.ctx;
       ctx.globalCompositeOperation="destination-out";
-      for(const nearer of volumes.slice(index+1)){
-        const rim=nearer.silhouette;
+      const occluders=volumes.slice(index+1).map(v=>v.silhouette)
+        .concat(volumes.slice(index).map(v=>v.guardRim).filter(Boolean));
+      for(const rim of occluders){
         ctx.beginPath();
         ctx.moveTo(...rim[0]);
         for(let i=1;i<rim.length;i++) ctx.lineTo(...rim[i]);
@@ -736,18 +876,21 @@ void main(){
     spotlight[3]=spotMoving ? strength : amount;
     shaft.hidden=spotlight[3]===0;
     if(!shaft.hidden){
-      const volume=volumes[lastSpot-3];
+      const volume=volumes[lastSpot-4];
       shaft.classList.toggle("reading-shaft",Boolean(volume));
-      const anchor=volume ? volume.lightAnchor : [deckAnchor,pivot,bellAnchor][lastSpot];
-      const radius=anchor.scale*(volume ? .49 : lastSpot===0 ? 1.65 : 1.28);
+      const anchor=volume ? volume.lightAnchor : [deckAnchor,pivot,bellAnchor,gramAnchor][lastSpot];
+      const radius=anchor.scale*(volume ? .58 : lastSpot===0 ? 1.65 : 1.28);
       spotlight[0]=anchor.x; spotlight[1]=anchor.z; spotlight[2]=radius;
 
       // Project the top and foot of the same cone so the shaft follows camera parallax.
-      const footY=1.53+(volume ? (.18+volume.book.height*.55)*anchor.scale : 0);
+      const footY=volume ? anchor.y : 1.53;
+      shaftAim[0]=volume ? .31*co : 0;
+      shaftAim[1]=volume ? -.31*si : 0;
+      shaftAim[2]=footY;
       const topY=footY+radius*(volume ? 4.7 : 3.7);
       const bottomDepth=dot(camera[2],anchor.x,footY,anchor.z);
       const [bottomX,bottomY]=project(anchor.x,footY,anchor.z);
-      const [topX,top]=project(anchor.x,topY,anchor.z);
+      const [topX,top]=project(anchor.x+shaftAim[0]*(topY-footY),topY,anchor.z+shaftAim[1]*(topY-footY));
       const length=Math.max(1,bottomY-top);
       const spread=radius*focal*width/(w*bottomDepth);
       shaft.style.left=(bottomX-spread)+"px"; shaft.style.top=top+"px";
@@ -758,8 +901,12 @@ void main(){
     }
     draw(camera,focal);
     canvas.classList.add("painted");
-    arena.classList.add("modeled");
-    if(!motion.matches) {
+    if (!arena.classList.contains("modeled")) {
+      arena.classList.add("modeled");
+      arena.dispatchEvent(new Event("cabin-painted"));
+    }
+    if(spinning && motion.matches) idleTimer=setTimeout(schedule,80);
+    else if(!motion.matches) {
       if(bookMoving || spotMoving || changingLight || watchTilt!==watchTarget || stackLift!==liftTarget || cutting || drawTime<250 || returnTime<240 || bellTime<500 || kick || seconds<.6 || Math.abs(targetX-x)+Math.abs(targetY-y)>.001) schedule();
       else idleTimer=setTimeout(schedule,gpu ? 50 : 105);
     }

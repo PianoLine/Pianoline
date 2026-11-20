@@ -47,7 +47,7 @@
       <button type="button" class="button subtle" data-track-action="delete" data-index="${i}">删除</button>
       </div></div>`).join("");
     return `<section id="playlist" class="editor-group"><div class="editor-group-head"><h2>背景音乐歌单</h2>
-      <p>按列表顺序循环播放。至少两首有音频的曲目时，网站顶栏才会显示切歌按钮。</p></div>
+      <p>点击桌上的留声机会开始随机播放整个歌单。同一轮内每首只放一次，全部放完后停止。再点留声机可开启新一轮。</p></div>
       <div class="editor-mini-grid">${rows}</div><div class="editor-card-actions">
       <button type="button" class="button" data-track-action="import">导入音频文件</button>
       <input class="track-import" type="file" accept="audio/*,.mp3,.m4a,.ogg,.wav,.flac,.aac,.opus" multiple hidden>

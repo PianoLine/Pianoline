@@ -14,6 +14,8 @@ $runtimeFiles = @(
     'art/celadon-idle-expression.png'
     'art/celadon-ghost.png'
     'art/celadon-ghost-expression.png'
+    'art/garnet-ghost.png'
+    'art/garnet-idle.png'
     'art/project-stamps.png'
     'art/polygon-cabin.webp'
 )
