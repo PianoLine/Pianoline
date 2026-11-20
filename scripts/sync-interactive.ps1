@@ -6,6 +6,7 @@ $runtimeFiles = @(
     'index.html'
     'prototype.css'
     'prototype.js'
+    'table-audio.js'
     'cabin-mesh.js'
     'cabin-view.js'
     'art/front-ghost.webp'

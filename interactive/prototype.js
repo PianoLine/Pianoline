@@ -53,7 +53,8 @@
   const segmenter = typeof Intl.Segmenter === "function" ? new Intl.Segmenter("zh") : null;
   let farewell = false, spokenLine = "", speechFrame = 0;
   let welcomeTimer;
-  function say(text, leaving = false) {
+  let speechVisible = true;
+  function say(text, leaving = false, audible = true) {
     clearTimeout(welcomeTimer);
     farewell = leaving;
     if (text === spokenLine) return 0;
@@ -62,6 +63,7 @@
     cancelAnimationFrame(speechFrame);
     if (reduced() || document.hidden) {
       speech.textContent = text;
+      if (audible && speechVisible) tableAudio.glyph(text[0]);
       return 0;
     }
     speech.replaceChildren();
@@ -76,12 +78,14 @@
     const began = performance.now();
     let index = 0;
     function reveal(now) {
+      const previous = index;
       while (index < glyphs.length && starts[index] <= now - began) {
         const glyph = document.createElement("span");
         glyph.className = "speech-glyph";
         glyph.textContent = glyphs[index++];
         speech.append(glyph);
       }
+      if (index > previous && audible && speechVisible) tableAudio.glyph(glyphs[index - 1]);
       if (index < glyphs.length) speechFrame = requestAnimationFrame(reveal);
     }
     reveal(began);
@@ -108,10 +112,11 @@
     if (event.button === 0 && event.target.closest("button")) event.preventDefault();
   });
   function restoreGreeting() {
-    if (farewell) say(greeting);
+    if (farewell) say(greeting, false, false);
   }
   new IntersectionObserver(([entry]) => {
-    if (!entry.isIntersecting) restoreGreeting();
+    speechVisible = entry.isIntersecting;
+    if (!speechVisible) restoreGreeting();
   }).observe(speech);
   window.addEventListener("pagehide", restoreGreeting);
   document.addEventListener("visibilitychange", () => {
@@ -444,6 +449,7 @@
   async function putBack(id, draggedCorners) {
     if (locked || pointer || !hand.includes(id)) return;
     locked = true;
+    tableAudio.play("slide");
     clearTimeout(returnFeedbackTimer);
     pile.classList.add("returning");
     const index = hand.indexOf(id);
@@ -468,6 +474,7 @@
   shuffleButton.onclick = async () => {
     if (locked || pointer || !projects.length) return;
     locked = true;
+    tableAudio.play("wind");
     shuffleButton.setAttribute("aria-busy", "true");
     arena.classList.add("shuffling");
     try {
@@ -493,6 +500,7 @@
   let playingProject = false;
   let playedCard = null;
   let liftedCard, portal;
+  let leavingThroughPortal = false;
   function clearPortal() {
     for (const layer of [liftedCard, portal]) {
       layer?.getAnimations().forEach(animation => animation.cancel());
@@ -557,7 +565,8 @@
       const top = offsetY + frame.top + art.clientTop * scale;
       const width = art.clientWidth * scale, height = art.clientHeight * scale;
       const right = view.width - left - width, bottom = view.height - top - height;
-      const timing = {duration: 365, easing: "cubic-bezier(.37,.08,.23,1)", fill: "both"};
+      // The final pose lives in the DOM, including while the browser retires the iframe.
+      const timing = {duration: 365, endDelay: 34, easing: "cubic-bezier(.37,.08,.23,1)", fill: "backwards"};
 
       // Move the picture uniformly while its window opens from portrait to landscape.
       // Matching the source crop here keeps details in place as they cross the paper edge.
@@ -571,7 +580,7 @@
         // Use the uncropped source plane: wide covers can extend outside both windows.
         const planeWidth = image.naturalWidth * endFit, planeHeight = image.naturalHeight * endFit;
         Object.assign(picture.style, {position: "absolute", display: "block", maxWidth: "none", width: planeWidth + "px", height: planeHeight + "px",
-          left: (view.width - planeWidth)/2 + "px", top: (view.height - planeHeight)/2 + "px"});
+          left: (view.width - planeWidth)/2 + "px", top: (view.height - planeHeight)/2 + "px", transform: "scale(1.035)"});
         const dx = left + width/2 - view.width/2, dy = top + height/2 - view.height/2;
         picture.animate([
           {transform: "translate(" + dx + "px," + dy + "px) scale(" + startFit / endFit + ")"},
@@ -584,6 +593,7 @@
       ], timing).finished;
     } catch { /* Navigation also works when an animation is interrupted. */ }
     if (playedCard === null) return;
+    leavingThroughPortal = Boolean(portal);
     try { sessionStorage.setItem("portfolio-card-entry", "portal:" + url.href); } catch (_) {}
     navigate(url);
   }
@@ -602,6 +612,7 @@
     if (preview) url.searchParams.set("preview", "1");
 
     if (!delivered) {
+      tableAudio.play("lift");
       const lineTime = say(randomLine(["拜拜~", "神秘的传送魔法"]), true);
       if (reduced() || !source.animate) {
         projectExitTimer = setTimeout(() => navigate(url), Math.max(330, lineTime + 120));
@@ -713,15 +724,17 @@
   };
   window.addEventListener("pagehide", () => {
     clearTimeout(projectExitTimer);
-    clearPortal();
-    if (playedCard === null) return;
+    // The outgoing document may still be displayed until the project paints.
+    if (!leavingThroughPortal) clearPortal();
     playedCard = null;
-    render(false);
   });
   window.addEventListener("pageshow", event => {
     if (!event.persisted) return;
     say(greeting);
     if (playingProject) {
+      clearPortal();
+      leavingThroughPortal = false;
+      render(false);
       playingProject = false;
       locked = false;
     }

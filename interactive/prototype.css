@@ -504,3 +504,21 @@ a:focus-visible { outline-color: #f5b55f; }
 }
 .shuffle:disabled { opacity: .5; }
 .shuffling .hand:not(:has(.card-wrap)) { visibility: hidden; }
+
+.sound-toggle {
+  position: absolute; top: 12px; right: 4%; z-index: 7;
+  display: inline-flex; align-items: center; gap: 7px; min-height: 32px; padding: 4px 9px;
+  border: 1px solid #706048; border-radius: 2px; background: #1b1813e8; color: #deceaa;
+  font: 400 14px/1 var(--title-font); cursor: pointer;
+}
+.sound-toggle[hidden] { display: none; }
+.sound-toggle:hover, .sound-toggle[aria-pressed="true"] { color: #ffe6b1; border-color: #af894c; }
+.speaker { position: relative; width: 16px; height: 14px; }
+.speaker::before {
+  content: ""; position: absolute; inset: 1px 5px 1px 0; background: currentColor;
+  clip-path: polygon(0 34%,33% 34%,82% 0,82% 100%,33% 66%,0 66%);
+}
+.speaker::after { content: ""; position: absolute; right: 0; top: 6px; width: 5px; border-top: 2px solid currentColor; }
+.sound-toggle[aria-pressed="true"] .speaker::after {
+  top: 2px; height: 8px; border: solid currentColor; border-width: 1px 2px 1px 0; border-radius: 0 100% 100% 0;
+}
