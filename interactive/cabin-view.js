@@ -7,7 +7,7 @@
   canvas.className = "cabin-view";
   canvas.setAttribute("aria-hidden", "true");
   arena.prepend(canvas);
-  const {vertices:rest,props,flames,clusterStart,clusterEnd,shadowStart,ghostStart}=window.buildCabinMesh();
+  const {vertices:rest,props,flames,clusterStart,clusterEnd,shadowStart}=window.buildCabinMesh();
   const mesh=rest.slice();
   const movingStart=clusterStart;
   const movingVertices=mesh.subarray(movingStart);
@@ -39,11 +39,16 @@
   const spotlight=new Float32Array([0,0,1,0]);
 
   // The same perspective camera drives both renderers. Row 2 is positive camera depth.
+  const eyeHeight=3.53, eyeZ=7.32, restPitch=-.137;
+  const actorZ=-1.17, horizonY=1.66;
+  const pitchSin=Math.sin(restPitch), pitchCos=Math.cos(restPitch);
+  const backDepth=(horizonY-eyeHeight)*pitchSin-(actorZ-eyeZ)*pitchCos;
+  const backUp=(horizonY-eyeHeight)*pitchCos+(actorZ-eyeZ)*pitchSin;
   function cameraRows(x, y, kick, time) {
     const yaw = -.041*x + .013*kick*Math.sin(time*83);
-    const pitch = -.151 - .031*y + .023*kick*Math.cos(time*72);
+    const pitch = restPitch - .031*y + .023*kick*Math.cos(time*72);
     const roll = .014*kick*Math.sin(time*66);
-    const eye = [x*.76 + .15*kick*Math.cos(time*89), 3.73-y*.28 + .095*kick*Math.sin(time*97), 7.65+.16*kick];
+    const eye = [x*.76 + .15*kick*Math.cos(time*89), eyeHeight-y*.28 + .095*kick*Math.sin(time*97), eyeZ+.16*kick];
     const sy=Math.sin(yaw), cy=Math.cos(yaw), sp=Math.sin(pitch), cp=Math.cos(pitch);
     const right=[cy,0,sy], up=[-sy*sp,cp,cy*sp], forward=[sy*cp,sp,-cy*cp];
     const cr=Math.cos(roll), sr=Math.sin(roll);
@@ -296,6 +301,8 @@ void main(){
     button.type="button";
     button.tabIndex=-1;
     button.className="candle-switch";
+    // Candle order within the holder is back to front, matching the mesh depth.
+    button.style.zIndex=index<3 ? "5" : "3";
     button.setAttribute("aria-label",candleNames[index]);
     button.setAttribute("aria-pressed",String(candlesLit[index]));
     button.addEventListener("click",()=>{
@@ -313,8 +320,6 @@ void main(){
     outline.layer.setAttribute("aria-hidden","true");
     return outline;
   });
-  const ghostButton = encounter.querySelector(".ghost");
-  const ghostOutline = prepareOutline(ghostButton, ghostButton);
   let heavyHit = false;
   let remaining = 0, drawAt = -Infinity, returnedAt = -Infinity, bellAt = -Infinity, shuffleAt = -Infinity;
   arena.addEventListener("deck-size", event => { remaining = event.detail; schedule(); });
@@ -357,16 +362,16 @@ void main(){
   }
   // Depth and size are room units. Only the horizontal framing adapts to screen width.
   function tablePosition(fraction, z, scale, w, focal, width) {
-    const sp=Math.sin(-.151), cp=Math.cos(-.151), dy=1.53-3.73;
-    const baseDepth=dy*sp-(z-7.65)*cp;
+    const sp=pitchSin, cp=pitchCos, dy=1.53-eyeHeight;
+    const baseDepth=dy*sp-(z-eyeZ)*cp;
     // On ultrawide screens keep the props within arm's reach in the visible strip of table.
     const wide=Math.max(1,width/1920);
     if(wide>1) {
-      const back=(-2.07*cp-8.82*sp)/(-2.07*sp+8.82*cp);
-      const slope=back+((dy*cp+(z-7.65)*sp)/baseDepth-back)/wide;
-      z=7.65+dy*(slope*sp-cp)/(sp+slope*cp);
+      const back=backUp/backDepth;
+      const slope=back+((dy*cp+(z-eyeZ)*sp)/baseDepth-back)/wide;
+      z=eyeZ+dy*(slope*sp-cp)/(sp+slope*cp);
     }
-    const depth=dy*sp-(z-7.65)*cp;
+    const depth=dy*sp-(z-eyeZ)*cp;
     scale*=depth/(baseDepth*wide);
     return { x:(fraction-.5)*w*depth/focal, z, scale };
   }
@@ -375,7 +380,7 @@ void main(){
   function followModel(control, outline, first, last, camera, focal, w, h, width, height) {
     const {button,layer,ctx}=outline;
     const returning=button === deckButton && button.matches(".over,.returning");
-    const highlighted=ctx && (button === ghostButton ? button.matches(".over") : returning || button.classList.contains("prop-cue") || (hoverInput.matches && button.matches(":hover")));
+    const highlighted=ctx && (returning || button.classList.contains("prop-cue") || (hoverInput.matches && button.matches(":hover")));
     // Candles have separate wick hit targets; only project wax for a visible outline.
     if(control===layer && !highlighted){ layer.hidden=true; return; }
     const [r,u,f]=camera;
@@ -424,12 +429,61 @@ void main(){
       path.closePath();
     }
     ctx.lineJoin="round";
-    ctx.lineWidth=button === ghostButton ? 4 : returning ? 3.8 : 2.8;
+    ctx.lineWidth=returning ? 3.8 : 2.8;
     ctx.strokeStyle=returning ? "#e57260" : "#e8c574";
     ctx.stroke(path);
     ctx.globalCompositeOperation="destination-out";
     ctx.fill(path);
     ctx.globalCompositeOperation="source-over";
+  }
+  // Convex silhouette of the projected wax, wick and flame, with a small screen-space margin.
+  function fitCandleButton(button, project, fx, base, wick, fz, radius, flameHeight, sway, pad) {
+    const points=[];
+    for(const [y,r,shift] of [[base,1.23*radius,0],[wick,radius,0],[wick+flameHeight,.025,sway]]){
+      for(let side=0;side<8;side++){
+        const a=side*Math.PI/4, cos=Math.cos(a), sin=Math.sin(a);
+        const [x,py]=project(fx+shift+r*cos,y,fz+r*sin);
+        points.push([x,py]);
+      }
+    }
+    points.sort((a,b)=>a[0]-b[0] || a[1]-b[1]);
+    function half(sequence){
+      const edge=[];
+      for(const p of sequence){
+        while(edge.length>=2){
+          const a=edge[edge.length-2],b=edge[edge.length-1];
+          if((b[0]-a[0])*(p[1]-a[1])>(b[1]-a[1])*(p[0]-a[0])) break;
+          edge.pop();
+        }
+        edge.push(p);
+      }
+      edge.pop();
+      return edge;
+    }
+    const hull=half(points).concat(half(points.reverse()));
+    const left=Math.min(...hull.map(p=>p[0])), right=Math.max(...hull.map(p=>p[0]));
+    const top=Math.min(...hull.map(p=>p[1])), bottom=Math.max(...hull.map(p=>p[1]));
+    const width=right-left, height=bottom-top;
+    button.style.left=(left-pad)+"px";
+    button.style.top=(top-pad)+"px";
+    button.style.width=(width+2*pad)+"px";
+    button.style.height=(height+2*pad)+"px";
+    button.style.clipPath="polygon("+hull.map(([x,y])=>
+      ((x-left)/width*100).toFixed(1)+"% "+((y-top)/height*100).toFixed(1)+"%").join(",")+")";
+  }
+
+  // Account for the sticky site header while the visitor scrolls partway down the table.
+  const hostFrame=window.frameElement;
+  if(hostFrame){
+    const host=hostFrame.ownerDocument;
+    const header=host.querySelector(".topbar");
+    function updateVisibleTop(){
+      const headerBottom=header?.getBoundingClientRect().bottom || 0;
+      arena.style.setProperty("--visible-top",Math.max(0,headerBottom-hostFrame.getBoundingClientRect().top)+"px");
+    }
+    host.defaultView.addEventListener("scroll",updateVisibleTop,{passive:true});
+    host.defaultView.addEventListener("resize",updateVisibleTop);
+    updateVisibleTop();
   }
   function render(now){
     frame=0;
@@ -444,48 +498,51 @@ void main(){
     const seconds=Math.max(0,(now-hit)/1000);
     const shakeTime=heavyHit ? .32 : .15;
     const kick=seconds<shakeTime ? (heavyHit ? .86 : .22)*(1-seconds/shakeTime)**2 : 0;
-    const focal=width<=720 ? Math.max(w*.66,stage.offsetHeight*1.92*h/height) : Math.max(h*.94,w*.50);
+    const narrow=width<=720;
+    const focal=narrow ? Math.max(w*.68,stage.offsetHeight*1.99*h/height) : Math.min(h*1.47,Math.max(h*1.01,w*.545));
     const cameraX=x*Math.min(1,width/1000);
     const camera=cameraRows(cameraX,y*.78,kick,kick ? seconds : 0);
     // Shift the horizon as the mobile hand wraps; the far edge of the table stays in the stage.
     const dot=(row,px,py,pz)=>row[0]*px+row[1]*py+row[2]*pz+row[3];
-    const baseY=1.66, baseZ=-1.17;
-    const depth=(baseY-3.73)*Math.sin(-.151)-(baseZ-7.65)*Math.cos(-.151);
-    const neutralUp=(baseY-3.73)*Math.cos(-.151)+(baseZ-7.65)*Math.sin(-.151);
-    const neutralY=h/2-focal*neutralUp/depth;
-    const lift=(neutralY-(stage.offsetHeight-38)*h/height)/focal;
+    const neutralY=h/2-focal*backUp/backDepth;
+    const lift=(neutralY-(stage.offsetHeight-22)*h/height)/focal;
     camera[1]=camera[1].map((v,i)=>v+lift*camera[2][i]);
-    const actorX=width<=720 ? .223*w/focal*depth : 0;
+    const actorX=narrow ? .215*w/focal*backDepth : 0;
     const sceneTime=motion.matches ? 0 : now*.001;
     const recoil=seconds<.58 ? (heavyHit ? 2.7 : .50)*Math.exp(-seconds*7.7)*Math.sin(seconds*16) : 0;
-    const roll=!heavyHit && seconds<.4 ? .27*Math.exp(-seconds*9)*Math.sin(seconds*25) : 0;
-    const rollCos=Math.cos(roll), rollSin=Math.sin(roll);
-    const tilt=-.38*recoil, co=Math.cos(tilt),si=Math.sin(tilt);
-    const hover=.032*Math.sin(sceneTime*2.1);
-    // Turn the whole shell slightly toward the moving viewer, with its face printed on the mesh.
-    const yaw=Math.atan2(.76*cameraX-actorX,7.65-baseZ);
-    const cosYaw=Math.cos(yaw),sinYaw=Math.sin(yaw);
-    for(let i=shadowStart;i<ghostStart;i+=7) mesh[i]=rest[i]+actorX;
-    for(let i=ghostStart;i<mesh.length;i+=7){
-      const localX=rest[i]*rollCos-(rest[i+1]-.85)*rollSin;
-      const localY=.85+rest[i]*rollSin+(rest[i+1]-.85)*rollCos;
-      const localZ=rest[i+2], tiltedZ=si*localY+co*localZ;
-      mesh[i]=actorX+cosYaw*localX+sinYaw*tiltedZ;
-      mesh[i+1]=baseY+hover+.12*recoil+co*localY-si*localZ;
-      mesh[i+2]=baseZ-1.32*recoil-sinYaw*localX+cosYaw*tiltedZ;
-    }
-    followModel(encounter,ghostOutline,ghostStart,mesh.length,camera,focal,w,h,width,height);
+    for(let i=shadowStart;i<mesh.length;i+=7) mesh[i]=rest[i]+actorX;
+    // Project the elbows and crown. The portrait box hugs the opaque 84 × 121 px of the master.
+    const footY=1.535+.12*recoil, footZ=actorZ-1.32*recoil;
+    // Leave room above the hair for the speech bubble on short or ultrawide screens.
+    const headroom=stage.offsetHeight-(narrow ? 102 : 118);
+    const tilt=-.38*recoil, actorHeight=Math.min(narrow ? 2.57 : 2.85,headroom*h/height*backDepth/focal);
+    const topY=footY+actorHeight*Math.cos(tilt), topZ=footZ+actorHeight*Math.sin(tilt);
+    const footDepth=dot(camera[2],actorX,footY,footZ), topDepth=dot(camera[2],actorX,topY,topZ);
+    const foot=height*(.5-focal/h*dot(camera[1],actorX,footY,footZ)/footDepth);
+    const crown=height*(.5-focal/h*dot(camera[1],actorX,topY,topZ)/topDepth);
+    const center=width*(.5+focal/w*dot(camera[0],actorX,footY,footZ)/footDepth);
+    encounter.style.left=center+"px";
+    encounter.style.top=crown+"px";
+    encounter.style.setProperty("--actor-top",crown+"px");
+    encounter.style.setProperty("--actor-x",center+"px");
+    encounter.style.setProperty("--prop-height",(foot-crown)+"px");
+    encounter.style.setProperty("--prop-width",(foot-crown)*84/121+"px");
     // On a portrait display bring the candleholder into the right side of the shot.
-    const narrow=width<=720;
     const candleScale=narrow ? .83 : 1;
-    const clusterX=narrow ? .32*w/focal*5.0 : 3.12;
+    const clusterX=narrow ? .32*w/focal*4.65 : 2.83;
     const clusterZ=narrow ? 2.65 : 1.65;
     for(let i=clusterStart;i<clusterEnd;i+=7){
       mesh[i]=clusterX+(rest[i]-3.12)*candleScale;
       mesh[i+1]=1.53+(rest[i+1]-1.53)*candleScale;
       mesh[i+2]=clusterZ+(rest[i+2]-2.45)*candleScale;
     }
+    const project=(px,py,pz)=>{
+      const d=dot(camera[2],px,py,pz);
+      return [width*(.5+focal/w*dot(camera[0],px,py,pz)/d),
+        height*(.5-focal/h*dot(camera[1],px,py,pz)/d)];
+    };
     let changingLight=false;
+    let portraitLight=0, availableLight=0, leftWarmth=0, rightWarmth=0;
     for(const [index,flame] of flames.entries()){
       const outline=candleOutlines[index];
       const button=outline.button;
@@ -498,7 +555,7 @@ void main(){
       let fx=index<3 ? clusterX+(flame.x-3.12)*scale : flame.x;
       if(index>=3) {
         // Keep the solitary candles within the narrower camera framing.
-        const limit=(7.65-flame.z)*w/focal*(narrow ? .442 : .40);
+        const limit=(eyeZ-flame.z)*w/focal*(narrow ? .442 : .40);
         fx=Math.max(-limit,Math.min(limit,fx));
         if(narrow && index===3) fx=.012*w/focal*(7.65-flame.z);
         for(let i=flame.waxStart;i<flame.waxEnd;i+=7) mesh[i]=rest[i]+fx-flame.x;
@@ -526,14 +583,18 @@ void main(){
       const k=index*4;
       lampData[k]=fx; lampData[k+1]=fy; lampData[k+2]=fz;
       lampData[k+3]=power*(1+.065*pulse);
-      // The hit target spans the wax and wick even when the flame is gone.
-      const base=wick-flame.h*scale, baseDepth=dot(camera[2],fx,base,fz);
-      const bottom=(h/2-focal*dot(camera[1],fx,base,fz)/baseDepth)*height/h;
-      const radius=focal/d*width/w*scale;
-      button.style.left=cx+"px"; button.style.top=(cy-.18*radius)+"px";
-      button.style.width=Math.max(22,2.25*flame.r*radius)+"px";
-      button.style.height=Math.max(24,(bottom-cy)*(narrow && index<3 ? .45 : 1)+.18*radius)+"px";
-      button.style.zIndex=index<3 ? (index===2 ? 4 : 3) : 2;
+      // Use the same flickering lamps as the wood. Weight nearby flames at face height more strongly.
+      const dx=fx-actorX, dy=fy-(footY+actorHeight*.65), dz=fz-footZ;
+      const weight=1/(1.5+dx*dx+dy*dy+dz*dz);
+      const energy=weight*lampData[k+3];
+      availableLight+=weight;
+      portraitLight+=energy;
+      const rightShare=.5+.5*dx/Math.sqrt(dx*dx+dz*dz+.01);
+      leftWarmth+=energy*(1-rightShare);
+      rightWarmth+=energy*rightShare;
+      const flameHeight=Math.max(.11,.46*(1+.13*pulse)*power)*scale;
+      fitCandleButton(button,project,fx,wick-flame.h*scale,wick,fz,flame.r*scale,
+        flameHeight,sway*scale*power,narrow ? 4 : 5);
       followModel(outline.layer,outline,flame.waxStart,flame.waxEnd,camera,focal,w,h,width,height);
     }
     const light=brightness.reduce((sum,n)=>sum+n,0)/brightness.length;
@@ -541,10 +602,16 @@ void main(){
       roomLight=light;
       document.documentElement.style.setProperty("--candle-light",light.toFixed(3));
     }
+    const exposure=Math.min(1,.65*portraitLight/availableLight+.35*roomLight);
+    encounter.style.setProperty("--portrait-light",exposure.toFixed(3));
+    encounter.style.setProperty("--warm-left",Math.min(.42,leftWarmth/availableLight*.64).toFixed(3));
+    encounter.style.setProperty("--warm-right",Math.min(.42,rightWarmth/availableLight*.64).toFixed(3));
+    const dark=Math.max(0,1-exposure/.80);
+    encounter.style.setProperty("--red-glow",(dark*dark*(3-2*dark)).toFixed(3));
     const compact=width<=1050;
-    const deckAnchor=tablePosition(compact ? .235 : .125, narrow ? 3.49 : compact ? 2.96 : 4.01, compact ? .55 : .52,w,focal,width);
-    const shuffleAnchor=tablePosition(narrow ? .48 : compact ? .43 : .245, narrow ? 3.72 : compact ? 3.25 : 4.06, narrow ? .48 : .55,w,focal,width);
-    const bellAnchor=tablePosition(compact ? .745 : .835, narrow ? 3.63 : compact ? 3.11 : 3.93, .594,w,focal,width);
+    const deckAnchor=tablePosition(compact ? .235 : .125, narrow ? 3.49 : compact ? 2.87 : 3.76, compact ? .55 : .52,w,focal,width);
+    const shuffleAnchor=tablePosition(narrow ? .48 : compact ? .43 : .245, narrow ? 3.72 : compact ? 3.13 : 3.83, narrow ? .48 : .55,w,focal,width);
+    const bellAnchor=tablePosition(compact ? .745 : .835, narrow ? 3.63 : compact ? 3.02 : 3.72, .594,w,focal,width);
     deckView={anchor:deckAnchor,camera,focal,w,h};
     const elapsed=t=>motion.matches ? Infinity : Math.max(0,now-t);
     const drawTime=elapsed(drawAt), returnTime=elapsed(returnedAt), bellTime=elapsed(bellAt);

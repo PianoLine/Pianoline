@@ -9,7 +9,8 @@ $runtimeFiles = @(
     'table-audio.js'
     'cabin-mesh.js'
     'cabin-view.js'
-    'art/front-ghost.webp'
+    'art/celadon-ghost.png'
+    'art/celadon-ghost-expression.png'
     'art/project-stamps.png'
     'art/polygon-cabin.webp'
 )

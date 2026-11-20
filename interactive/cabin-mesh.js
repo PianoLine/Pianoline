@@ -288,41 +288,12 @@ window.buildCabinMesh = function buildCabinMesh() {
   });
   const props = { deckShadow, bellShadow, watchShadow, deckBase, leaves, bellBase, dome, plunger, watchCase, watchHand };
   const shadowStart=vertices.length;
-  for (const [radius,color,height] of [[.94,"473022",1.534],[.66,"362820",1.536]]) {
+  for (const [radius,color,height] of [[.78,"473022",1.534],[.52,"362820",1.536]]) {
     const rim=Array.from({length:14},(_,i)=>{
       const angle=i*Math.PI/7;
       return [radius*Math.cos(angle),height,-1.17+radius*.45*Math.sin(angle)];
     });
     face(rim,color,0,.40);
   }
-  const ghostStart=vertices.length;
-  // Local paper coordinates. The seam down either side folds back to a closed rear shell.
-  const outline=[[0,1.83,0],[-.64,1.38,.05],[-.94,.08,.02],[-.48,.30,.11],
-    [-.22,0,.18],[0,.26,.25],[.23,0,.18],[.49,.30,.11],[.94,.08,.02],[.64,1.38,.05]];
-  const inset=[[0,1.78,.32],[-.54,1.33,.32],[-.72,.22,.32],[-.47,.39,.32],
-    [-.22,.025,.32],[0,.31,.32],[.23,.025,.32],[.47,.39,.32],[.72,.22,.32],[.54,1.33,.32]];
-  const paper=(points,color)=>face(points,color,4,.77);
-  for(let i=0;i<outline.length;i++) {
-    const k=(i+1)%outline.length;
-    paper([[0,.89,.32],inset[i],inset[k]],"f0dfbc");
-    paper([inset[i],outline[i],outline[k],inset[k]],["d4c4a6","b8a98b","9d917c","d2be98","bba98c","d2be98","dbc69e","c2ad89","d6bf9a","eddbb7"][i]);
-    paper([outline[i],[0,.95,-.49],outline[k]],"ac987a");
-  }
-  for(const sign of [-1,1]){
-    const arm=[ [.68,.83,.05],[.97,1.05,-.01],[1.24,.71,.13],[.84,.64,.20],[.98,.78,.31] ]
-      .map(([x,y,z])=>[x*sign,y,z]);
-    for(const [i,j,k,c] of [[0,1,4,"f3e1bd"],[1,2,4,"e2cdab"],[2,3,4,"c6b28d"],[3,0,4,"d9c5a2"],[0,3,2,"927f67"],[0,2,1,"bfa889"]]) paper([arm[i],arm[j],arm[k]],c);
-    const eye=[ [.13,.99],[.22,1.09],[.40,1.21],[.39,1.15],[.49,1.19],[.45,1.12],[.51,1.14],[.23,.97],[.28,1.03] ]
-      .map(([x,y])=>[sign*x,y,.331]);
-    for(let j=1;j<eye.length-1;j++) face([eye[0],eye[j],eye[j+1]],"26241d",-2,.77);
-  }
-  // A tapered ribbon forms the smile across the flat front panel.
-  for(let i=0;i<10;i++){
-    function lip(t,lower) {
-      const arch=Math.sin(t*Math.PI);
-      return [(t-.5)*.47,.875-.095*arch-(lower ? .11*arch+.012 : 0),.332];
-    }
-    face([lip(i/10,false),lip((i+1)/10,false),lip((i+1)/10,true),lip(i/10,true)],"29251e",-2,.77);
-  }
-  return {vertices:new Float32Array(vertices),props,flames,clusterStart,clusterEnd,shadowStart,ghostStart};
+  return {vertices:new Float32Array(vertices),props,flames,clusterStart,clusterEnd,shadowStart};
 };

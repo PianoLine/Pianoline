@@ -56,14 +56,24 @@ a:focus-visible { outline: 3px solid #d75f36; outline-offset: 4px; }
   100% { transform: none; }
 }
 .ghost { position: relative; display: grid; justify-items: center; border: 0; background: transparent; color: var(--ivory); padding: 2px 10px; }
-.ghost img { height: clamp(92px,8.5vw,136px); width: auto; max-width: 100%; object-fit: contain; animation: bob 3.5s ease-in-out infinite; filter: drop-shadow(0 3px 2px #35463a3d); }
-.arena:not(.modeled) .ghost.over img { filter: drop-shadow(2px 0 #edc878) drop-shadow(-2px 0 #edc878) drop-shadow(0 2px #edc878) drop-shadow(0 -2px #edc878); }
+.ghost-portrait { position: relative; display: block; width: clamp(106px, 9.4vw, 154px); aspect-ratio: 1; pointer-events: none; }
+.ghost-portrait img, .ghost-portrait::after { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+.ghost-portrait { isolation: isolate; }
+.ghost-portrait img { filter: brightness(calc(.13 + .73 * var(--portrait-light, 1))) sepia(calc(.12 + .22 * var(--portrait-light, 1))); }
+.ghost-portrait::before {
+  content: ""; position: absolute; inset: 0; z-index: 1;
+  background: linear-gradient(95deg, rgb(255 173 85 / var(--warm-left, .22)), transparent 48%, rgb(255 179 92 / var(--warm-right, .24)));
+  mask: url("art/celadon-ghost.png") center / 100% 100% no-repeat;
+  image-rendering: pixelated; mix-blend-mode: soft-light;
+}
+.ghost-portrait::after { content: ""; position: absolute; inset: 0; background: url("art/celadon-ghost-expression.png?v=embers") center / 100% 100% no-repeat; z-index: 2; opacity: var(--red-glow, 0); filter: drop-shadow(0 0 2px #fc322778) drop-shadow(0 0 5px #e5231938); }
+.ghost.over .ghost-portrait { filter: drop-shadow(2px 0 #edc878) drop-shadow(-2px 0 #edc878) drop-shadow(0 2px #edc878) drop-shadow(0 -2px #edc878); }
 .hit { display: none; position: absolute; right: 0; top: 0; font: 400 29px var(--title-font); color: var(--coral); text-shadow: 2px 2px var(--ink); }
 .hurt .hit { display: block; z-index: 2; top: 12%; right: -10%; color: #fff1c6; animation: damage-rise .42s ease-out both; }
 .ghost[data-impact="drag"] .hit { font-size: 38px; color: #ffc281; }
 @keyframes damage-rise { from { opacity: 0; transform: translateY(6px) scale(.85); } 22% { opacity: 1; } to { transform: translateY(-12px); } }
-.hurt img { animation: recoil .32s ease-out; }
-.ghost.hurt[data-impact="drag"] img { animation: heavy-recoil .46s ease-out; }
+.arena:not(.modeled) .hurt .ghost-portrait { animation: recoil .32s ease-out; }
+.arena:not(.modeled) .ghost.hurt[data-impact="drag"] .ghost-portrait { animation: heavy-recoil .46s ease-out; }
 @keyframes heavy-recoil { 30% { transform: translateY(-10px) scale(.76) rotateX(22deg); } 70% { transform: translateY(3px) scale(1.03); } }
 .table { color: var(--ink); }
 .table-inner { width: min(89%,1340px); margin: auto; padding: 4px 0 25px; }
@@ -162,7 +172,6 @@ a:focus-visible { outline: 3px solid #d75f36; outline-offset: 4px; }
   .opening h1 { font-size: clamp(27px,6vw,36px); }
   .byline { font-size: 16px; }
   .browse { margin-top: 8px; }
-  .ghost img { height: 88px; }
   .speech { font-size: 12px; }
   .table-inner { width: 92%; padding: 13px 0; }
   .play-row { grid-template-columns: 1fr 1fr; gap: 13px; padding-top: 12px; }
@@ -219,13 +228,12 @@ a:focus-visible { outline: 3px solid #d75f36; outline-offset: 4px; }
   .card-wrap { width: clamp(116px, 10.9vw, 233px); }
   .table-inner { padding-bottom: clamp(25px, 2.3vw, 50px); }
 }
-.stage { min-height: clamp(280px, 24vw, 384px); }
+.stage { min-height: clamp(302px, 26vw, 430px); }
 .opening h1 { margin-block: 10px 8px; font-size: clamp(48px, 5vw, 72px); font-size: round(nearest, clamp(48px, 5vw, 72px), 12px); color: var(--title-paper); letter-spacing: .04em; text-shadow: none; }
 .edition, .browse { color: #e8bd80; }
 .byline, .deck-hint { color: #e2d2b5; }
 .browse:hover { color: #fff3d6; }
 .speech { border-color: #a78858; border-radius: 2px; background: #edddbc; }
-.ghost img { height: clamp(106px, 9.4vw, 154px); filter: drop-shadow(0 8px 6px #080604a6); }
 .table { color: #f2dfbd; }
 .arena::after { content: ""; position: absolute; inset: 0; z-index: -2; pointer-events: none; background: radial-gradient(ellipse at 66% 48%, transparent 31%, #100e0b59 100%), linear-gradient(0deg, #140f0969, transparent 42%); }
 .deck-art { background-color: #423422; border-color: #c3a574; box-shadow: 2px 3px #34291b,4px 5px #baa57c,6px 7px #2d2418; }
@@ -241,20 +249,20 @@ a:focus-visible { outline-color: #f5b55f; }
   .arena::before { background-position: 58% center; }
   .stage { min-height: 233px; }
   .opening h1 { font-size: 36px; }
-  .ghost img { height: 98px; }
+  .ghost-portrait { width: 98px; }
 }
 
 /* The table is a single island of light on the same charcoal as the portfolio. */
 :root, .arena { background: #10100f; }
 .candle-switch {
-  position: absolute; transform: translateX(-50%); padding: 0; border: 0;
-  background: transparent; border-radius: 45%; cursor: pointer;
+  position: absolute; padding: 0; border: 0;
+  background: transparent; cursor: pointer;
 }
 .prop-outline.candle-outline {
   inset: auto; width: var(--prop-width); height: var(--prop-height);
   transform: translateX(-50%); z-index: 3;
 }
-.modeled :is(.speech, .opening) { filter: brightness(calc(.39 + .61 * var(--candle-light, 1))); }
+.modeled .opening { filter: brightness(calc(.39 + .61 * var(--candle-light, 1))); }
 /* Hand cards and body-level animation copies share the room light. Light each
    surface once so the printed face, back and stock keep their 3D depth. */
 .card, .flight-back, .paper-edge { filter: brightness(calc(.22 + .78 * var(--candle-light, 1) + var(--card-fill, 0))); }
@@ -299,11 +307,19 @@ a:focus-visible { outline-color: #f5b55f; }
               linear-gradient(to bottom,#10100f,transparent var(--top-fade),transparent calc(100% - var(--foot-fade)),#10100f 99.8%);
 }
 .encounter { position: absolute; inset: 12% auto auto 42%; z-index: 2; }
-.modeled .encounter { inset: auto; display: block; width: var(--prop-width); height: var(--prop-height); transform: translateX(-50%); }
+.modeled .encounter { z-index: 4; inset: auto; display: block; width: var(--prop-width); height: var(--prop-height); transform: translateX(-50%); }
 .modeled .ghost { width: 100%; height: 100%; padding: 0; }
-.modeled .ghost img { display: none; }
-.modeled .speech { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); max-width: none;
-  white-space: nowrap; margin-bottom: 6px; background: #30271ded; color: #f3ddb2; border-color: #756047; }
+/* Master PNG bounds: x 22..105, y 5..125. Align the visible forearms with the projected tabletop. */
+.modeled .ghost-portrait { position: absolute; left: -26.1905%; top: -4.1322%; width: 152.381%; height: 105.7851%; }
+.modeled .speech {
+  position: absolute; z-index: 1; top: 0; left: 50%; bottom: auto; margin: 0;
+  --bubble-inset: 12px;
+  --bubble-floor: min(calc(max(calc(var(--visible-top, 0px) + 12px), var(--bubble-inset)) - var(--actor-top)), var(--prop-height));
+  transform: translate(
+    clamp(calc(12px - var(--actor-x)), -50%, calc(100vw - 12px - var(--actor-x) - 100%)),
+    max(calc(-100% - 7px), var(--bubble-floor)));
+  background: #30271df5; color: #f3ddb2; border-color: #756047;
+}
 .opening, .deckzone, .end { position: relative; z-index: 4; }
 
 @media (min-width:721px) {
@@ -343,7 +359,7 @@ a:focus-visible { outline-color: #f5b55f; }
 @media (max-width:720px) {
   .deckzone, .end { justify-self: center; justify-items: center; }
   .modeled .deck-art, .control-art { width: 72px; height: 52px; }
-  .modeled .speech { max-width: 43vw; font-size: 12px; padding: 5px 8px; }
+  .modeled .speech { --bubble-inset: 51px; max-width: 43vw; font-size: 12px; padding: 5px 8px; }
 }
 
 /* The hand stays in layout; the accessible prop controls follow the world-space models. */
