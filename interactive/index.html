@@ -11,14 +11,17 @@
     if (display.has("embed")) document.documentElement.classList.add("embedded");
   </script>
   <link rel="stylesheet" href="../assets/fonts/titles.css?v=pixel-table-3">
-  <link rel="stylesheet" href="prototype.css?v=celadon-framing">
+  <link rel="stylesheet" href="prototype.css?v=global-music">
+  <link rel="stylesheet" href="../assets/site-music.css?v=global-music">
 </head>
 <body>
-  <header class="standalone"><a href="../index.html"><span class="brand-mark" aria-hidden="true"></span>PIANOLILNE</a><nav aria-label="页面导航"><a href="../index.html#about">简介</a><a href="../index.html#projects">项目</a><a href="../index.html#updates">动态</a><a href="../index.html#contact">联系</a></nav></header>
+  <header class="standalone"><a href="../index.html"><span class="brand-mark" aria-hidden="true"></span>PIANOLILNE</a><div class="site-music"></div><nav aria-label="页面导航"><a href="../index.html#about">简介</a><a href="../index.html#projects">项目</a><a href="../index.html#updates">动态</a><a href="../index.html#contact">联系</a></nav></header>
   <main class="arena" id="arena">
+    <div class="audio-controls" role="group" aria-label="声音设置">
     <button id="sound-toggle" class="sound-toggle" type="button" tabindex="-1" aria-label="牌桌音效" aria-pressed="false" hidden>
       <i class="speaker" aria-hidden="true"></i><span class="sound-state">音效 关</span>
     </button>
+    </div>
     <section class="stage" aria-labelledby="title">
       <div class="opening">
         <p class="edition"><i aria-hidden="true"></i> 个人作品集</p>
@@ -34,7 +37,10 @@
         <button tabindex="-1" class="ghost" id="ghost" type="button" aria-label="和小幽灵聊天，或把作品卡拖给她">
           <span class="speech" id="speech" aria-hidden="true"></span>
           <span class="ghost-portrait" aria-hidden="true">
-            <img src="art/celadon-ghost.png" width="128" height="128" alt="" draggable="false">
+            <span class="portrait-layer portrait-ink"><img src="art/celadon-ghost.png?v=eyelids" width="128" height="128" alt="" draggable="false"></span>
+            <span class="portrait-layer warm-left"></span>
+            <span class="portrait-layer warm-right"></span>
+            <span class="portrait-layer portrait-embers"><img src="art/celadon-ghost-expression.png?v=eyelids" width="128" height="128" alt="" draggable="false"></span>
           </span>
           <span class="hit" aria-hidden="true"></span>
         </button>
@@ -64,11 +70,14 @@
     </section>
     <div id="transition" class="transition" aria-hidden="true"><div class="reveal-cover"><img id="transition-image" alt="" hidden><strong id="transition-title"></strong></div></div>
   </main>
-  <script src="../assets/schema.js?v=pixel-table-3"></script>
+  <script src="../assets/schema.js?v=playlist"></script>
+  <script src="../assets/playlist-files.js"></script>
   <script src="../assets/site-content.js?v=pixel-table-3"></script>
-  <script src="cabin-mesh.js?v=celadon"></script>
-  <script src="cabin-view.js?v=celadon-framing"></script>
-  <script src="table-audio.js?v=bright-bell"></script>
-  <script src="prototype.js?v=table-sound"></script>
+  <script src="cabin-mesh.js?v=reading-light"></script>
+  <script src="cabin-view.js?v=reading-light"></script>
+  <script src="ghost-idle.js?v=portrait-layers"></script>
+  <script src="table-audio.js?v=desk-books"></script>
+  <script src="../assets/site-music.js?v=global-music"></script>
+  <script src="prototype.js?v=global-music"></script>
 </body>
 </html>

@@ -8,7 +8,9 @@
       content = JSON.parse(localStorage.getItem("portfolio-editor-draft-v2")) || content;
     } catch (_) { /* The published content is available offline. */ }
   }
-  const projects = window.normalizePortfolio(content).projects || [];
+  const portfolio = window.normalizePortfolio(content);
+  if (!embedded) window.setupSiteMusic(portfolio.playlist, preview, new URL("../", location.href));
+  const projects = portfolio.projects || [];
   const deck = projects.map((_, i) => i);
   function shuffleDeck() {
     for (let i = deck.length - 1; i > 0; i--) {
@@ -32,10 +34,13 @@
       const savedSpent = saved.spent === undefined ? [] : saved.spent;
       if (!Array.isArray(savedSpent)) return false;
       const all = [...saved.hand, ...saved.deck, ...savedSpent];
-      if (all.length !== projects.length || new Set(all).size !== all.length || !all.every(id => indices.has(id))) return false;
-      spent.push(...savedSpent.map(id => indices.get(id)));
-      hand.push(...saved.hand.map(id => indices.get(id)));
-      deck.splice(0, deck.length, ...saved.deck.map(id => indices.get(id)));
+      const known = new Set(all);
+      if (known.size !== all.length) return false;
+      const existing = ids => ids.filter(id => indices.has(id)).map(id => indices.get(id));
+      const added = deck.filter(index => !known.has(projects[index].id));
+      spent.push(...existing(savedSpent));
+      hand.push(...existing(saved.hand));
+      deck.splice(0, deck.length, ...existing(saved.deck), ...added);
       return true;
     } catch { return false; }
   }
@@ -210,9 +215,6 @@
     }
   });
 
-  const stampIds = ["scroll-of-phantom-city", "forging-simulator", "yellow-river-cleaner",
-    "greedy-ghost", "infinite-elevator", "mind-museum", "so-we-set-off"];
-
   function createHandSlot(id) {
     const project = projects[id];
     const wrap = document.createElement("div");
@@ -225,12 +227,10 @@
     card.dataset.id = id;
     card.tabIndex = -1;
     card.setAttribute("aria-label", "查看 " + project.title);
-    card.innerHTML = '<b></b><card-print class="card-image" aria-hidden="true"></card-print><span class="folio"><span class="card-number"></span><i class="card-stamp" aria-hidden="true"></i><small class="card-type"></small></span>';
+    card.innerHTML = '<b></b><card-print class="card-image" aria-hidden="true"></card-print><span class="folio"><span class="card-number"></span><small class="card-type"></small></span>';
     card.querySelector("b").textContent = project.title;
     card.querySelector(".card-number").textContent = project.number || String(id + 1).padStart(2, "0");
     card.querySelector(".card-type").textContent = project.category || "项目作品";
-    const stamp = stampIds.indexOf(project.id) + 1;
-    card.style.setProperty("--stamp-offset", (stamp * 100 / 7) + "%");
     const cardImage = project.cover?.cardSrc || project.cover?.src;
     if (cardImage) {
       const image = new Image();
@@ -553,6 +553,7 @@
       }
       const image = art.querySelector("img");
       portal = host.createElement("div");
+      portal.dataset.cardDeparture = "";
       portal.setAttribute("aria-hidden", "true");
       Object.assign(portal.style, {
         position: "fixed", inset: "0", zIndex: "2000", pointerEvents: "none",
@@ -608,8 +609,7 @@
     saveTable();
     const source = tray.querySelector('.card[data-id="'+id+'"]');
     const project = projects[id];
-    const url = new URL("../projects/" + encodeURIComponent(project.id) + ".html", location.href);
-    if (preview) url.searchParams.set("preview", "1");
+    const url = new URL(window.portfolioProjectPath(project, preview), homeUrl);
 
     if (!delivered) {
       tableAudio.play("lift");

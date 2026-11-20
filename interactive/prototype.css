@@ -57,16 +57,21 @@ a:focus-visible { outline: 3px solid #d75f36; outline-offset: 4px; }
 }
 .ghost { position: relative; display: grid; justify-items: center; border: 0; background: transparent; color: var(--ivory); padding: 2px 10px; }
 .ghost-portrait { position: relative; display: block; width: clamp(106px, 9.4vw, 154px); aspect-ratio: 1; pointer-events: none; }
-.ghost-portrait img, .ghost-portrait::after { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
 .ghost-portrait { isolation: isolate; }
-.ghost-portrait img { filter: brightness(calc(.13 + .73 * var(--portrait-light, 1))) sepia(calc(.12 + .22 * var(--portrait-light, 1))); }
-.ghost-portrait::before {
-  content: ""; position: absolute; inset: 0; z-index: 1;
-  background: linear-gradient(95deg, rgb(255 173 85 / var(--warm-left, .22)), transparent 48%, rgb(255 179 92 / var(--warm-right, .24)));
-  mask: url("art/celadon-ghost.png") center / 100% 100% no-repeat;
-  image-rendering: pixelated; mix-blend-mode: soft-light;
+.portrait-layer { position: absolute; inset: 0; overflow: hidden; }
+.portrait-layer img { display: block; width: 100%; height: 100%; max-width: none; image-rendering: pixelated; }
+.portrait-layer .idle-sheet { display: none; }
+.idle-playing .portrait-layer > img:first-child { display: none; }
+.idle-playing .portrait-layer > .idle-sheet {
+  display: block; position: absolute; width: 500%; height: 900%;
+  left: var(--pose-x, 0%); top: var(--pose-y, 0%);
 }
-.ghost-portrait::after { content: ""; position: absolute; inset: 0; background: url("art/celadon-ghost-expression.png?v=embers") center / 100% 100% no-repeat; z-index: 2; opacity: var(--red-glow, 0); filter: drop-shadow(0 0 2px #fc322778) drop-shadow(0 0 5px #e5231938); }
+.portrait-ink { filter: brightness(calc(.13 + .73 * var(--portrait-light, 1))) sepia(calc(.12 + .22 * var(--portrait-light, 1))); }
+.ghost-portrait :is(.warm-left,.warm-right) { mix-blend-mode: soft-light; }
+.ghost-portrait :is(.warm-left,.warm-right) img { filter: brightness(0) invert(78%) sepia(61%) saturate(790%) hue-rotate(326deg); }
+.warm-left { opacity: var(--warm-left, .22); mask-image: linear-gradient(95deg, black, transparent 48%); }
+.warm-right { opacity: var(--warm-right, .24); mask-image: linear-gradient(95deg, transparent 48%, black); }
+.portrait-embers { opacity: var(--red-glow, 0); filter: drop-shadow(0 0 2px #fc322778) drop-shadow(0 0 5px #e5231938); }
 .ghost.over .ghost-portrait { filter: drop-shadow(2px 0 #edc878) drop-shadow(-2px 0 #edc878) drop-shadow(0 2px #edc878) drop-shadow(0 -2px #edc878); }
 .hit { display: none; position: absolute; right: 0; top: 0; font: 400 29px var(--title-font); color: var(--coral); text-shadow: 2px 2px var(--ink); }
 .hurt .hit { display: block; z-index: 2; top: 12%; right: -10%; color: #fff1c6; animation: damage-rise .42s ease-out both; }
@@ -133,17 +138,12 @@ a:focus-visible { outline: 3px solid #d75f36; outline-offset: 4px; }
 .card.drag-clone, .card.played-cover { --cover-opacity: 1; }
 .card-image:has(canvas) { background: #e9d9b6; }
 .folio {
-  display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr);
+  display: grid; grid-template-columns: auto minmax(0,1fr);
   align-items: center; gap: 3px; min-height: clamp(34px,3.25vw,60px);
   padding: 2px 3px 0; line-height: 1;
 }
 .card-number { justify-self: start; font: 400 clamp(17px,1.5vw,27px)/1 var(--title-font); }
 .card-type { text-align: end; font: 400 clamp(11px,.85vw,15px)/1.05 var(--title-font); overflow-wrap: anywhere; }
-.card-stamp {
-  width: clamp(25px,2.1vw,40px); aspect-ratio: 1;
-  background: url("art/project-stamps.png") var(--stamp-offset, 0%) center / 800% 100% no-repeat;
-  image-rendering: pixelated;
-}
 .end { justify-self: end; display: grid; justify-items: start; gap: 4px; padding: 11px 14px; color: var(--ink); background: #d7dfc7; border: 1px solid #293e34; border-radius: 3px; }
 .end span { font-size: 15px; }
 .end i { color: #a44328; font-style: normal; }
@@ -254,15 +254,17 @@ a:focus-visible { outline-color: #f5b55f; }
 
 /* The table is a single island of light on the same charcoal as the portfolio. */
 :root, .arena { background: #10100f; }
-.candle-switch {
+.book-spine, .candle-switch {
   position: absolute; padding: 0; border: 0;
   background: transparent; cursor: pointer;
 }
-.prop-outline.candle-outline {
+.prop-outline.book-outline, .prop-outline.candle-outline {
   inset: auto; width: var(--prop-width); height: var(--prop-height);
   transform: translateX(-50%); z-index: 3;
 }
 .modeled .opening { filter: brightness(calc(.39 + .61 * var(--candle-light, 1))); }
+.book-spine { z-index: 2; }
+.prop-outline.book-outline { z-index: 3; }
 /* Hand cards and body-level animation copies share the room light. Light each
    surface once so the printed face, back and stock keep their 3D depth. */
 .card, .flight-back, .paper-edge { filter: brightness(calc(.22 + .78 * var(--candle-light, 1) + var(--card-fill, 0))); }
@@ -277,6 +279,12 @@ a:focus-visible { outline-color: #f5b55f; }
     #f2dea22c calc(180deg + .55 * var(--spread)), transparent calc(180deg + var(--spread)));
   mask-image: linear-gradient(transparent, #0009 29%, #000c 73%, transparent);
   mix-blend-mode: screen;
+}
+.table-light-shaft.reading-shaft {
+  background: conic-gradient(at 50% -35%, transparent calc(180deg - var(--spread)),
+    #f4d99545 calc(180deg - .55 * var(--spread)), #ffedc276 180deg,
+    #f4d99545 calc(180deg + .55 * var(--spread)), transparent calc(180deg + var(--spread)));
+  mask-image: linear-gradient(transparent, #000b 22%, #000d 68%, transparent);
 }
 .candle-halo { position: absolute; left: 0; top: 0; z-index: -2; pointer-events: none; border-radius: 50%;
   background: radial-gradient(circle, #ffcd7766 0%, #fa963039 22%, #d5651412 50%, transparent 72%);
@@ -521,14 +529,19 @@ a:focus-visible { outline-color: #f5b55f; }
 .shuffle:disabled { opacity: .5; }
 .shuffling .hand:not(:has(.card-wrap)) { visibility: hidden; }
 
-.sound-toggle {
+.audio-controls {
   position: absolute; top: 12px; right: 4%; z-index: 7;
+  display: grid; gap: 3px; width: max-content;
+}
+.sound-toggle {
   display: inline-flex; align-items: center; gap: 7px; min-height: 32px; padding: 4px 9px;
   border: 1px solid #706048; border-radius: 2px; background: #1b1813e8; color: #deceaa;
   font: 400 14px/1 var(--title-font); cursor: pointer;
 }
-.sound-toggle[hidden] { display: none; }
-.sound-toggle:hover, .sound-toggle[aria-pressed="true"] { color: #ffe6b1; border-color: #af894c; }
+.audio-controls [hidden] { display: none; }
+.sound-toggle:disabled { color: #ad9d81; cursor: default; }
+.sound-toggle:enabled:hover, .sound-toggle[aria-pressed="true"] { color: #ffe6b1; border-color: #af894c; }
+.stage { padding-block-start: 84px; }
 .speaker { position: relative; width: 16px; height: 14px; }
 .speaker::before {
   content: ""; position: absolute; inset: 1px 5px 1px 0; background: currentColor;

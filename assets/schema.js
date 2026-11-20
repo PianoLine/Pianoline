@@ -1,8 +1,16 @@
+// Existing works have dedicated pages. Editor-created works share one static entry.
+window.portfolioProjectPath = function (project, preview = false) {
+  const id = encodeURIComponent(project.id);
+  if (project.sharedPage) return "projects/detail.html?id=" + id + (preview ? "&preview=1" : "");
+  return "projects/" + id + ".html" + (preview ? "?preview=1" : "");
+};
+
 window.normalizePortfolio = function (value) {
   const data = JSON.parse(JSON.stringify(value));
   data.theme ??= {};
   data.theme.homeMaxWidth ??= Math.max(1760, Number(data.theme.maxWidth) || 0);
   data.posts = Array.isArray(data.posts) ? data.posts : [];
+  data.playlist = Array.isArray(data.playlist) ? data.playlist.filter(track => typeof track?.src === "string") : [];
   for (const post of data.posts) { post.blocks = Array.isArray(post.blocks) ? post.blocks : []; post.visible = post.visible !== false; }
   for (const project of data.projects || []) {
     // Earlier saves included completion as a slash-separated category tag.

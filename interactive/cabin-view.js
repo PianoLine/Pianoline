@@ -7,7 +7,7 @@
   canvas.className = "cabin-view";
   canvas.setAttribute("aria-hidden", "true");
   arena.prepend(canvas);
-  const {vertices:rest,props,flames,clusterStart,clusterEnd,shadowStart}=window.buildCabinMesh();
+  const {vertices:rest,props,flames,clusterOrigin,clusterStart,clusterEnd,shadowStart}=window.buildCabinMesh();
   const mesh=rest.slice();
   const movingStart=clusterStart;
   const movingVertices=mesh.subarray(movingStart);
@@ -288,7 +288,6 @@ void main(){
   const deckOutline=prepareOutline(deckButton), bellOutline=prepareOutline(bellButton);
   const shuffleButton=document.getElementById("shuffle");
   const shuffleOutline=prepareOutline(shuffleButton);
-  const litProps=[deckButton,shuffleButton,bellButton];
   const shaft=document.createElement("i");
   shaft.className="table-light-shaft";
   shaft.setAttribute("aria-hidden","true");
@@ -296,6 +295,17 @@ void main(){
   arena.prepend(shaft);
   let lastSpot=-1;
   const candleNames=["烛台上的高蜡烛","烛台上的中蜡烛","烛台上的矮蜡烛","桌边的蜡烛","窗边的蜡烛"];
+  const volumes=props.books.map(book=>{
+    const target=document.createElement("span");
+    target.className="book-spine";
+    target.setAttribute("role","img");
+    target.setAttribute("aria-label",book.label);
+    arena.insertBefore(target,encounter);
+    const outline=prepareOutline(target,arena);
+    outline.layer.classList.add("book-outline");
+    return {book,target,outline,pull:0};
+  });
+  const litProps=[deckButton,shuffleButton,bellButton,...volumes.map(volume=>volume.target)];
   const candleOutlines=flames.map((_,index)=>{
     const button=document.createElement("button");
     button.type="button";
@@ -380,7 +390,7 @@ void main(){
   function followModel(control, outline, first, last, camera, focal, w, h, width, height) {
     const {button,layer,ctx}=outline;
     const returning=button === deckButton && button.matches(".over,.returning");
-    const highlighted=ctx && (returning || button.classList.contains("prop-cue") || (hoverInput.matches && button.matches(":hover")));
+    const highlighted=ctx && (returning || button.classList.contains("prop-cue") || (hoverInput.matches && button.matches(":hover")) || button.matches(".book-spine:active"));
     // Candles have separate wick hit targets; only project wax for a visible outline.
     if(control===layer && !highlighted){ layer.hidden=true; return; }
     const [r,u,f]=camera;
@@ -446,6 +456,9 @@ void main(){
         points.push([x,py]);
       }
     }
+    fitHitPolygon(button,points,pad);
+  }
+  function convexHull(points){
     points.sort((a,b)=>a[0]-b[0] || a[1]-b[1]);
     function half(sequence){
       const edge=[];
@@ -460,7 +473,10 @@ void main(){
       edge.pop();
       return edge;
     }
-    const hull=half(points).concat(half(points.reverse()));
+    return half(points).concat(half(points.reverse()));
+  }
+  function fitHitPolygon(button,points,pad){
+    const hull=convexHull(points);
     const left=Math.min(...hull.map(p=>p[0])), right=Math.max(...hull.map(p=>p[0]));
     const top=Math.min(...hull.map(p=>p[1])), bottom=Math.max(...hull.map(p=>p[1]));
     const width=right-left, height=bottom-top;
@@ -470,6 +486,7 @@ void main(){
     button.style.height=(height+2*pad)+"px";
     button.style.clipPath="polygon("+hull.map(([x,y])=>
       ((x-left)/width*100).toFixed(1)+"% "+((y-top)/height*100).toFixed(1)+"%").join(",")+")";
+    return hull;
   }
 
   // Account for the sticky site header while the visitor scrolls partway down the table.
@@ -505,7 +522,7 @@ void main(){
     // Shift the horizon as the mobile hand wraps; the far edge of the table stays in the stage.
     const dot=(row,px,py,pz)=>row[0]*px+row[1]*py+row[2]*pz+row[3];
     const neutralY=h/2-focal*backUp/backDepth;
-    const lift=(neutralY-(stage.offsetHeight-22)*h/height)/focal;
+    const lift=(neutralY-(stage.offsetHeight+(narrow ? -12 : 8))*h/height)/focal;
     camera[1]=camera[1].map((v,i)=>v+lift*camera[2][i]);
     const actorX=narrow ? .215*w/focal*backDepth : 0;
     const sceneTime=motion.matches ? 0 : now*.001;
@@ -514,8 +531,8 @@ void main(){
     // Project the elbows and crown. The portrait box hugs the opaque 84 × 121 px of the master.
     const footY=1.535+.12*recoil, footZ=actorZ-1.32*recoil;
     // Leave room above the hair for the speech bubble on short or ultrawide screens.
-    const headroom=stage.offsetHeight-(narrow ? 102 : 118);
-    const tilt=-.38*recoil, actorHeight=Math.min(narrow ? 2.57 : 2.85,headroom*h/height*backDepth/focal);
+    const headroom=stage.offsetHeight-(narrow ? 85 : 52);
+    const tilt=-.38*recoil, actorHeight=Math.min(narrow ? 2.9 : 3.62,headroom*h/height*backDepth/focal);
     const topY=footY+actorHeight*Math.cos(tilt), topZ=footZ+actorHeight*Math.sin(tilt);
     const footDepth=dot(camera[2],actorX,footY,footZ), topDepth=dot(camera[2],actorX,topY,topZ);
     const foot=height*(.5-focal/h*dot(camera[1],actorX,footY,footZ)/footDepth);
@@ -528,13 +545,13 @@ void main(){
     encounter.style.setProperty("--prop-height",(foot-crown)+"px");
     encounter.style.setProperty("--prop-width",(foot-crown)*84/121+"px");
     // On a portrait display bring the candleholder into the right side of the shot.
-    const candleScale=narrow ? .83 : 1;
-    const clusterX=narrow ? .32*w/focal*4.65 : 2.83;
-    const clusterZ=narrow ? 2.65 : 1.65;
+    const candleScale=narrow ? .66 : 1;
+    const clusterX=narrow ? -.24*w/focal*5.8 : clusterOrigin.x;
+    const clusterZ=narrow ? 1.24 : clusterOrigin.z;
     for(let i=clusterStart;i<clusterEnd;i+=7){
-      mesh[i]=clusterX+(rest[i]-3.12)*candleScale;
+      mesh[i]=clusterX+(rest[i]-clusterOrigin.x)*candleScale;
       mesh[i+1]=1.53+(rest[i+1]-1.53)*candleScale;
-      mesh[i+2]=clusterZ+(rest[i+2]-2.45)*candleScale;
+      mesh[i+2]=clusterZ+(rest[i+2]-clusterOrigin.z)*candleScale;
     }
     const project=(px,py,pz)=>{
       const d=dot(camera[2],px,py,pz);
@@ -552,15 +569,15 @@ void main(){
       else changingLight=true;
       const power=brightness[index];
       const scale=index<3 ? candleScale : 1;
-      let fx=index<3 ? clusterX+(flame.x-3.12)*scale : flame.x;
+      let fx=index<3 ? clusterX+(flame.x-clusterOrigin.x)*scale : flame.x;
       if(index>=3) {
         // Keep the solitary candles within the narrower camera framing.
         const limit=(eyeZ-flame.z)*w/focal*(narrow ? .442 : .40);
         fx=Math.max(-limit,Math.min(limit,fx));
-        if(narrow && index===3) fx=.012*w/focal*(7.65-flame.z);
+        if(narrow && index===3) fx=.055*w/focal*(eyeZ-flame.z);
         for(let i=flame.waxStart;i<flame.waxEnd;i+=7) mesh[i]=rest[i]+fx-flame.x;
       }
-      const fz=index<3 ? clusterZ+(flame.z-2.45)*scale : flame.z;
+      const fz=index<3 ? clusterZ+(flame.z-clusterOrigin.z)*scale : flame.z;
       const wick=1.53+(flame.y-1.53)*scale;
       const t=sceneTime+flame.phase;
       const sway=.105*Math.sin(3.6*t)+.046*Math.sin(8.4*t+.7);
@@ -611,7 +628,56 @@ void main(){
     const compact=width<=1050;
     const deckAnchor=tablePosition(compact ? .235 : .125, narrow ? 3.49 : compact ? 2.87 : 3.76, compact ? .55 : .52,w,focal,width);
     const shuffleAnchor=tablePosition(narrow ? .48 : compact ? .43 : .245, narrow ? 3.72 : compact ? 3.13 : 3.83, narrow ? .48 : .55,w,focal,width);
-    const bellAnchor=tablePosition(compact ? .745 : .835, narrow ? 3.63 : compact ? 3.02 : 3.72, .594,w,focal,width);
+    const bellAnchor=tablePosition(narrow ? .69 : compact ? .72 : .758, narrow ? 3.63 : compact ? 3.02 : 3.59, .594,w,focal,width);
+    const shelfAnchor=tablePosition(narrow ? .885 : .925, narrow ? 2.12 : 3.02,
+      narrow ? .53 : Math.min(1.13,width/1370)*1.04,w,focal,width);
+    const shelfYaw=narrow ? -1.13 : -1.47, co=Math.cos(shelfYaw), si=Math.sin(shelfYaw);
+    placePart(props.shelf,shelfAnchor,0,shelfYaw);
+    let bookMoving=false;
+    for(const volume of volumes){
+      const {book,target}=volume;
+      const hover=(hoverInput.matches && target.matches(":hover")) || target.matches(":active");
+      const goal=hover ? 1 : 0;
+      volume.pull+=(goal-volume.pull)*(motion.matches ? 1 : step*.85);
+      if(Math.abs(goal-volume.pull)<.003) volume.pull=goal;
+      else bookMoving=true;
+      const scale=shelfAnchor.scale, slide=.40*volume.pull, lean=.16*volume.pull;
+      const heel=book.depth*.5*Math.sin(lean);
+      const x=shelfAnchor.x+book.offset*co*scale, z=shelfAnchor.z-book.offset*si*scale;
+      placePart(book,{x:x+si*slide*scale,z:z+co*slide*scale,scale},.18+heel,shelfYaw,lean);
+      // Aim at the exposed spine, including the lean, rather than the middle of the shelf.
+      const spineDepth=slide+book.depth*.45*Math.cos(lean)+book.height*.65*Math.sin(lean);
+      volume.lightAnchor={x:x+si*spineDepth*scale,z:z+co*spineDepth*scale,scale};
+      // Include the resting spine while it is pulled out, keeping a stationary pointer attached.
+      const resting=[], pulled=[];
+      for(const dx of [-book.width/2,book.width/2]) for(const dy of [0,book.height]){
+        for(const dz of [-book.depth/2,book.depth/2]){
+          resting.push(project(x+scale*(co*dx+si*dz),1.533+scale*(dy+.18),z+scale*(co*dz-si*dx)));
+          if(volume.pull){
+            const pulledZ=slide+dz*Math.cos(lean)+dy*Math.sin(lean);
+            const pulledY=.18+heel+dy*Math.cos(lean)-dz*Math.sin(lean);
+            pulled.push(project(x+scale*(co*dx+si*pulledZ),1.533+scale*pulledY,z+scale*(co*pulledZ-si*dx)));
+          }
+        }
+      }
+      const hit=fitHitPolygon(target,volume.pull ? resting.concat(pulled) : resting,0);
+      volume.silhouette=volume.pull ? convexHull(pulled) : hit;
+    }
+    // Mask the yellow edge where a closer volume hides the selected cover.
+    for(const [index,{book,outline}] of volumes.entries()){
+      followModel(outline.layer,outline,book.start,book.end,camera,focal,w,h,width,height);
+      if(outline.layer.hidden) continue;
+      const ctx=outline.ctx;
+      ctx.globalCompositeOperation="destination-out";
+      for(const nearer of volumes.slice(index+1)){
+        const rim=nearer.silhouette;
+        ctx.beginPath();
+        ctx.moveTo(...rim[0]);
+        for(let i=1;i<rim.length;i++) ctx.lineTo(...rim[i]);
+        ctx.fill();
+      }
+      ctx.globalCompositeOperation="source-over";
+    }
     deckView={anchor:deckAnchor,camera,focal,w,h};
     const elapsed=t=>motion.matches ? Infinity : Math.max(0,now-t);
     const drawTime=elapsed(drawAt), returnTime=elapsed(returnedAt), bellTime=elapsed(bellAt);
@@ -670,18 +736,18 @@ void main(){
     spotlight[3]=spotMoving ? strength : amount;
     shaft.hidden=spotlight[3]===0;
     if(!shaft.hidden){
-      const anchor=lastSpot===0 ? deckAnchor : lastSpot===1 ? pivot : bellAnchor;
-      const radius=anchor.scale*(lastSpot===0 ? 1.65 : 1.28);
+      const volume=volumes[lastSpot-3];
+      shaft.classList.toggle("reading-shaft",Boolean(volume));
+      const anchor=volume ? volume.lightAnchor : [deckAnchor,pivot,bellAnchor][lastSpot];
+      const radius=anchor.scale*(volume ? .49 : lastSpot===0 ? 1.65 : 1.28);
       spotlight[0]=anchor.x; spotlight[1]=anchor.z; spotlight[2]=radius;
 
       // Project the top and foot of the same cone so the shaft follows camera parallax.
-      const topY=1.53+radius*3.7;
-      const bottomDepth=dot(camera[2],anchor.x,1.53,anchor.z);
-      const topDepth=dot(camera[2],anchor.x,topY,anchor.z);
-      const bottomX=width*(.5+focal/w*dot(camera[0],anchor.x,1.53,anchor.z)/bottomDepth);
-      const bottomY=height*(.5-focal/h*dot(camera[1],anchor.x,1.53,anchor.z)/bottomDepth);
-      const topX=width*(.5+focal/w*dot(camera[0],anchor.x,topY,anchor.z)/topDepth);
-      const top=height*(.5-focal/h*dot(camera[1],anchor.x,topY,anchor.z)/topDepth);
+      const footY=1.53+(volume ? (.18+volume.book.height*.55)*anchor.scale : 0);
+      const topY=footY+radius*(volume ? 4.7 : 3.7);
+      const bottomDepth=dot(camera[2],anchor.x,footY,anchor.z);
+      const [bottomX,bottomY]=project(anchor.x,footY,anchor.z);
+      const [topX,top]=project(anchor.x,topY,anchor.z);
       const length=Math.max(1,bottomY-top);
       const spread=radius*focal*width/(w*bottomDepth);
       shaft.style.left=(bottomX-spread)+"px"; shaft.style.top=top+"px";
@@ -694,7 +760,7 @@ void main(){
     canvas.classList.add("painted");
     arena.classList.add("modeled");
     if(!motion.matches) {
-      if(spotMoving || changingLight || watchTilt!==watchTarget || stackLift!==liftTarget || cutting || drawTime<250 || returnTime<240 || bellTime<500 || kick || seconds<.6 || Math.abs(targetX-x)+Math.abs(targetY-y)>.001) schedule();
+      if(bookMoving || spotMoving || changingLight || watchTilt!==watchTarget || stackLift!==liftTarget || cutting || drawTime<250 || returnTime<240 || bellTime<500 || kick || seconds<.6 || Math.abs(targetX-x)+Math.abs(targetY-y)>.001) schedule();
       else idleTimer=setTimeout(schedule,gpu ? 50 : 105);
     }
   }
@@ -702,6 +768,8 @@ void main(){
   const input=arena;
   input.addEventListener("pointermove",event=>{
     if(motion.matches || event.pointerType!=="mouse") return;
+    // Let a reader cross individual spines without the whole shelf drifting under the pointer.
+    if(event.target.closest(".book-spine")) { targetX=x; targetY=y; return; }
     const bounds=canvas.getBoundingClientRect();
     if(!bounds.width || !bounds.height) return;
     const clamp=n=>Math.max(-1,Math.min(1,n));

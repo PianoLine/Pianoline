@@ -113,12 +113,13 @@ const tableAudio = (() => {
           return slap + bend * (.12 * Math.sin(phase) + .046 * Math.sin(2.4 * phase) + .14 * fibre);
         });
       }
-      case "voice": return sample(.043, t => {
-        // A stepped, pitched vowel. The harmonics give the ghost a small, nasal voice.
-        const phase = tau * (187 * t - 370 * t * t);
-        const vowel = .058 * Math.sin(phase) + .070 * Math.sin(phase * 3)
-          + .082 * Math.sin(phase * 5) + .043 * Math.sin(phase * 8) + .021 * Math.sin(phase * 9);
-        return Math.round(vowel * 90) / 90 * Math.sin(Math.PI * t / .043) ** .72;
+      case "voice": return sample(.066, t => {
+        // A hummed vowel opens gently, then falls away before the next glyph.
+        const phase=tau*(218*t + .38*(1-Math.exp(-t/.016)) - 76*t*t);
+        const vowel=.116*Math.sin(phase)+.063*Math.sin(2*phase+.10)
+          +.034*Math.sin(3*phase)+.016*Math.exp(-t/.028)*Math.sin(5*phase);
+        const envelope=(1-Math.exp(-t/.008))*Math.exp(-t/.039)*Math.min(1,(.066-t)/.018);
+        return vowel*envelope;
       });
     }
   }
@@ -144,7 +145,7 @@ const tableAudio = (() => {
   }
   function glyph(char) {
     if (char && /[\p{L}\p{N}]/u.test(char)) {
-      play("voice", .94 + (char.codePointAt(0) % 9) * .018);
+      play("voice", .97 + (char.codePointAt(0) % 7) * .014);
     }
   }
 

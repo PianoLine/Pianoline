@@ -5,7 +5,10 @@ window.initSiteEffects = function initSiteEffects() {
   };
 
   updateHeader();
-  window.addEventListener('scroll', updateHeader, { passive: true, once: false });
+  if (!header.dataset.effectsReady) {
+    window.addEventListener('scroll', updateHeader, { passive: true });
+    header.dataset.effectsReady = 'true';
+  }
 
   const observer = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
@@ -22,8 +25,8 @@ window.initSiteEffects = function initSiteEffects() {
 // A return to the table uses the same dimmer on both sides of the navigation.
 (function setupTableReturn() {
   const page = document.body.dataset.page;
-  const home = page === "home";
-  if (!home && page !== "project" && page !== "posts") return;
+  const atHome = () => document.body.dataset.page === "home";
+  if (!atHome() && page !== "project" && page !== "posts") return;
   const siteHome = new URL(page === "project" ? "../index.html" : "index.html", location.href);
   const key = "portfolio-return:" + siteHome.pathname;
   const motion = matchMedia("(prefers-reduced-motion: reduce)");
@@ -49,29 +52,27 @@ window.initSiteEffects = function initSiteEffects() {
   }
   window.addEventListener("pagehide", () => {
     clear();
-    if (!home) {
+    if (!atHome()) {
       try { sessionStorage.setItem(key, "1"); } catch { /* Storage is optional. */ }
     }
   });
 
-  if (!home) {
-    document.addEventListener("click", async event => {
-      const link = event.target.closest("a.back-link, a.brand");
-      if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey ||
-          event.shiftKey || event.altKey || link.target && link.target !== "_self") return;
-      const url = new URL(link.href);
-      if (url.pathname !== siteHome.pathname || url.origin !== siteHome.origin || url.hash !== "#top" ||
-          motion.matches || !Element.prototype.animate) return;
-      event.preventDefault();
-      if (curtain) return;
-      const fade = cover().animate(tones, {duration: 190, easing: "ease-in", fill: "both"});
-      try { await fade.finished; } catch { return; }
-      location.assign(url.href);
-    });
-    return;
-  }
+  document.addEventListener("click", async event => {
+    const link = event.target.closest("a.back-link, a.brand");
+    if (atHome() || !link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey ||
+        event.shiftKey || event.altKey || link.target && link.target !== "_self") return;
+    const url = new URL(link.href);
+    if (url.pathname !== siteHome.pathname || url.origin !== siteHome.origin || url.hash !== "#top" ||
+        motion.matches || !Element.prototype.animate) return;
+    event.preventDefault();
+    if (curtain) return;
+    const fade = cover().animate(tones, {duration: 190, easing: "ease-in", fill: "both"});
+    try { await fade.finished; } catch { return; }
+    location.assign(url.href);
+  });
 
-  function startReturn(cached) {
+  function startReturn(cached, returning = false) {
+    if (!atHome()) return;
     const navigation = performance.getEntriesByType("navigation")[0];
     let fromPortfolio = false;
     try {
@@ -83,8 +84,9 @@ window.initSiteEffects = function initSiteEffects() {
       fromPortfolio = from.origin === siteHome.origin && (from.pathname === new URL("posts.html", siteHome).pathname ||
         from.pathname.startsWith(new URL("projects/", siteHome).pathname));
     }
-    if (!fromPortfolio || motion.matches || !Element.prototype.animate ||
-        (!cached && (navigation?.type === "reload" || (navigation?.type !== "back_forward" && location.hash !== "#top")))) return;
+    if ((!fromPortfolio && !returning) || motion.matches || !Element.prototype.animate ||
+        (!returning && !cached && (navigation?.type === "reload" || (navigation?.type !== "back_forward" && location.hash !== "#top")))) return;
+    clear();
     const layer = cover();
     const reveal = () => {
       if (curtain !== layer || layer.getAnimations().length) return;
@@ -97,6 +99,7 @@ window.initSiteEffects = function initSiteEffects() {
     frame?.addEventListener("load", reveal, {once: true});
     readyTimer = setTimeout(reveal, 650);
   }
+  window.addEventListener("portfolio-home-return", () => startReturn(false, true));
   // site.js creates the table frame synchronously before DOMContentLoaded.
   document.addEventListener("DOMContentLoaded", () => startReturn(false), {once: true});
   window.addEventListener("pageshow", event => { if (event.persisted) startReturn(true); });

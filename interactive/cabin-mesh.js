@@ -3,6 +3,7 @@ window.buildCabinMesh = function buildCabinMesh() {
   const vertices = [];
   const palette = new Map();
   const wicks = [];
+  const clusterOrigin={x:-2.48,z:-.55}, singleCandle={x:2.15,z:.68};
   let seed = 31277;
   function random() {
     seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
@@ -21,7 +22,8 @@ window.buildCabinMesh = function buildCabinMesh() {
     const diffuse = .56 + .31*Math.abs(ny/length) + .19*nx/length + .14*nz/length;
     const shade = diffuse * (1-emission) * (grain === 4 ? 1 : .51) + emission;
     const lit = points.map(([x,y,z]) => {
-      const distance = Math.min((x-3.12)**2+(y-2.7)**2+(z-2.45)**2, (x+2.26)**2+(y-2.41)**2+(z+.85)**2);
+      const distance = Math.min((x-clusterOrigin.x)**2+(y-2.7)**2+(z-clusterOrigin.z)**2,
+        (x-singleCandle.x)**2+(y-2.41)**2+(z-singleCandle.z)**2);
       const amber = (1-emission) * .67 / (1+distance*.19);
       return [x,y,z, Math.min(1,r/255*(shade+amber)), Math.min(1,g/255*(shade+amber*.70)),
         Math.min(1,b/255*(shade+amber*.30)),grain];
@@ -125,6 +127,8 @@ window.buildCabinMesh = function buildCabinMesh() {
   box(0,1.19,-1.98,16.8,.25,.14,"4c3021",1);
   // Faded brass-coloured lines follow the boards, in the same depth pass as the props.
   function tableLine(x1,z1,x2,z2,width=.048) {
+    x1*=.83; x2*=.83;
+    z1=.04+.78*z1; z2=.04+.78*z2;
     const dx=x2-x1, dz=z2-z1, k=width/(2*Math.hypot(dx,dz));
     const ox=-dz*k, oz=dx*k, y=1.539;
     face([[x1+ox,y,z1+oz],[x2+ox,y,z2+oz],[x2-ox,y,z2-oz],[x1-ox,y,z1-oz]],"b08a60",1);
@@ -176,13 +180,13 @@ window.buildCabinMesh = function buildCabinMesh() {
     wicks.push({x,y:y+h,z,r,h,waxStart,waxEnd:vertices.length});
   }
   const clusterStart=vertices.length;
-  turned(3.12,2.45,[[1.53,.55],[1.58,.61],[1.65,.55]],9,"755538");
-  candle(3.10,1.65,2.36,.146,.79);
-  candle(3.32,1.65,2.56,.13,.55);
-  candle(2.90,1.65,2.64,.105,.31);
+  turned(clusterOrigin.x,clusterOrigin.z,[[1.53,.55],[1.58,.61],[1.65,.55]],9,"755538");
+  candle(clusterOrigin.x-.02,1.65,clusterOrigin.z-.09,.146,.79);
+  candle(clusterOrigin.x+.20,1.65,clusterOrigin.z+.11,.13,.55);
+  candle(clusterOrigin.x-.22,1.65,clusterOrigin.z+.19,.105,.31);
   const clusterEnd=vertices.length;
-  candle(-2.26,1.53,-.85,.15,.61);
-  candle(6.44,1.99,-4.94,.16,.66);
+  candle(singleCandle.x,1.53,singleCandle.z,.15,.61);
+  candle(5.54,1.99,-4.94,.16,.66);
   // Put moving geometry together so the room stays in its static vertex buffer.
   const flames = wicks.map((wick, index) => {
     const {x,y,z,r}=wick;
@@ -229,7 +233,8 @@ window.buildCabinMesh = function buildCabinMesh() {
     slab(1.37,1.82,0,.09,.14,"39271c","7c5730");
     slab(1.29,1.73,.09,.125,.10,"ad814a","373a31");
   });
-  const leaves = Array.from({length: 7}, () => part(() => {
+  // The visible stack tops out at ten layers. The deck still holds every project.
+  const leaves = Array.from({length: 10}, () => part(() => {
     slab(1.13,1.56,0,.052,.07,"c7a87a","caaa73");
     slab(1.05,1.48,.052,.062,.05,"68513a","304740");
     const y = .066;
@@ -286,7 +291,56 @@ window.buildCabinMesh = function buildCabinMesh() {
     face([[-.025,.217,.066],[-.021,.217,-.22],[0,.217,-.34],[.021,.217,-.22],[.025,.217,.066]],"3d342b",0,.57);
     turned(0,0,[[.22,.044],[.246,.033]],8,"946430",.6);
   });
-  const props = { deckShadow, bellShadow, watchShadow, deckBase, leaves, bellBase, dome, plunger, watchCase, watchHand };
+  // From the right edge, the open shelf faces across the table. The backboard and feet
+  // extend behind the books; the low lip leaves a clear path to pull a volume out.
+  const bindings=[
+    {width:.20,height:1.44,color:"526e63",label:"青绿色布面书"},
+    {width:.23,height:1.29,color:"874e45",label:"酒红色皮面书"},
+    {width:.17,height:1.12,color:"566477",label:"灰蓝色小册"}
+  ];
+  const bookGap=.13;
+  const rowWidth=bindings.reduce((sum,book)=>sum+book.width,0)+bookGap*(bindings.length-1);
+  const bookend=rowWidth/2+.15;
+  const shelfWidth=2*bookend+.18;
+  const shelf=part(()=>{
+    box(0,.09,-.12,shelfWidth,.18,1.65,"745039",1);
+    box(0,.145,.708,shelfWidth+.02,.055,.035,"b08a5a",1);
+    box(0,.83,-.85,shelfWidth-.06,1.46,.13,"664838",1);
+    box(0,1.57,-.85,shelfWidth+.01,.075,.18,"986e49",1);
+    for(const side of [-1,1]){
+      box(side*bookend,.35,-.06,.085,.44,.80,"765338",2);
+      box(side*bookend,.59,-.26,.085,.12,.41,"967148",1);
+    }
+  });
+  let bookLeft=-rowWidth/2;
+  const books=bindings.map(({width,height,color,label},index)=>{
+    const offset=bookLeft+width/2;
+    bookLeft+=width+bookGap;
+    const depth=1.05, front=depth/2, foil="d5b47b";
+    const geometry=part(()=>{
+      box(0,height/2,-.02,width-.032,height-.06,depth-.09,"cfb992");
+      for(const side of [-1,1]) box(side*(width/2-.009),height/2,0,.018,height,depth,color);
+      box(0,height/2,front-.035,width,height,.07,color);
+      for(const level of [.12,.19,.80,.85]){
+        box(0,height*level,front+.002,width*.88,.018,.013,foil);
+      }
+      const y=height*.54, z=front+.014, r=width*.24;
+      const points=Array.from({length:index%2 ? 4 : 8},(_,i)=>{
+        const a=2*Math.PI*i/(index%2 ? 4 : 8), radius=i%2 && !(index%2) ? r*.46 : r;
+        return [radius*Math.sin(a),y+radius*1.35*Math.cos(a),z];
+      });
+      face(points,foil,0,.42);
+      box(0,height*.39,z,width*.43,.014,.012,foil);
+      // Pressed border on the broad cover becomes visible as the book tilts out.
+      const coverX=width/2+.002;
+      for(const edge of [-1,1]){
+        box(coverX,height/2,edge*depth*.40,.008,height*.83,.018,"ae9168");
+        box(coverX,height*(.5+edge*.415),0,.008,.018,depth*.80,"ae9168");
+      }
+    });
+    return {...geometry,offset,width,height,depth,label};
+  });
+  const props = { deckShadow, bellShadow, watchShadow, deckBase, leaves, bellBase, dome, plunger, watchCase, watchHand, shelf, books };
   const shadowStart=vertices.length;
   for (const [radius,color,height] of [[.78,"473022",1.534],[.52,"362820",1.536]]) {
     const rim=Array.from({length:14},(_,i)=>{
@@ -295,5 +349,5 @@ window.buildCabinMesh = function buildCabinMesh() {
     });
     face(rim,color,0,.40);
   }
-  return {vertices:new Float32Array(vertices),props,flames,clusterStart,clusterEnd,shadowStart};
+  return {vertices:new Float32Array(vertices),props,flames,clusterOrigin,clusterStart,clusterEnd,shadowStart};
 };

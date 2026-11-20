@@ -35,9 +35,19 @@
     return new Blob([...local, ...central, end], { type: "application/zip" });
   }
   window.exportPortfolioWebsite = async function (draft) {
+    draft = JSON.parse(JSON.stringify(draft));
     if (location.protocol === "file:") throw new Error("请使用在线编辑页下载完整网站，本地文件无法读取其他文件");
     const paths = new Set(["index.html", "editor.html", "posts.html", "assets/styles.css", "assets/fonts/titles.css", "assets/ghost-mark.png", "assets/fonts/fusion-pixel-12-zh-hans.woff2", "assets/fonts/LICENSE.txt", "assets/main.js", "assets/schema.js", "assets/site.js", "assets/editor.js", "assets/export-site.js", "interactive/index.html", "interactive/prototype.css", "interactive/prototype.js", "interactive/table-audio.js", "interactive/cabin-mesh.js", "interactive/cabin-view.js", "interactive/art/polygon-cabin.webp", "interactive/art/celadon-ghost.png", "interactive/art/celadon-ghost-expression.png", "interactive/art/project-stamps.png"]);
-    for (const project of draft.projects || []) paths.add(`projects/${project.id}.html`);
+    paths.add("projects/detail.html");
+    paths.add("assets/playlist-files.js");
+    paths.add("assets/site-music.js");
+    paths.add("assets/site-music.css");
+    paths.add("interactive/ghost-idle.js");
+    paths.add("interactive/art/celadon-idle.png");
+    paths.add("interactive/art/celadon-idle-expression.png");
+    for (const project of draft.projects || []) {
+      if (!project.sharedPage) paths.add(window.portfolioProjectPath(project));
+    }
     const addLocal = value => {
       if (typeof value === "string" && /^assets\/media\//.test(value)) paths.add(value.split(/[?#]/)[0]);
     };
@@ -49,11 +59,28 @@
     }
     for (const post of draft.posts || []) for (const block of post.blocks || []) addLocal(block.src);
     addLocal(draft.contact?.resumeUrl);
+    const musicFiles = new Map();
+    const musicUrls = new Map();
+    const rootUrl = new URL("./", location.href);
+    for (const track of draft.playlist || []) {
+      const src = track.src.trim();
+      if (!src || /^(?:https?:|data:|\/\/)/i.test(src)) continue;
+      const url = new URL(src, rootUrl);
+      if (url.origin !== rootUrl.origin || !url.pathname.startsWith(rootUrl.pathname)) {
+        throw new Error("请为歌单使用站内音频路径或完整的在线音频网址");
+      }
+      const path = decodeURIComponent(url.pathname.slice(rootUrl.pathname.length));
+      if (musicFiles.has(path)) continue;
+      const file = await window.playlistFiles.get(path);
+      if (file) musicFiles.set(path, file);
+      else { paths.add(path); musicUrls.set(path, url.href); }
+    }
     const files = await Promise.all([...paths].map(async path => {
-      const response = await fetch(path);
+      const response = await fetch(musicUrls.get(path) || path);
       if (!response.ok) throw new Error(`找不到文件 ${path}；请先上传该文件或修改路径`);
       return { name: path, bytes: new Uint8Array(await response.arrayBuffer()) };
     }));
+    for (const [name, file] of musicFiles) files.push({name, bytes: new Uint8Array(await file.arrayBuffer())});
     files.push({ name: "assets/site-content.js", bytes: encoder.encode(`window.PORTFOLIO_CONTENT = ${JSON.stringify(draft, null, 2)};\n`) });
     files.push({ name: ".nojekyll", bytes: new Uint8Array() });
     const url = URL.createObjectURL(zip(files));

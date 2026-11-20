@@ -1,7 +1,7 @@
 (function () {
   const DRAFT_KEY = "portfolio-editor-draft-v2";
   const root = document.getElementById("site-root");
-  const pageType = document.body.dataset.page || "home";
+  let pageType = document.body.dataset.page || "home";
   const previewQuery = new URLSearchParams(window.location.search).get("preview") === "1" ? "?preview=1" : "";
 
   if (!root || !window.PORTFOLIO_CONTENT) return;
@@ -83,8 +83,10 @@
     return `<div class="project-video"><div class="project-video-heading"><div><span class="section-label">PROJECT VIDEO</span><h3>${title}</h3>${video.note ? `<p>${escapeHtml(video.note)}</p>` : ""}</div>${original ? `<a class="project-video-original" ${linkAttributes(original)}>打开原视频 ↗</a>` : ""}</div>${player ? `<div class="project-video-player">${player}</div>` : ""}</div>`;
   }
 
-  function renderHeader(prefix = "") {
-    return `<header class="topbar"><div class="container topbar-inner"><a class="brand" href="${prefix}index.html${previewQuery}#top" aria-label="回到首页"><span class="brand-mark" aria-hidden="true"></span><span>PIANOLILNE</span></a><nav class="nav" aria-label="页面导航"><a href="${prefix}index.html${previewQuery}#about">简介</a><a href="${prefix}index.html${previewQuery}#projects">项目</a><a href="${prefix}index.html${previewQuery}#updates">动态</a><a href="${prefix}index.html${previewQuery}#contact">联系</a></nav></div></header>`;
+  const siteRoot = new URL(pageType === "project" ? "../" : "./", location.href);
+  function renderHeader() {
+    const prefix = escapeHtml(siteRoot.href);
+    return `<header class="topbar"><div class="container topbar-inner"><a class="brand" href="${prefix}index.html${previewQuery}#top" aria-label="回到首页"><span class="brand-mark" aria-hidden="true"></span><span>PIANOLILNE</span></a><div class="site-music"></div><nav class="nav" aria-label="页面导航"><a href="${prefix}index.html${previewQuery}#about">简介</a><a href="${prefix}index.html${previewQuery}#projects">项目</a><a href="${prefix}index.html${previewQuery}#updates">动态</a><a href="${prefix}index.html${previewQuery}#contact">联系</a></nav></div></header>`;
   }
 
   function renderFooter(prefix = "") {
@@ -96,7 +98,7 @@
   function projectCard(project) {
     const cardImage = project.cover?.cardSrc || project.cover?.src;
     const image = cardImage ? `<img class="project-card-image" loading="lazy" src="${escapeHtml(pathForCurrentPage(cardImage))}" alt="">` : "";
-    return `<a class="project-card reveal" href="projects/${escapeHtml(project.id)}.html${previewQuery}"><div class="project-folio"><span class="project-number">${escapeHtml(project.number)}</span><span>${escapeHtml(project.category || "")}</span></div>${image}<div class="project-card-copy"><h3>${escapeHtml(project.title)}</h3><p>${escapeHtml(project.short)}</p><span class="project-link">查看项目详情 <span>↗</span></span></div></a>`;
+    return `<a class="project-card reveal" href="${escapeHtml(window.portfolioProjectPath(project, Boolean(previewQuery)))}"><div class="project-folio"><span class="project-number">${escapeHtml(project.number)}</span><span>${escapeHtml(project.category || "")}</span></div>${image}<div class="project-card-copy"><h3>${escapeHtml(project.title)}</h3><p>${escapeHtml(project.short)}</p><span class="project-link">查看项目详情 <span>↗</span></span></div></a>`;
   }
 
   function contactItem(label, url, text) {
@@ -115,19 +117,19 @@
     const posts = visiblePosts(), id = new URLSearchParams(location.search).get("id"), post = posts.find(p => p.id === id);
     if (id) {
       const body = post ? `<article class="post-detail"><time>${escapeHtml(post.date || "")}</time><h1>${escapeHtml(post.title)}</h1>${(post.blocks || []).map(b => b.type === "image" && b.src ? `<figure><img src="${escapeHtml(pathForCurrentPage(b.src))}" alt="${escapeHtml(b.caption || "文章图片")}">${b.caption ? `<figcaption>${escapeHtml(b.caption)}</figcaption>` : ""}</figure>` : b.type === "text" ? `<p>${escapeHtml(b.text || "")}</p>` : "").join("")}</article>` : `<h1>没有找到这篇动态</h1>`;
-      root.innerHTML = `${renderHeader("")}<main class="container post-page"><a class="back-link" href="index.html${previewQuery}#top">← 返回首页</a>${body}</main>${renderFooter("")}`;
+      root.innerHTML = `<main class="container post-page"><a class="back-link" href="index.html${previewQuery}#top">← 返回首页</a>${body}</main>${renderFooter("")}`;
       if (post) document.title = `${post.title}｜${content.profile?.name || "作品集"}`;
-    } else root.innerHTML = `${renderHeader("")}<main class="container post-page"><a class="back-link" href="index.html${previewQuery}#top">← 返回首页</a><header class="journal-head"><span class="micro-label">动态 / 开发日志</span><h1>全部动态</h1></header><div class="post-grid">${posts.map(postCard).join("") || "<p>暂时还没有发布动态。</p>"}</div></main>${renderFooter("")}`;
+    } else root.innerHTML = `<main class="container post-page"><a class="back-link" href="index.html${previewQuery}#top">← 返回首页</a><header class="journal-head"><span class="micro-label">动态 / 开发日志</span><h1>全部动态</h1></header><div class="post-grid">${posts.map(postCard).join("") || "<p>暂时还没有发布动态。</p>"}</div></main>${renderFooter("")}`;
   }
-  function renderHome() {
+  function renderHome(returning) {
     const local = location.protocol === "file:" || ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
     const workingScene = local && new URLSearchParams(location.search).get("scene") === "prototype";
     const sceneDir = workingScene ? "prototype" : "interactive";
     // Reload the local work-in-progress entry on each visit so it supplies current asset versions.
-    const sceneVersion = workingScene ? Date.now().toString(36) : "celadon-framing";
+    const sceneVersion = workingScene ? Date.now().toString(36) : "global-music";
     const navigationType = performance.getEntriesByType("navigation")[0]?.type;
     // Portfolio links back to the home page target one of its sections.
-    const resumeTable = navigationType === "back_forward" ||
+    const resumeTable = returning || navigationType === "back_forward" ||
       (navigationType !== "reload" && ["#top", "#about", "#projects", "#updates", "#contact"].includes(location.hash));
     const profile = content.profile || {};
     const home = content.home || {};
@@ -150,25 +152,23 @@
     ].filter(Boolean).join("");
     const videoNote = contactRows || `<p class="section-intro">联系方式与简历链接待本人补充。</p>`;
 
-    root.innerHTML = `${renderHeader("")}<main id="top"><section class="interactive-hero" aria-label="互动作品集"><h1 class="interactive-intro">${escapeHtml(profile.name || "")} · ${escapeHtml(profile.headline || "游戏与交互作品集")}</h1><iframe class="interactive-frame" title="作品卡与小幽灵" src="${sceneDir}/index.html?embed=1&v=${sceneVersion}${resumeTable ? "&resume=1" : ""}${previewQuery ? "&preview=1" : ""}"></iframe></section>${aboutSection}<section class="section" id="projects"><div class="container"><div class="section-head reveal"><div><h2 class="section-title">项目案例</h2></div><p class="section-intro">${escapeHtml(home.projectsIntro || "")}</p></div><div class="project-grid">${projects.map(projectCard).join("")}</div></div></section><section class="section" id="updates"><div class="container"><div class="section-head"><div><h2 class="section-title">动态与开发日志</h2></div><a class="button" href="posts.html${previewQuery}">查看全部 ↗</a></div><div class="post-grid">${visiblePosts().slice(0,3).map(postCard).join("") || "<p class=\"section-intro\">还没有发布动态，敬请期待。</p>"}</div></div></section><section class="section" id="contact"><div class="container"><div class="contact-card reveal"><div><h2>${escapeHtml(contact.heading || "联系方式与简历")}</h2>${contact.intro ? `<p>${escapeHtml(contact.intro)}</p>` : ""}</div><div class="contact-list">${videoNote}</div></div></div></section></main>${renderFooter("")}`;
+    root.innerHTML = `<main id="top"><section class="interactive-hero" aria-label="互动作品集"><h1 class="interactive-intro">${escapeHtml(profile.name || "")} · ${escapeHtml(profile.headline || "游戏与交互作品集")}</h1><iframe class="interactive-frame" title="作品卡与小幽灵" src="${sceneDir}/index.html?embed=1&v=${sceneVersion}${resumeTable ? "&resume=1" : ""}${previewQuery ? "&preview=1" : ""}"></iframe></section>${aboutSection}<section class="section" id="projects"><div class="container"><div class="section-head reveal"><div><h2 class="section-title">项目案例</h2></div><p class="section-intro">${escapeHtml(home.projectsIntro || "")}</p></div><div class="project-grid">${projects.map(projectCard).join("")}</div></div></section><section class="section" id="updates"><div class="container"><div class="section-head"><div><h2 class="section-title">动态与开发日志</h2></div><a class="button" href="posts.html${previewQuery}">查看全部 ↗</a></div><div class="post-grid">${visiblePosts().slice(0,3).map(postCard).join("") || "<p class=\"section-intro\">还没有发布动态，敬请期待。</p>"}</div></div></section><section class="section" id="contact"><div class="container"><div class="contact-card reveal"><div><h2>${escapeHtml(contact.heading || "联系方式与简历")}</h2>${contact.intro ? `<p>${escapeHtml(contact.intro)}</p>` : ""}</div><div class="contact-list">${videoNote}</div></div></div></section></main>${renderFooter("")}`;
   }
 
-  if (pageType === "home") {
-    window.addEventListener("message", event => {
-      const frame = document.querySelector(".interactive-frame");
-      if (!frame || event.source !== frame.contentWindow) return;
-      // Chromium serializes messages from local files as "null", even when location.origin is "file://".
-      const localFile = location.protocol === "file:" && event.origin === "null";
-      if (!localFile && event.origin !== location.origin) return;
-      if (event.data?.type === "portfolio-table-height" && Number.isFinite(event.data.height)) {
-        frame.style.height = Math.min(Math.max(event.data.height, 200), 5000) + "px";
-      }
-      if (event.data?.type === "portfolio-section" && ["about", "projects", "updates"].includes(event.data.section)) {
-        location.hash = event.data.section;
-        document.getElementById(event.data.section)?.scrollIntoView();
-      }
-    });
-  }
+  window.addEventListener("message", event => {
+    const frame = document.querySelector(".interactive-frame");
+    if (!frame || event.source !== frame.contentWindow) return;
+    // Chromium serializes messages from local files as "null", even when location.origin is "file://".
+    const localFile = location.protocol === "file:" && event.origin === "null";
+    if (!localFile && event.origin !== location.origin) return;
+    if (event.data?.type === "portfolio-table-height" && Number.isFinite(event.data.height)) {
+      frame.style.height = Math.min(Math.max(event.data.height, 200), 5000) + "px";
+    }
+    if (event.data?.type === "portfolio-section" && ["about", "projects", "updates"].includes(event.data.section)) {
+      location.hash = event.data.section;
+      document.getElementById(event.data.section)?.scrollIntoView();
+    }
+  });
 
   function cardsMarkup(cards, className) {
     return `<div class="${className}">${(cards || []).map(card => `<article class="${className === "role-grid" ? "role-card" : "text-block"}"><b>${escapeHtml(card.title)}</b><p>${escapeHtml(card.text)}</p></article>`).join("")}</div>`;
@@ -185,7 +185,7 @@
 
   function renderProject(project) {
     if (!project) {
-      root.innerHTML = `${renderHeader("../")}<main class="container"><section class="project-hero"><a class="back-link" href="../index.html${previewQuery}#top">← 返回首页</a><h1>未找到这个项目</h1></section></main>${renderFooter("../")}`;
+      root.innerHTML = `<main class="container"><section class="project-hero"><a class="back-link" href="../index.html${previewQuery}#top">← 返回首页</a><h1>未找到这个项目</h1></section></main>${renderFooter("../")}`;
       return;
     }
     const gallery = (project.gallery || []).map(item => `<figure class="gallery-figure">${imageMarkup(item, item.label || "项目截图", item.note || "")}${item.note || item.label ? `<figcaption>${escapeHtml(item.label)} ${escapeHtml(item.note)}</figcaption>` : ""}</figure>`).join("");
@@ -196,7 +196,7 @@
     const rolesSection = project.multiplayer ? sectionMarkup("职责分工", "", cardsMarkup(project.roles, "role-grid")) : "";
     const gallerySection = sectionMarkup("截图", project.galleryText, `<div class="gallery">${gallery}</div>${videoMarkup(project.video)}`);
 
-    root.innerHTML = `${renderHeader("../")}<main class="container"><section class="project-hero"><a class="back-link" href="../index.html${previewQuery}#top">← 返回首页</a><div class="project-spread"><div class="project-summary"><div class="project-title-row reveal"><div><span class="project-kicker">${escapeHtml(project.number)}　·　制作人数：${escapeHtml(project.teamSize)}</span><h1>${escapeHtml(project.title)}</h1></div></div><p class="project-intro reveal">${escapeHtml(project.intro)}</p></div><div class="meta-grid reveal">${(project.meta || []).filter(item => !/项目状态|人数/.test(item.label)).map(item => `<div class="meta-item"><b>${escapeHtml(item.label)}</b><span>${escapeHtml(item.value)}</span></div>`).join("")}</div><div class="project-hero-media reveal">${imageMarkup(project.cover, "项目封面", "", "tall")}</div></div></section>${purposeSection}${flowSection}${contributionSection}${rolesSection}${gallerySection}</main>${renderFooter("../")}`;
+    root.innerHTML = `<main class="container"><section class="project-hero"><a class="back-link" href="../index.html${previewQuery}#top">← 返回首页</a><div class="project-spread"><div class="project-summary"><div class="project-title-row reveal"><div><span class="project-kicker">${escapeHtml(project.number)}　·　制作人数：${escapeHtml(project.teamSize)}</span><h1>${escapeHtml(project.title)}</h1></div></div><p class="project-intro reveal">${escapeHtml(project.intro)}</p></div><div class="meta-grid reveal">${(project.meta || []).filter(item => !/项目状态|人数/.test(item.label)).map(item => `<div class="meta-item"><b>${escapeHtml(item.label)}</b><span>${escapeHtml(item.value)}</span></div>`).join("")}</div><div class="project-hero-media reveal">${imageMarkup(project.cover, "项目封面", "", "tall")}</div></div></section>${purposeSection}${flowSection}${contributionSection}${rolesSection}${gallerySection}</main>${renderFooter("../")}`;
   }
 
   // The full-screen card art lands in the real cover slot, with its original proportions.
@@ -253,27 +253,66 @@
   }
 
   applyTheme();
-  document.title = content.meta?.siteTitle || "游戏设计作品集";
-  if (pageType === "posts") {
-    renderPosts();
-  } else if (pageType === "project") {
-    const project = (content.projects || []).find(item => item.id === document.body.dataset.projectId);
-    if (project) document.title = `${project.title}｜${content.profile?.name || "作品集"}`;
-    renderProject(project);
-    try {
-      const entry = sessionStorage.getItem("portfolio-card-entry");
-      if (entry === "portal:" + location.href) {
-        sessionStorage.removeItem("portfolio-card-entry");
-        landCardCover(project);
-      } else if (entry === location.href) {
-        document.body.classList.add("from-table");
-        sessionStorage.removeItem("portfolio-card-entry");
-      }
-    } catch (_) { /* Direct and offline visits also render the project. */ }
-  } else {
-    renderHome();
+  root.insertAdjacentHTML("beforebegin", renderHeader());
+  function renderPage(returning = false) {
+    document.title = content.meta?.siteTitle || "游戏设计作品集";
+    if (pageType === "posts") {
+      renderPosts();
+    } else if (pageType === "project") {
+      const id = document.body.dataset.projectId || new URLSearchParams(location.search).get("id");
+      const project = (content.projects || []).find(item => item.id === id);
+      if (project) document.title = `${project.title}｜${content.profile?.name || "作品集"}`;
+      renderProject(project);
+      try {
+        const entry = sessionStorage.getItem("portfolio-card-entry");
+        if (entry === "portal:" + location.href) {
+          sessionStorage.removeItem("portfolio-card-entry");
+          landCardCover(project);
+        } else if (entry === location.href) {
+          document.body.classList.add("from-table");
+          sessionStorage.removeItem("portfolio-card-entry");
+        }
+      } catch (_) { /* Direct and offline visits also render the project. */ }
+    } else {
+      renderHome(returning);
+    }
+
+    if (window.initSiteEffects) window.initSiteEffects();
   }
 
-  if (window.initSiteEffects) window.initSiteEffects();
-})();
+  renderPage();
+  window.setupSiteMusic(content.playlist, Boolean(previewQuery), siteRoot);
 
+  // Keep the header and its playing audio in the same document while browsing the portfolio.
+  const routes = new Map([[siteRoot.pathname, "home"], [new URL("index.html", siteRoot).pathname, "home"],
+    [new URL("posts.html", siteRoot).pathname, "posts"], [new URL("projects/detail.html", siteRoot).pathname, "project"]]);
+  const projectIds = new Map();
+  for (const project of content.projects || []) {
+    if (project.sharedPage) continue;
+    const path = new URL(window.portfolioProjectPath(project), siteRoot).pathname;
+    routes.set(path, "project");
+    projectIds.set(path, project.id);
+  }
+  // Keep shared stylesheets rooted at their original addresses when the URL changes folders.
+  for (const sheet of document.querySelectorAll('link[rel="stylesheet"]')) sheet.href = sheet.href;
+  window.navigation?.addEventListener("navigate", event => {
+    const url = new URL(event.destination.url);
+    const next = routes.get(url.pathname);
+    const player = document.querySelector(".site-music audio");
+    if (!event.canIntercept || event.hashChange || event.navigationType === "reload" || event.downloadRequest != null ||
+        event.formData || !next || url.origin !== location.origin ||
+        (url.searchParams.get("preview") === "1") !== Boolean(previewQuery) ||
+        !player || (player.paused && !event.destination.sameDocument)) return;
+    const sameHome = next === "home" && pageType === "home" && url.search === location.search;
+    event.intercept({handler() {
+      if (sameHome) return;
+      const returning = next === "home" && pageType !== "home";
+      document.querySelector("[data-card-departure]")?.remove();
+      document.body.classList.remove("from-table");
+      pageType = document.body.dataset.page = next;
+      document.body.dataset.projectId = projectIds.get(url.pathname) || "";
+      renderPage(returning);
+      if (returning) window.dispatchEvent(new Event("portfolio-home-return"));
+    }});
+  });
+})();

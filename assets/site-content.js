@@ -1,33 +1,34 @@
 window.PORTFOLIO_CONTENT = {
   "meta": {
-    "siteTitle": "PIANOLINE",
+    "siteTitle": "潘厚霖｜游戏设计",
     "templateMode": false,
     "year": "2026"
   },
   "theme": {
-    "accent": "#d3a062",
-    "accentLight": "#f3cd96",
-    "teal": "#a6d8cc",
-    "cardColumns": 2,
-    "maxWidth": 1240,
+    "accent": "#a64a32",
+    "accentLight": "#f18b67",
+    "teal": "#365e5c",
+    "cardColumns": 3,
+    "maxWidth": 2100,
     "sectionSpace": 104,
-    "cardStyle": "immersive"
+    "cardStyle": "immersive",
+    "homeMaxWidth": 2100
   },
   "profile": {
-    "name": "Pianoline",
-    "eyebrow": "System Designer",
-    "headline": "GAME DESIGN",
+    "name": "PIANOLINE",
+    "eyebrow": "Game Designer / Systems Designer",
+    "headline": "游戏与交互",
     "intro": "",
     "heroImage": "assets/media/portfolio-docx/image3.png",
     "heroImageAlt": "《幽都绘卷》项目展示图",
-    "profileTitle": "游戏玩法策划 / 系统策划 ",
+    "profileTitle": "游戏玩法设计 / 系统设计 / 技术设计",
     "profileCopy": "硕士毕业于格拉斯哥大学（University of Glasgow）\n关注游戏玩法、交互与系统设计，擅长通过 Unity 和 Unreal Engine 5 搭建原型，把想法转化为可以体验和验证的内容。",
     "tags": [
       "Unity",
       "Unreal Engine 5",
-      "系统策划",
-      "关卡策划",
-      "AI"
+      "VR 交互",
+      "玩法系统",
+      "关卡与 AI"
     ],
     "facts": []
   },
@@ -177,7 +178,8 @@ window.PORTFOLIO_CONTENT = {
       "video": {
         "label": "演示视频",
         "note": "",
-        "url": "https://youtu.be/bar5t6Jo_HI"
+        "url": "https://youtu.be/bar5t6Jo_HI",
+        "file": "assets/media/videos/scroll-of-phantom-city.mp4"
       },
       "reflection": {
         "label": "05 / Responsibilities",
@@ -253,6 +255,7 @@ window.PORTFOLIO_CONTENT = {
       ],
       "cover": {
         "src": "assets/media/portfolio-docx/image5.png",
+        "cardSrc": "assets/media/forging-card.webp",
         "alt": "《锻刀模拟器》项目展示图"
       },
       "purpose": {
@@ -336,7 +339,8 @@ window.PORTFOLIO_CONTENT = {
       "video": {
         "label": "演示视频",
         "note": "",
-        "url": "https://youtu.be/WQ4W-9gLJy4"
+        "url": "https://youtu.be/WQ4W-9gLJy4",
+        "file": "assets/media/videos/forging-simulator.mp4"
       },
       "reflection": {
         "label": "05 / CURRENT STATUS",
@@ -486,7 +490,8 @@ window.PORTFOLIO_CONTENT = {
       "video": {
         "label": "演示视频",
         "note": "",
-        "url": "https://youtu.be/kLExD3jrNrs"
+        "url": "https://youtu.be/kLExD3jrNrs",
+        "file": "assets/media/videos/yellow-river-cleaner.mp4"
       },
       "reflection": {
         "label": "05 / CURRENT STATUS",
@@ -617,7 +622,8 @@ window.PORTFOLIO_CONTENT = {
       "video": {
         "label": "演示视频",
         "note": "",
-        "url": "https://youtu.be/6eprPL_2eqI"
+        "url": "https://youtu.be/6eprPL_2eqI",
+        "file": "assets/media/videos/greedy-ghost.mp4"
       },
       "reflection": {
         "label": "05 / NEXT STEP",
@@ -1110,5 +1116,11 @@ window.PORTFOLIO_CONTENT = {
       "prototypeText": "该项目主要探索了三消玩法与回合制战斗结合的玩法。\n"
     }
   ],
-  "posts": []
+  "posts": [],
+  "playlist": [
+    {
+      "title": "Eluvium - The Well-Meaning Professor",
+      "src": "assets/media/music/mwoytxpi-6skbjk-Eluvium---The-Well-Meaning-Professor.mp3"
+    }
+  ]
 };
