@@ -2,6 +2,7 @@
   const arena = document.getElementById("arena");
   if (!arena) return;
   const encounter=arena.querySelector(".encounter");
+  const hemEdge=document.getElementById("dream-table-edge");
   const stage=arena.querySelector(".stage");
   let canvas = document.createElement("canvas");
   canvas.className = "cabin-view";
@@ -307,7 +308,7 @@ void main(){
     if(book.musicBook){
       target.type="button";
       target.tabIndex=-1;
-      target.addEventListener("click",()=>requestMusic("portfolio-blue-book-click"));
+      target.addEventListener("click",()=>requestMusic(book.musicBook));
     } else target.setAttribute("role","img");
     target.setAttribute("aria-label",book.label);
     arena.insertBefore(target,encounter);
@@ -654,6 +655,13 @@ void main(){
       return [width*(.5+focal/w*dot(camera[0],px,py,pz)/d),
         height*(.5-focal/h*dot(camera[1],px,py,pz)/d)];
     };
+    // Convert the projected table edge to the portrait's native 128 px grid.
+    const [edgeA,edgeB]=props.tableRearEdge.map(point=>project(...point));
+    const pixelSize=(foot-crown)/121;
+    const edgeSlope=(edgeB[1]-edgeA[1])/(edgeB[0]-edgeA[0]);
+    const centerRow=5+(edgeA[1]+(center-edgeA[0])*edgeSlope-crown)/pixelSize;
+    const edgePoints="0,0 128,0 128,"+(centerRow+64*edgeSlope).toFixed(2)+" 0,"+(centerRow-64*edgeSlope).toFixed(2);
+    if(hemEdge.getAttribute("points")!==edgePoints) hemEdge.setAttribute("points",edgePoints);
     props.playerSlots.forEach((quad, index) => {
       const slot = boardSlots[index];
       const corners = quad.map(point => project(...point));

@@ -1,4 +1,4 @@
-window.portfolioSkinNames = Object.freeze({ celadon: "守望人", brocade: "白色人偶" });
+window.portfolioSkinNames = Object.freeze({ celadon: "守望人", brocade: "白色人偶", dream: "梦庭人偶" });
 
 // Existing works have dedicated pages. Editor-created works share one static entry.
 window.portfolioProjectPath = function (project, preview = false) {
@@ -14,6 +14,7 @@ window.normalizePortfolio = function (value) {
   data.posts = Array.isArray(data.posts) ? data.posts : [];
   data.playlist = Array.isArray(data.playlist) ? data.playlist.filter(track => typeof track?.src === "string") : [];
   data.brocadePlaylist = Array.isArray(data.brocadePlaylist) ? data.brocadePlaylist.filter(track => typeof track?.src === "string") : [];
+  data.dreamPlaylist = Array.isArray(data.dreamPlaylist) ? data.dreamPlaylist.filter(track => typeof track?.src === "string") : [];
   for (const post of data.posts) { post.blocks = Array.isArray(post.blocks) ? post.blocks : []; post.visible = post.visible !== false; }
   for (const project of data.projects || []) {
     // Earlier saves included completion as a slash-separated category tag.

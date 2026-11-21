@@ -84,6 +84,7 @@
   }
 
   const siteRoot = new URL(pageType === "project" ? "../" : "./", location.href);
+  let pageUrl = new URL(location.href);
   function renderHeader() {
     const prefix = escapeHtml(siteRoot.href);
     return `<header class="topbar"><div class="container topbar-inner"><a class="brand" href="${prefix}index.html${previewQuery}#top" aria-label="回到首页"><span class="brand-mark" aria-hidden="true"></span><span>PIANOLILNE</span></a><div class="site-music"></div><nav class="nav" aria-label="页面导航"><a href="${prefix}index.html${previewQuery}#about">简介</a><a href="${prefix}index.html${previewQuery}#projects">项目</a><a href="${prefix}index.html${previewQuery}#updates">动态</a><a href="${prefix}index.html${previewQuery}#contact">联系</a></nav></div></header>`;
@@ -114,7 +115,7 @@
     return `<a class="post-card" href="${postHref(post)}">${image ? `<img src="${escapeHtml(pathForCurrentPage(image.src))}" alt="${escapeHtml(image.caption || post.title)}">` : ""}<div class="post-card-copy"><time>${escapeHtml(post.date || "")}</time><h3>${escapeHtml(post.title)}</h3><p>${escapeHtml(postSummary(post))}</p><span>阅读全文 ↗</span></div></a>`;
   }
   function renderPosts() {
-    const posts = visiblePosts(), id = new URLSearchParams(location.search).get("id"), post = posts.find(p => p.id === id);
+    const posts = visiblePosts(), id = pageUrl.searchParams.get("id"), post = posts.find(p => p.id === id);
     if (id) {
       const body = post ? `<article class="post-detail"><time>${escapeHtml(post.date || "")}</time><h1>${escapeHtml(post.title)}</h1>${(post.blocks || []).map(b => b.type === "image" && b.src ? `<figure><img src="${escapeHtml(pathForCurrentPage(b.src))}" alt="${escapeHtml(b.caption || "文章图片")}">${b.caption ? `<figcaption>${escapeHtml(b.caption)}</figcaption>` : ""}</figure>` : b.type === "text" ? `<p>${escapeHtml(b.text || "")}</p>` : "").join("")}</article>` : `<h1>没有找到这篇动态</h1>`;
       root.innerHTML = `<main class="container post-page"><a class="back-link" href="index.html${previewQuery}#top">← 返回首页</a>${body}</main>${renderFooter("")}`;
@@ -123,14 +124,14 @@
   }
   function renderHome(returning) {
     const local = location.protocol === "file:" || ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
-    const workingScene = local && new URLSearchParams(location.search).get("scene") === "prototype";
+    const workingScene = local && pageUrl.searchParams.get("scene") === "prototype";
     const sceneDir = workingScene ? "prototype" : "interactive";
     // Reload the local work-in-progress entry on each visit so it supplies current asset versions.
-    const sceneVersion = workingScene ? Date.now().toString(36) : "brocade-artist-d8123951";
+    const sceneVersion = workingScene ? Date.now().toString(36) : "skin-dialogue";
     const navigationType = performance.getEntriesByType("navigation")[0]?.type;
     // Portfolio links back to the home page target one of its sections.
     const resumeTable = returning || navigationType === "back_forward" ||
-      (navigationType !== "reload" && ["#top", "#about", "#projects", "#updates", "#contact"].includes(location.hash));
+      (navigationType !== "reload" && ["#top", "#about", "#projects", "#updates", "#contact"].includes(pageUrl.hash));
     const profile = content.profile || {};
     const home = content.home || {};
     const contact = content.contact || {};
@@ -169,7 +170,14 @@
     if (event.data?.type === "portfolio-table-height" && Number.isFinite(event.data.height)) {
       frame.style.height = Math.min(Math.max(event.data.height, 200), 5000) + "px";
     }
+    if (event.data?.type === "portfolio-open-project" && typeof event.data.url === "string") {
+      const url = new URL(event.data.url, siteRoot);
+      if (routeType(url) === "project" && !openRoute(url)) location.assign(url.href);
+    }
     if (event.data?.type === "portfolio-section" && ["about", "projects", "updates"].includes(event.data.section)) {
+      const section = new URL(pageUrl);
+      section.hash = event.data.section;
+      if (openRoute(section)) return;
       location.hash = event.data.section;
       document.getElementById(event.data.section)?.scrollIntoView();
     }
@@ -270,16 +278,16 @@
     if (pageType === "posts") {
       renderPosts();
     } else if (pageType === "project") {
-      const id = document.body.dataset.projectId || new URLSearchParams(location.search).get("id");
+      const id = document.body.dataset.projectId || pageUrl.searchParams.get("id");
       const project = (content.projects || []).find(item => item.id === id);
       if (project) document.title = `${project.title}｜${content.profile?.name || "作品集"}`;
       renderProject(project);
       try {
         const entry = sessionStorage.getItem("portfolio-card-entry");
-        if (entry === "portal:" + location.href) {
+        if (entry === "portal:" + pageUrl.href) {
           sessionStorage.removeItem("portfolio-card-entry");
           landCardCover(project);
-        } else if (entry === location.href) {
+        } else if (entry === pageUrl.href) {
           document.body.classList.add("from-table");
           sessionStorage.removeItem("portfolio-card-entry");
         }
@@ -291,12 +299,8 @@
     if (window.initSiteEffects) window.initSiteEffects();
   }
 
-  renderPage();
-  const resumeSkin = pageType !== "home" || document.body.dataset.tableReturn === "true" ||
-    performance.getEntriesByType("navigation")[0]?.type === "back_forward";
-  window.setupSiteMusic({celadon:content.playlist, brocade:content.brocadePlaylist}, Boolean(previewQuery), siteRoot, resumeSkin);
-
-  // Keep the header and its playing audio in the same document while browsing the portfolio.
+  // A card can navigate from an embedded local file, where the Navigation API cannot
+  // intercept the load. Route our own links in the document that owns the player.
   const routes = new Map([[siteRoot.pathname, "home"], [new URL("index.html", siteRoot).pathname, "home"],
     [new URL("posts.html", siteRoot).pathname, "posts"], [new URL("projects/detail.html", siteRoot).pathname, "project"]]);
   const projectIds = new Map();
@@ -306,26 +310,78 @@
     routes.set(path, "project");
     projectIds.set(path, project.id);
   }
-  // Keep shared stylesheets rooted at their original addresses when the URL changes folders.
+
+  function routeType(url) {
+    if (url.protocol !== siteRoot.protocol || url.host !== siteRoot.host ||
+        (url.searchParams.get("preview") === "1") !== Boolean(previewQuery)) return;
+    return routes.get(url.pathname);
+  }
+  function readAddress() {
+    const address = new URL(location.href);
+    if (address.protocol === "file:" && address.hash.startsWith("#view=")) {
+      const path = new URLSearchParams(address.hash.slice(1)).get("view");
+      const target = new URL(path, siteRoot);
+      if (routeType(target)) return target;
+    }
+    return address;
+  }
+
+  // A local file may change its fragment but cannot put a different file path
+  // in its history entry. Resolve project pictures and links against the shown page.
   for (const sheet of document.querySelectorAll('link[rel="stylesheet"]')) sheet.href = sheet.href;
-  window.navigation?.addEventListener("navigate", event => {
-    const url = new URL(event.destination.url);
-    const next = routes.get(url.pathname);
-    const player = document.querySelector(".site-music audio");
-    if (!event.canIntercept || event.hashChange || event.navigationType === "reload" || event.downloadRequest != null ||
-        event.formData || !next || url.origin !== location.origin ||
-        (url.searchParams.get("preview") === "1") !== Boolean(previewQuery) ||
-        !player || (player.paused && !event.destination.sameDocument)) return;
-    const sameHome = next === "home" && pageType === "home" && url.search === location.search;
-    event.intercept({handler() {
-      if (sameHome) return;
-      const returning = next === "home" && pageType !== "home";
-      document.querySelector("[data-card-departure]")?.remove();
-      document.body.classList.remove("from-table");
-      pageType = document.body.dataset.page = next;
-      document.body.dataset.projectId = projectIds.get(url.pathname) || "";
-      renderPage(returning);
-      if (returning) window.dispatchEvent(new Event("portfolio-home-return"));
-    }});
+  const pageBase = document.createElement("base");
+  document.head.prepend(pageBase);
+  function showRoute(url, returning) {
+    pageUrl = url;
+    pageBase.href = url.href;
+    pageType = document.body.dataset.page = routeType(url);
+    document.body.dataset.projectId = projectIds.get(url.pathname) || "";
+    document.querySelector("[data-card-departure]")?.remove();
+    document.body.classList.remove("from-table");
+    renderPage(returning);
+    if (returning) window.dispatchEvent(new CustomEvent("portfolio-home-return", {detail:url.hash}));
+  }
+  function scrollToRoute(url) {
+    const anchor = document.getElementById(url.hash.slice(1));
+    if (anchor) anchor.scrollIntoView();
+    else window.scrollTo(0, 0);
+  }
+  let routing = false;
+  const initial = readAddress();
+  showRoute(initial, false);
+  const resumeSkin = pageType !== "home" || document.body.dataset.tableReturn === "true" ||
+    performance.getEntriesByType("navigation")[0]?.type === "back_forward";
+  const musicWanted = window.setupSiteMusic({celadon:content.playlist, brocade:content.brocadePlaylist, dream:content.dreamPlaylist}, Boolean(previewQuery), siteRoot, resumeSkin);
+
+  function openRoute(url) {
+    const next = routeType(url);
+    if (!next || (!musicWanted() && !routing && pageUrl.href === location.href)) return false;
+    const address = new URL(url);
+    if (location.protocol === "file:" && (url.pathname !== location.pathname || url.search !== location.search)) {
+      address.href = location.href;
+      address.hash = new URLSearchParams({view:url.href.slice(siteRoot.href.length)}).toString();
+    }
+    if (address.href !== location.href) history.pushState({portfolioRoute:true}, "", address.href);
+    routing = true;
+    visit(url);
+    scrollToRoute(url);
+    return true;
+  }
+  function visit(url) {
+    const samePage = url.pathname === pageUrl.pathname && url.search === pageUrl.search;
+    if (samePage) { pageUrl = url; pageBase.href = url.href; return; }
+    showRoute(url, routeType(url) === "home" && pageType !== "home");
+  }
+
+  window.openPortfolioRoute = openRoute;
+  document.addEventListener("click", event => {
+    const link = event.target.closest("a[href]");
+    if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey ||
+        event.shiftKey || event.altKey || link.hasAttribute("download") || (link.target && link.target !== "_self")) return;
+    if (openRoute(new URL(link.href))) event.preventDefault();
+  });
+  window.addEventListener("popstate", () => {
+    const url = readAddress();
+    if (routeType(url)) visit(url);
   });
 })();

@@ -13,6 +13,7 @@ $runtimeFiles = @(
     'golden-veil.js'
     'skin-mirror.js'
     'art/celadon-brocade-sheet.png'
+    'art/dream-doll-idle.png'
     'art/celadon-idle.png'
     'art/celadon-idle-expression.png'
     'art/celadon-ghost.png'

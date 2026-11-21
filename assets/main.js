@@ -68,12 +68,12 @@ window.initSiteEffects = function initSiteEffects() {
     if (curtain) return;
     const fade = cover().animate(tones, {duration: 190, easing: "ease-in", fill: "both"});
     try { await fade.finished; } catch { return; }
-    location.assign(url.href);
+    if (!window.openPortfolioRoute?.(url)) location.assign(url.href);
   });
 
-  function startReturn(cached, returning = false) {
+  function startReturn(cached, returning = false, hash = location.hash) {
     if (!atHome()) return;
-    if (returning && location.hash && location.hash !== "#top") { clear(); return; }
+    if (returning && hash && hash !== "#top") { clear(); return; }
     const navigation = performance.getEntriesByType("navigation")[0];
     let fromPortfolio = false;
     try {
@@ -103,7 +103,7 @@ window.initSiteEffects = function initSiteEffects() {
     readyTimer = setTimeout(reveal, 6000);
   }
   window.addEventListener("portfolio-table-ready", () => revealWhenReady?.());
-  window.addEventListener("portfolio-home-return", () => startReturn(false, true));
+  window.addEventListener("portfolio-home-return", event => startReturn(false, true, event.detail));
   // Cover a native return before site.js mounts the iframe and starts loading its assets.
   startReturn(false);
   window.addEventListener("pageshow", event => {

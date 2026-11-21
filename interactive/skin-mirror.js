@@ -12,22 +12,31 @@
   mist.hidden = true;
   mist.setAttribute("aria-hidden", "true");
   portrait.append(mist);
-  let sheetReady, busy = false, desired = "celadon";
-  function loadBrocade() {
-    if (!sheetReady) {
-      const sheet = new Image();
-      sheet.className = "brocade-sheet";
-      sheet.src = "art/celadon-brocade-sheet.png?v=brocade-artist-d8123951";
-      sheet.alt = "";
-      sheet.draggable = false;
-      sheetReady = sheet.decode().then(() => {
-        if (sheet.naturalWidth !== 640 || sheet.naturalHeight !== 2688) throw Error("白色人偶图集尺寸不符");
-        for (const layer of portrait.querySelectorAll(".portrait-layer:not(.portrait-embers)")) {
-          layer.append(sheet.cloneNode());
-        }
-      }).catch(error => { sheetReady = undefined; throw error; });
-    }
-    return sheetReady;
+  const names = window.portfolioSkinNames;
+  const sources = {
+    brocade: "art/celadon-brocade-sheet.png?v=brocade-artist-d8123951",
+    dream: "art/dream-doll-idle.png?v=dream-red-book"
+  };
+  const ready = new Map();
+  let busy = false, desired = "celadon";
+
+  function loadSkin(skin) {
+    if (skin === "celadon") return;
+    if (ready.has(skin)) return ready.get(skin);
+    const sheet = new Image();
+    sheet.className = "skin-sheet";
+    sheet.dataset.costume = skin;
+    sheet.src = sources[skin];
+    sheet.alt = "";
+    sheet.draggable = false;
+    const loading = sheet.decode().then(() => {
+      if (sheet.naturalWidth !== 640 || sheet.naturalHeight !== 2688) throw Error(names[skin] + "图集尺寸不符");
+      for (const layer of portrait.querySelectorAll(".portrait-layer:not(.portrait-embers)")) {
+        layer.append(sheet.cloneNode());
+      }
+    }).catch(error => { ready.delete(skin); throw error; });
+    ready.set(skin, loading);
+    return loading;
   }
   function request(type, skin) {
     if (embedded) window.parent.postMessage({type, skin}, "*");
@@ -35,17 +44,20 @@
   }
   function showSkin(skin) {
     const name = window.portfolioSkinNames[skin];
+    for (const sheet of portrait.querySelectorAll(".skin-sheet")) {
+      sheet.classList.toggle("current-skin-sheet", sheet.dataset.costume === skin);
+    }
     encounter.dataset.skin = skin;
     character.title = name;
     character.setAttribute("aria-label", "和" + name + "聊天，或把作品卡拖给她");
   }
   async function reflect(state) {
-    if (busy || !["brocade","celadon"].includes(state?.skin)) return;
-    desired = state.skin;
-    if (desired === "brocade") {
-      try { await loadBrocade(); } catch { return; }
-    }
-    if (!busy && encounter.dataset.skin !== desired) showSkin(desired);
+    const skin = state?.skin;
+    if (busy || !Object.hasOwn(names, skin)) return;
+    desired = skin;
+    if (encounter.dataset.skin === skin) return;
+    try { await loadSkin(skin); } catch { return; }
+    if (!busy && desired === skin) showSkin(skin);
   }
   window.addEventListener("portfolio-music-state", e => reflect(e.detail));
   window.addEventListener("message", e => {
@@ -88,9 +100,12 @@
     if (busy) return;
     busy = true;
     try {
-      const next = encounter.dataset.skin === "brocade" ? "celadon" : "brocade";
-      if (next === "brocade") await loadBrocade();
+      const current = encounter.dataset.skin || "celadon";
+      const options = Object.keys(names).filter(skin => skin !== current);
+      const next = options[Math.floor(Math.random() * options.length)];
+      await loadSkin(next);
       await reveal(next);
+      encounter.dispatchEvent(new CustomEvent("costume-revealed", {bubbles:true, detail:next}));
     } catch (error) { console.warn("角色皮肤加载失败", error); }
     finally { busy=false; }
   });

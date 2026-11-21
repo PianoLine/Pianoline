@@ -9,7 +9,7 @@
     } catch (_) { /* The published content is available offline. */ }
   }
   const portfolio = window.normalizePortfolio(content);
-  if (!embedded) window.setupSiteMusic({celadon:portfolio.playlist, brocade:portfolio.brocadePlaylist}, preview, new URL("../", location.href), resumeTable);
+  if (!embedded) window.setupSiteMusic({celadon:portfolio.playlist, brocade:portfolio.brocadePlaylist, dream:portfolio.dreamPlaylist}, preview, new URL("../", location.href), resumeTable);
   const projects = portfolio.projects || [];
   const deck = projects.map((_, i) => i);
   function shuffleDeck() {
@@ -161,6 +161,11 @@
   });
   arena.addEventListener("book-pull", () => { if (!farewell) say("想看看书？"); });
   arena.addEventListener("record-change", () => { if (!farewell) say("换一首曲子"); });
+  arena.addEventListener("costume-revealed", ({detail}) => {
+    if (farewell) return;
+    if (detail === "brocade") say(randomLine(["我需要两把特大剑", "还没有复活技能哦", "蜗想吃蓝色的碎片"]));
+    if (detail === "dream") say(randomLine(["好心的猎人…… …哼", "也许只是一场梦"]));
+  });
   let locked = true;
   let pointer = null;
 
@@ -184,7 +189,8 @@
   openingNote.hidden = !openingNote.textContent;
 
   function navigate(url) {
-    (embedded ? window.parent : window).location.href = url;
+    if (embedded) window.parent.postMessage({type:"portfolio-open-project", url:url.href}, "*");
+    else location.assign(url.href);
   }
   const prints = new Map();
   const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
@@ -306,7 +312,8 @@
     board[index] = id;
     saveTable();
     render();
-    if (reduced()) { tableAudio.play("board-strike"); return; }
+    const announcePlacement = () => say(randomLine(["召唤怪兽卡！…其实并没有", "嗯…把地放在桌面上"]));
+    if (reduced()) { tableAudio.play("board-strike"); announcePlacement(); return; }
     tableAudio.play("board-flick");
 
     const card = slot.firstElementChild;
@@ -374,6 +381,7 @@
       card.style.removeProperty("transform");
       card.style.removeProperty("transform-origin");
       slot.classList.remove("landing", "struck");
+      announcePlacement();
       locked = false;
     }
   }
@@ -391,7 +399,10 @@
     try {
       tableAudio.play("slide");
       await fly(card, from, card.getBoundingClientRect(), "recover", true);
-    } finally { card.style.visibility = ""; locked = false; }
+    } finally {
+      card.style.visibility = ""; locked = false;
+      say(randomLine(["暗影步", "没有卡套可不好拿起来"]));
+    }
   }));
 
   function updateDeck(count = deck.length) {
@@ -501,7 +512,7 @@
   }
   pile.onclick = async () => {
     if (locked || pointer) return;
-    if (hand.length >= 5) return say("游戏王的卡牌上限有6张，但是我们不是游戏王");
+    if (hand.length >= 5) return say("你以为这里是宝可梦吗");
     if (!deck.length) return say("这个时候应该出现一个冒骷髅头的牌");
     locked = true;
     try { await dealOne(); say(randomLine(["我知道有很多人类非常热衷于抽卡", "新的卡牌也就意味着新的可能性"])); }
@@ -820,7 +831,7 @@
       pointer.clone.setAttribute("aria-hidden", "true");
       document.body.append(pointer.clone);
       pointer.card.classList.add("dragging");
-      say(randomLine(["不要甩到家具", "不要想把牌偷偷藏起来", "不想要的牌可以放回牌组"]));
+      say(randomLine(["想在桌面上放置新的牌？", "不要想把牌偷偷藏起来", "不想要的牌可以放回牌组"]));
     }
     pointer.clone.style.left = event.clientX + "px";
     pointer.clone.style.top = event.clientY + "px";
@@ -859,7 +870,7 @@
     "把蜡烛吹灭试试？",
     "这里的留声机放的都是我喜欢的歌",
     "右边那几本书有魔法的力量…",
-    "是不是该换个装扮？"
+    "…是不是该换个装扮？"
   ];
   ghost.onclick = () => {
     if (!locked && !pointer) say(randomLine(chatter));

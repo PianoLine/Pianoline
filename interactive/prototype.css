@@ -73,15 +73,16 @@ a:focus-visible { outline: 3px solid #d75f36; outline-offset: 4px; }
 .warm-left { opacity: var(--warm-left, .22); mask-image: linear-gradient(95deg, black, transparent 48%); }
 .warm-right { opacity: var(--warm-right, .24); mask-image: linear-gradient(95deg, transparent 48%, black); }
 .portrait-embers { opacity: var(--red-glow, 0); filter: drop-shadow(0 0 2px #fc322778) drop-shadow(0 0 5px #e5231938); }
-.portrait-layer .brocade-sheet { display: none; }
-.encounter[data-skin="brocade"] .portrait-layer:not(.portrait-embers) > img { display: none; }
-.encounter[data-skin="brocade"] .portrait-layer:not(.portrait-embers) > .brocade-sheet {
+.portrait-layer .skin-sheet { display: none; }
+.encounter[data-skin]:not([data-skin="celadon"]) .portrait-layer:not(.portrait-embers) > img { display: none; }
+.encounter[data-skin]:not([data-skin="celadon"]) .portrait-layer:not(.portrait-embers) > .current-skin-sheet {
   display: block; position: absolute; width: 500%; height: 2100%;
   left: var(--pose-x, 0%); top: var(--pose-y, 0%);
 }
 #skin-mirror {
   position: absolute; z-index: 2; cursor: pointer; background: transparent; border: 0; padding: 0;
 }
+.modeled .encounter[data-skin="dream"] .portrait-layer:not(.portrait-embers) { clip-path: url(#dream-table-contact); }
 .skin-layers { position: absolute; inset: 0; }
 .skin-mist {
   position: absolute; width: 150%; height: 128.125%; left: -25%; top: -9.375%;

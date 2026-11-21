@@ -120,9 +120,11 @@ window.buildCabinMesh = function buildCabinMesh() {
   bottle(-4.69,2.06,-3.36,.83,"44665a");
   bottle(-4.77,.62,-3.53,.68,"786245");
   // Broad irregular boards form the table and its exposed front apron.
+  const firstBoardZ=-1.55, boardDepth=.793, boardY=1.39, boardHeight=.28;
+  const tableRearEdge=[-1,1].map(x=>[x,boardY+boardHeight/2,firstBoardZ-boardDepth/2]);
   for(let i=0;i<10;i++){
-    const z=-1.55+i*.80;
-    box(0,1.39,z,16.8,.28,.793,["855a37","93613b","805436","936840","855c3b"][i%5],1);
+    const z=firstBoardZ+i*.80;
+    box(0,boardY,z,16.8,boardHeight,boardDepth,["855a37","93613b","805436","936840","855c3b"][i%5],1);
   }
   box(0,1.19,-1.98,16.8,.25,.14,"4c3021",1);
   // Faded brass-coloured lines follow the boards, in the same depth pass as the props.
@@ -345,8 +347,8 @@ window.buildCabinMesh = function buildCabinMesh() {
   // extend behind the books; the low lip leaves a clear path to pull a volume out.
   const bindings=[
     {width:.20,height:1.44,color:"526e63",label:"青绿色布面书"},
-    {width:.23,height:1.29,color:"874e45",label:"酒红色皮面书"},
-    {width:.17,height:1.12,color:"566477",label:"灰蓝色小册",musicBook:true}
+    {width:.23,height:1.29,color:"874e45",label:"酒红色皮面书",musicBook:"portfolio-red-book-click"},
+    {width:.17,height:1.12,color:"566477",label:"灰蓝色小册",musicBook:"portfolio-blue-book-click"}
   ];
   const bookGap=.13;
   const rowWidth=bindings.reduce((sum,book)=>sum+book.width,0)+bookGap*(bindings.length-1);
@@ -428,7 +430,7 @@ window.buildCabinMesh = function buildCabinMesh() {
     glass([[-.24,-.33],[-.18,-.27],[-.15,-.34],[-.20,-.43]],"9a8967");
     glass([[-.22,-.46],[-.17,-.43],[-.18,-.49]],"7a7660");
   });
-  const props = { playerSlots, mirror, mirrorRim:rim(1,.10), deckShadow, bellShadow, watchShadow, deckBase, leaves, bellBase, dome, plunger, watchCase, watchHand, gramShadow, gramBase, gramRecord, gramHit, hornMouth, shelf, books };
+  const props = { tableRearEdge, playerSlots, mirror, mirrorRim:rim(1,.10), deckShadow, bellShadow, watchShadow, deckBase, leaves, bellBase, dome, plunger, watchCase, watchHand, gramShadow, gramBase, gramRecord, gramHit, hornMouth, shelf, books };
   const shadowStart=vertices.length;
   for (const [radius,color,height] of [[.78,"473022",1.534],[.52,"362820",1.536]]) {
     const rim=Array.from({length:14},(_,i)=>{

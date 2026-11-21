@@ -50,9 +50,9 @@
       </div></div>`).join("");
     return `<section id="playlist" class="editor-group"><div class="editor-group-head"><h2>背景音乐歌单</h2>
       <p>歌单按顺序循环。点击留声机后随机循环，每轮内每首只播一次。</p></div>
-      <p>把音频放进 <code>assets/media/music/守望人/</code> 或 <code>assets/media/music/白色人偶/</code>。选择整个 <code>music</code> 文件夹即可补入新歌，根目录的曲目归守望人。</p>
+      <p>把音频放进 <code>assets/media/music/守望人/</code> 、<code>assets/media/music/白色人偶/</code> 或 <code>assets/media/music/梦庭人偶/</code>。选择整个 <code>music</code> 文件夹即可补入新歌，根目录的曲目归守望人。</p>
       <div class="editor-card-actions"><button type="button" class="button" data-track-action="folder">同步音乐文件夹</button><input class="music-folder" type="file" webkitdirectory multiple hidden><button type="button" class="button" data-track-action="download">下载 site-content.js</button></div>
-      <label class="editor-field"><span>角色皮肤</span><select class="playlist-skin"><option value="playlist">${window.portfolioSkinNames.celadon}</option><option value="brocadePlaylist" ${playlistPath === "brocadePlaylist" ? "selected" : ""}>${window.portfolioSkinNames.brocade}</option></select></label>
+      <label class="editor-field"><span>角色皮肤</span><select class="playlist-skin"><option value="playlist">${window.portfolioSkinNames.celadon}</option><option value="brocadePlaylist" ${playlistPath === "brocadePlaylist" ? "selected" : ""}>${window.portfolioSkinNames.brocade}</option><option value="dreamPlaylist" ${playlistPath === "dreamPlaylist" ? "selected" : ""}>${window.portfolioSkinNames.dream}</option></select></label>
       <div class="editor-mini-grid">${rows}</div><div class="editor-card-actions">
       <button type="button" class="button" data-track-action="import">导入音频到整站 ZIP</button>
       <input class="track-import" type="file" accept="audio/*,.mp3,.m4a,.ogg,.wav,.flac,.aac,.opus" multiple hidden>
@@ -159,7 +159,8 @@
     }
     const groups = new Map([
       [window.portfolioSkinNames.celadon, draft.playlist],
-      [window.portfolioSkinNames.brocade, draft.brocadePlaylist]
+      [window.portfolioSkinNames.brocade, draft.brocadePlaylist],
+      [window.portfolioSkinNames.dream, draft.dreamPlaylist]
     ]);
     const known = new Map([...groups].map(([name, list]) => [name, new Set(list.map(track => {
       try { return new URL(track.src, document.baseURI).href; } catch { return track.src; }

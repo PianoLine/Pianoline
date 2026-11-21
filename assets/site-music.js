@@ -1,17 +1,19 @@
 window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
   const panel = document.querySelector(".site-music");
   const scope = "portfolio-table-v1:" + siteRoot.pathname + (preview ? ":preview" : "");
-  let skin = "celadon", playlist = "celadon", blueBookClicks = 0;
+  let skin = "celadon", playlist = "celadon", bookClicks = 0;
   let tracks = [], sources = [], trackKeys = [], uniqueTracks = [];
   function restoreSelection(resume) {
-    blueBookClicks = 0;
+    bookClicks = 0;
     try {
       if (!resume) {
         sessionStorage.removeItem(scope + ":skin");
         sessionStorage.removeItem(scope + ":playlist");
       }
-      skin = sessionStorage.getItem(scope + ":skin") === "brocade" ? "brocade" : "celadon";
-      playlist = sessionStorage.getItem(scope + ":playlist") === "brocade" ? "brocade" : "celadon";
+      const savedSkin = sessionStorage.getItem(scope + ":skin");
+      skin = Object.hasOwn(window.portfolioSkinNames, savedSkin) ? savedSkin : "celadon";
+      const savedList = sessionStorage.getItem(scope + ":playlist");
+      playlist = savedList === skin ? skin : "celadon";
     } catch {}
   }
   restoreSelection(resumeSkin);
@@ -36,12 +38,14 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
         !(event.origin === location.origin || (location.protocol === "file:" && event.origin === "null"))) return;
     if (event.data?.type === "portfolio-music-query") publishMusic();
     if (event.data?.type === "portfolio-music-shuffle") playRandomTrack();
-    if (event.data?.type === "portfolio-blue-book-click") clickBlueBook();
+    if (event.data?.type === "portfolio-blue-book-click") clickMusicBook("brocade");
+    if (event.data?.type === "portfolio-red-book-click") clickMusicBook("dream");
     if (event.data?.type === "portfolio-change-skin") changeSkin(event.data.skin);
   });
   window.addEventListener("portfolio-music-query", publishMusic);
   window.addEventListener("portfolio-music-shuffle", playRandomTrack);
-  window.addEventListener("portfolio-blue-book-click", clickBlueBook);
+  window.addEventListener("portfolio-blue-book-click", () => clickMusicBook("brocade"));
+  window.addEventListener("portfolio-red-book-click", () => clickMusicBook("dream"));
   window.addEventListener("portfolio-change-skin", event => changeSkin(event.detail.skin));
 
   const level = .35;
@@ -286,20 +290,20 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
   }
 
   function changeSkin(next) {
-    if (!["celadon", "brocade"].includes(next) || next === skin) return;
-    blueBookClicks = 0;
+    if (!Object.hasOwn(window.portfolioSkinNames, next) || next === skin) return;
+    bookClicks = 0;
     skin = next;
     try { sessionStorage.setItem(scope + ":skin", skin); } catch {}
     if (playlist !== "celadon") switchPlaylist("celadon", wanted);
     else publishMusic();
   }
 
-  function clickBlueBook() {
-    if (skin !== "brocade" || playlist === "brocade") return;
-    blueBookClicks++;
-    if (blueBookClicks < 3) return;
-    blueBookClicks = 0;
-    switchPlaylist("brocade", true);
+  function clickMusicBook(bookSkin) {
+    if (skin !== bookSkin || playlist === bookSkin) return;
+    bookClicks++;
+    if (bookClicks < 3) return;
+    bookClicks = 0;
+    switchPlaylist(bookSkin, true);
   }
 
   function switchPlaylist(next, playing) {
@@ -387,4 +391,5 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
   loadList();
   restore(false);
   publishMusic();
+  return () => wanted;
 };

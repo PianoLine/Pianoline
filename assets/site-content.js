@@ -1126,6 +1126,28 @@ window.PORTFOLIO_CONTENT = {
     {
       "title": "宮澤翔衣 - Heolstor the Nightlord",
       "src": "assets/media/music/白色人偶/宮澤翔衣 - Heolstor the Nightlord.mp3"
+    },
+    {
+      "title": "宮澤翔衣 - Nightreign",
+      "src": "assets/media/music/白色人偶/宮澤翔衣 - Nightreign.mp3"
+    },
+    {
+      "title": "宮澤翔衣 - Traitorous Straghess",
+      "src": "assets/media/music/白色人偶/宮澤翔衣 - Traitorous Straghess.mp3"
+    }
+  ],
+  "dreamPlaylist": [
+    {
+      "title": "齋藤司 - Cleric Beast",
+      "src": "assets/media/music/梦庭人偶/齋藤司 - Cleric Beast.mp3"
+    },
+    {
+      "title": "齋藤司 - Laurence, the First Vicar",
+      "src": "assets/media/music/梦庭人偶/齋藤司 - Laurence, the First Vicar.mp3"
+    },
+    {
+      "title": "齋藤司 - The First Hunter",
+      "src": "assets/media/music/梦庭人偶/齋藤司 - The First Hunter.mp3"
     }
   ]
 };

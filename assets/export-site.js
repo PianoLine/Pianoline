@@ -46,6 +46,7 @@
     paths.add("interactive/art/celadon-idle.png");
     paths.add("interactive/art/celadon-idle-expression.png");
     paths.add("interactive/art/celadon-brocade-sheet.png");
+    paths.add("interactive/art/dream-doll-idle.png");
     paths.add("interactive/skin-mirror.js");
     paths.add("interactive/golden-veil.js");
     for (const project of draft.projects || []) {
@@ -65,7 +66,7 @@
     const musicFiles = new Map();
     const musicUrls = new Map();
     const rootUrl = new URL("./", location.href);
-    for (const track of [...(draft.playlist || []), ...(draft.brocadePlaylist || [])]) {
+    for (const track of [...(draft.playlist || []), ...(draft.brocadePlaylist || []), ...(draft.dreamPlaylist || [])]) {
       const src = track.src.trim();
       if (!src || /^(?:https?:|data:|\/\/)/i.test(src)) continue;
       const url = new URL(src, rootUrl);
