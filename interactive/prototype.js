@@ -9,7 +9,7 @@
     } catch (_) { /* The published content is available offline. */ }
   }
   const portfolio = window.normalizePortfolio(content);
-  if (!embedded) window.setupSiteMusic(portfolio.playlist, preview, new URL("../", location.href));
+  if (!embedded) window.setupSiteMusic({celadon:portfolio.playlist, brocade:portfolio.brocadePlaylist}, preview, new URL("../", location.href), resumeTable);
   const projects = portfolio.projects || [];
   const deck = projects.map((_, i) => i);
   function shuffleDeck() {
@@ -136,7 +136,7 @@
   arena.addEventListener("candle-toggle", ({ detail: { lit, count, total } }) => {
     if (farewell) return;
     if (!lit && count === total - 2) say("你也是夜猫子？");
-    if (!lit && count === 0) say("小心晚上会有喜欢在黑暗之魂出没");
+    if (!lit && count === 0) say("小心有喜欢黑暗的灵魂出没");
     if (lit && count === 3) say("你怎么又给弄亮了…");
     if (lit && count === total) say("呃呃…好刺眼…");
   });

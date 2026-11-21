@@ -404,16 +404,15 @@ window.buildCabinMesh = function buildCabinMesh() {
   });
   // A pinned cord and stepped brass bezel stand proud of the back wall.
   const mirrorX=-2.62, mirrorY=3.90, mirrorZ=-5.36;
-  const mirrorPoint=([x,y],depth)=>[mirrorX+x,mirrorY+y,mirrorZ+depth];
+  const mirrorWidth=.78;
+  const mirrorPoint=([x,y],depth)=>[mirrorX+x*mirrorWidth,mirrorY+y,mirrorZ+depth];
   const octagon=[[-.36,.71],[.36,.71],[.65,.42],[.65,-.42],[.36,-.71],[-.36,-.71],[-.65,-.42],[-.65,.42]];
   const rim=(scale,depth)=>octagon.map(([x,y])=>mirrorPoint([x*scale,y*scale],depth));
-  const mirrorMountStart=vertices.length;
-  beam(mirrorX-.35,mirrorY+.67,mirrorX,mirrorY+.96,mirrorZ+.052,.024,.020,"947451");
-  beam(mirrorX,mirrorY+.96,mirrorX+.35,mirrorY+.67,mirrorZ+.052,.024,.020,"6b5940");
-  box(mirrorX,mirrorY+.96,mirrorZ+.06,.078,.065,.050,"a07f50");
-  const mirrorRim=rim(1,.10);
   const mirror=part(()=>{
-    const bevels=[rim(.97,.015),mirrorRim,rim(.944,.15),rim(.883,.15),rim(.85,.105)];
+    beam(mirrorX-.35*mirrorWidth,mirrorY+.67,mirrorX,mirrorY+.96,mirrorZ+.052,.024,.020,"947451");
+    beam(mirrorX,mirrorY+.96,mirrorX+.35*mirrorWidth,mirrorY+.67,mirrorZ+.052,.024,.020,"6b5940");
+    box(mirrorX,mirrorY+.96,mirrorZ+.06,.078,.065,.050,"a07f50");
+    const bevels=[rim(.97,.015),rim(1,.10),rim(.944,.15),rim(.883,.15),rim(.85,.105)];
     const brass=["665138","ba955a","927547","65523e"];
     for(let j=0;j<bevels.length-1;j++) for(let i=0;i<8;i++){
       const k=(i+1)%8;
@@ -427,7 +426,7 @@ window.buildCabinMesh = function buildCabinMesh() {
     glass([[-.24,-.33],[-.18,-.27],[-.15,-.34],[-.20,-.43]],"9a8967");
     glass([[-.22,-.46],[-.17,-.43],[-.18,-.49]],"7a7660");
   });
-  const props = { mirror, mirrorMountStart, mirrorRim, deckShadow, bellShadow, watchShadow, deckBase, leaves, bellBase, dome, plunger, watchCase, watchHand, gramShadow, gramBase, gramRecord, gramHit, hornMouth, shelf, books };
+  const props = { mirror, mirrorRim:rim(1,.10), deckShadow, bellShadow, watchShadow, deckBase, leaves, bellBase, dome, plunger, watchCase, watchHand, gramShadow, gramBase, gramRecord, gramHit, hornMouth, shelf, books };
   const shadowStart=vertices.length;
   for (const [radius,color,height] of [[.78,"473022",1.534],[.52,"362820",1.536]]) {
     const rim=Array.from({length:14},(_,i)=>{

@@ -37,17 +37,20 @@
   function postsEditor() {
     return `<section id="posts" class="editor-group"><div class="editor-group-head"><h2>动态与开发日志</h2><p>按阅读顺序添加文字和图片，勾选「公开显示」的动态会出现在首页和日志页。</p></div>${draft.posts.map((post,i) => `<details class="editor-project" data-post="${i}"><summary><span><b>${esc(post.title || "未命名动态")}</b><small>${esc(post.date || "未设置日期")}</small></span><span>展开编辑</span></summary><div class="editor-project-body"><div class="editor-grid">${field(`posts.${i}.title`,"标题")}${field(`posts.${i}.date`,"发布日期","date")}${field(`posts.${i}.visible`,"公开显示这条动态","checkbox")}</div><p>按顺序添加文字或图片；长文可拆成多段，再插入图片。</p>${post.blocks.map((block,j) => `<div class="editor-mini-card post-block"><strong>${block.type === "image" ? "图片" : "文字"} ${j+1}</strong>${block.type === "image" ? `${field(`posts.${i}.blocks.${j}.src`,"图片路径或网址","text","也可以使用下方按钮选择电脑里的图片")}${field(`posts.${i}.blocks.${j}.caption`,"图片说明")}<label class="editor-field"><span>选择图片（建议单张小于 1 MB）</span><input type="file" accept="image/*" data-image-post="${i}" data-image-block="${j}"></label>${block.src ? `<img class="editor-post-image" src="${esc(block.src)}" alt="图片预览">` : ""}` : field(`posts.${i}.blocks.${j}.text`,"正文","textarea")}<div class="editor-card-actions"><button type="button" class="button subtle" data-post-action="up" data-post-index="${i}" data-block-index="${j}">上移</button><button type="button" class="button subtle" data-post-action="down" data-post-index="${i}" data-block-index="${j}">下移</button><button type="button" class="button subtle" data-post-action="delete-block" data-post-index="${i}" data-block-index="${j}">删除</button></div></div>`).join("")}<div class="editor-card-actions"><button class="button" type="button" data-post-action="text" data-post-index="${i}">＋ 添加文字</button><button class="button" type="button" data-post-action="image" data-post-index="${i}">＋ 添加图片</button><button class="button subtle" type="button" data-post-action="delete-post" data-post-index="${i}">删除这条动态</button></div></div></details>`).join("")}<button class="button editor-add" type="button" data-post-action="add">＋ 新增动态</button></section>`;
   }
+  let playlistPath = "playlist";
   function playlistEditor() {
-    const rows = draft.playlist.map((track, i) => `<div class="editor-mini-card">
+    const list = draft[playlistPath];
+    const rows = list.map((track, i) => `<div class="editor-mini-card">
       <strong>曲目 ${i + 1}</strong><div class="editor-grid">
-      ${field(`playlist.${i}.title`, "曲名")}${field(`playlist.${i}.src`, "音乐文件路径或音频直链")}
+      ${field(`${playlistPath}.${i}.title`, "曲名")}${field(`${playlistPath}.${i}.src`, "音乐文件路径或音频直链")}
       </div><div class="editor-card-actions">
       <button type="button" class="button subtle" data-track-action="up" data-index="${i}" ${i === 0 ? "disabled" : ""}>上移</button>
-      <button type="button" class="button subtle" data-track-action="down" data-index="${i}" ${i === draft.playlist.length - 1 ? "disabled" : ""}>下移</button>
+      <button type="button" class="button subtle" data-track-action="down" data-index="${i}" ${i === list.length - 1 ? "disabled" : ""}>下移</button>
       <button type="button" class="button subtle" data-track-action="delete" data-index="${i}">删除</button>
       </div></div>`).join("");
     return `<section id="playlist" class="editor-group"><div class="editor-group-head"><h2>背景音乐歌单</h2>
       <p>点击桌上的留声机会开始随机播放整个歌单。同一轮内每首只放一次，全部放完后停止。再点留声机可开启新一轮。</p></div>
+      <label class="editor-field"><span>角色皮肤</span><select class="playlist-skin"><option value="playlist">基础皮肤</option><option value="brocadePlaylist" ${playlistPath === "brocadePlaylist" ? "selected" : ""}>织金披肩</option></select></label>
       <div class="editor-mini-grid">${rows}</div><div class="editor-card-actions">
       <button type="button" class="button" data-track-action="import">导入音频文件</button>
       <input class="track-import" type="file" accept="audio/*,.mp3,.m4a,.ogg,.wav,.flac,.aac,.opus" multiple hidden>
@@ -91,7 +94,7 @@
   root.addEventListener("click",event=>{
     const button=event.target.closest("button"); if(!button)return;
     if (button.dataset.trackAction) {
-      const list = draft.playlist, i = Number(button.dataset.index);
+      const list = draft[playlistPath], i = Number(button.dataset.index);
       switch (button.dataset.trackAction) {
         case "import": root.querySelector(".track-import").click(); return;
         case "add": list.push({title:"", src:""}); break;
@@ -145,16 +148,22 @@
     const reader=new FileReader(); reader.onload=()=>{ if(!draft.posts[i]?.blocks[j])return; draft.posts[i].blocks[j].src=reader.result; save(); render([...root.querySelectorAll("details[data-project][open]")].map(d=>d.dataset.project),[...root.querySelectorAll("details[data-post][open]")].map(d=>d.dataset.post)); }; reader.readAsDataURL(file);
   });
   root.addEventListener("change", async event => {
+    if (event.target.matches(".playlist-skin")) {
+      playlistPath = event.target.value;
+      refreshPlaylist();
+      return;
+    }
     if (!event.target.matches(".track-import")) return;
     const files = Array.from(event.target.files);
     if (!files.length) return;
     const currentDraft = draft;
+    const list = draft[playlistPath];
     let added = 0;
     try {
       for (const file of files) {
         const src = await window.playlistFiles.importFile(file);
         if (draft !== currentDraft) return;
-        draft.playlist.push({title: file.name.replace(/\.[^.]+$/, ""), src});
+        list.push({title: file.name.replace(/\.[^.]+$/, ""), src});
         added++;
       }
       save(`已导入 ${added} 首音乐`);

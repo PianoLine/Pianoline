@@ -126,7 +126,7 @@
     const workingScene = local && new URLSearchParams(location.search).get("scene") === "prototype";
     const sceneDir = workingScene ? "prototype" : "interactive";
     // Reload the local work-in-progress entry on each visit so it supplies current asset versions.
-    const sceneVersion = workingScene ? Date.now().toString(36) : "table-first-frame";
+    const sceneVersion = workingScene ? Date.now().toString(36) : "default-skin";
     const navigationType = performance.getEntriesByType("navigation")[0]?.type;
     // Portfolio links back to the home page target one of its sections.
     const resumeTable = returning || navigationType === "back_forward" ||
@@ -292,7 +292,9 @@
   }
 
   renderPage();
-  window.setupSiteMusic(content.playlist, Boolean(previewQuery), siteRoot);
+  const resumeSkin = pageType !== "home" || document.body.dataset.tableReturn === "true" ||
+    performance.getEntriesByType("navigation")[0]?.type === "back_forward";
+  window.setupSiteMusic({celadon:content.playlist, brocade:content.brocadePlaylist}, Boolean(previewQuery), siteRoot, resumeSkin);
 
   // Keep the header and its playing audio in the same document while browsing the portfolio.
   const routes = new Map([[siteRoot.pathname, "home"], [new URL("index.html", siteRoot).pathname, "home"],

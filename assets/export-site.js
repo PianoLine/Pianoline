@@ -45,8 +45,8 @@
     paths.add("interactive/ghost-idle.js");
     paths.add("interactive/art/celadon-idle.png");
     paths.add("interactive/art/celadon-idle-expression.png");
-    paths.add("interactive/art/garnet-ghost.png");
-    paths.add("interactive/art/garnet-idle.png");
+    paths.add("interactive/art/celadon-brocade-sheet.png");
+    paths.add("interactive/skin-mirror.js");
     for (const project of draft.projects || []) {
       if (!project.sharedPage) paths.add(window.portfolioProjectPath(project));
     }
@@ -64,7 +64,7 @@
     const musicFiles = new Map();
     const musicUrls = new Map();
     const rootUrl = new URL("./", location.href);
-    for (const track of draft.playlist || []) {
+    for (const track of [...(draft.playlist || []), ...(draft.brocadePlaylist || [])]) {
       const src = track.src.trim();
       if (!src || /^(?:https?:|data:|\/\/)/i.test(src)) continue;
       const url = new URL(src, rootUrl);

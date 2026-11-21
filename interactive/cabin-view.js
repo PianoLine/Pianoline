@@ -276,6 +276,7 @@ void main(){
     if(!frame && visible && !document.hidden) frame=requestAnimationFrame(render);
   }
   const deckButton = document.getElementById("deck");
+  const mirrorButton = document.getElementById("skin-mirror");
   const deckZone = deckButton.closest(".deckzone");
   const bellButton = document.getElementById("end");
   const hoverInput=matchMedia("(hover: hover)");
@@ -299,20 +300,6 @@ void main(){
   arena.prepend(shaft);
   let lastSpot=-1;
   const candleNames=["烛台上的高蜡烛","烛台上的中蜡烛","烛台上的矮蜡烛","桌边的蜡烛","窗边的蜡烛"];
-  const mirror=document.createElement("button");
-  mirror.type="button";
-  mirror.className="wall-mirror";
-  mirror.setAttribute("aria-label","八角黄铜古镜，切换角色皮肤");
-  arena.insertBefore(mirror,encounter);
-  const mirrorOutline=prepareOutline(mirror,arena);
-  mirrorOutline.layer.classList.add("mirror-outline");
-  const skinKey=tableKey+":character-skin";
-  try { if(sessionStorage.getItem(skinKey)==="garnet") encounter.dataset.skin="garnet"; } catch {}
-  mirror.onclick=()=>{
-    const next=encounter.dataset.skin==="garnet" ? "celadon" : "garnet";
-    encounter.dataset.skin=next;
-    try { sessionStorage.setItem(skinKey,next); } catch {}
-  };
   const volumes=props.books.map(book=>{
     const target=document.createElement("span");
     target.className="book-spine";
@@ -664,12 +651,12 @@ void main(){
     };
     // On narrow screens the title occupies the lower left wall.
     const mirrorDX=narrow ? 1.8 : 0, mirrorDY=narrow ? 1.22 : 0;
-    for(let i=props.mirrorMountStart;i<props.mirror.end;i+=7){
+    fitHitPolygon(mirrorButton,props.mirrorRim.map(([x,y,z])=>project(x+mirrorDX,y+mirrorDY,z)),0);
+    mirrorButton.hidden=false;
+    for(let i=props.mirror.start;i<props.mirror.end;i+=7){
       mesh[i]=rest[i]+mirrorDX;
       mesh[i+1]=rest[i+1]+mirrorDY;
     }
-    fitHitPolygon(mirror,props.mirrorRim.map(([x,y,z])=>project(x+mirrorDX,y+mirrorDY,z)),0);
-    followModel(mirrorOutline.layer,mirrorOutline,props.mirror.start,props.mirror.end,camera,focal,w,h,width,height);
     let changingLight=false;
     let portraitLight=0, availableLight=0, leftWarmth=0, rightWarmth=0;
     for(const [index,flame] of flames.entries()){

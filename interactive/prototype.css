@@ -63,17 +63,31 @@ a:focus-visible { outline: 3px solid #d75f36; outline-offset: 4px; }
 .portrait-layer .idle-sheet { display: none; }
 .idle-playing .portrait-layer > img:first-child { display: none; }
 .idle-playing .portrait-layer > .idle-sheet {
-  display: block; position: absolute; width: 500%; height: 900%;
+  display: block; position: absolute; width: 500%; height: 2100%;
   left: var(--pose-x, 0%); top: var(--pose-y, 0%);
 }
+.idle-playing .portrait-embers > .idle-sheet { height: 900%; top: var(--ember-y, 0%); }
 .portrait-ink { filter: brightness(calc(.13 + .73 * var(--portrait-light, 1))) sepia(calc(.12 + .22 * var(--portrait-light, 1))); }
-.encounter[data-skin="garnet"] .portrait-ink > img:first-child { content: url("art/garnet-ghost.png"); }
-.encounter[data-skin="garnet"] .portrait-ink > .idle-sheet { content: url("art/garnet-idle.png"); }
 .ghost-portrait :is(.warm-left,.warm-right) { mix-blend-mode: soft-light; }
 .ghost-portrait :is(.warm-left,.warm-right) img { filter: brightness(0) invert(78%) sepia(61%) saturate(790%) hue-rotate(326deg); }
 .warm-left { opacity: var(--warm-left, .22); mask-image: linear-gradient(95deg, black, transparent 48%); }
 .warm-right { opacity: var(--warm-right, .24); mask-image: linear-gradient(95deg, transparent 48%, black); }
 .portrait-embers { opacity: var(--red-glow, 0); filter: drop-shadow(0 0 2px #fc322778) drop-shadow(0 0 5px #e5231938); }
+.portrait-layer .brocade-sheet { display: none; }
+.encounter[data-skin="brocade"] .portrait-layer:not(.portrait-embers) > img { display: none; }
+.encounter[data-skin="brocade"] .portrait-layer:not(.portrait-embers) > .brocade-sheet {
+  display: block; position: absolute; width: 500%; height: 2100%;
+  left: var(--pose-x, 0%); top: var(--pose-y, 0%);
+}
+#skin-mirror {
+  position: absolute; z-index: 2; cursor: pointer; background: transparent; border: 0; padding: 0;
+}
+.skin-mist {
+  position: absolute; width: 145%; height: 118%; left: -22.5%; top: -9%;
+  z-index: 1; pointer-events: none; image-rendering: pixelated;
+  filter: brightness(calc(.32 + .68 * var(--portrait-light, 1)));
+}
+.modeled .encounter .speech { z-index: 2; }
 .ghost.over .ghost-portrait { filter: drop-shadow(2px 0 #edc878) drop-shadow(-2px 0 #edc878) drop-shadow(0 2px #edc878) drop-shadow(0 -2px #edc878); }
 .hit { display: none; position: absolute; right: 0; top: 0; font: 400 29px var(--title-font); color: var(--coral); text-shadow: 2px 2px var(--ink); }
 .hurt .hit { display: block; z-index: 2; top: 12%; right: -10%; color: #fff1c6; animation: damage-rise .42s ease-out both; }
@@ -260,14 +274,14 @@ a:focus-visible { outline-color: #f5b55f; }
   position: absolute; padding: 0; border: 0;
   background: transparent; cursor: pointer;
 }
-.prop-outline.book-outline, .prop-outline.candle-outline, .prop-outline.gram-outline, .prop-outline.mirror-outline {
+.prop-outline.book-outline, .prop-outline.candle-outline, .prop-outline.gram-outline {
   inset: auto; width: var(--prop-width); height: var(--prop-height);
   transform: translateX(-50%); z-index: 3;
 }
 .modeled .opening { filter: brightness(calc(.39 + .61 * var(--candle-light, 1))); }
 .book-spine { z-index: 2; }
 .book-guard { position: absolute; z-index: 2; }
-.gramophone, .wall-mirror {
+.gramophone {
   position: absolute; z-index: 2;
   border: 0; padding: 0; background: transparent; cursor: pointer;
 }

@@ -1,6 +1,11 @@
-window.setupSiteMusic = function (playlist, preview, siteRoot) {
+window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
   const panel = document.querySelector(".site-music");
-  const tracks = playlist.filter(track => track.src.trim());
+  const scope = "portfolio-table-v1:" + siteRoot.pathname + (preview ? ":preview" : "");
+  let skin = "celadon", tracks = [], sources = [], trackKeys = [], uniqueTracks = [];
+  try {
+    if (!resumeSkin) sessionStorage.removeItem(scope + ":skin");
+    else if (sessionStorage.getItem(scope + ":skin") === "brocade") skin = "brocade";
+  } catch {}
   panel.setAttribute("role", "group");
   panel.setAttribute("aria-label", "背景音乐");
   panel.innerHTML = `<button type="button" class="music-toggle" aria-label="背景音乐" aria-pressed="false"><span class="music-note" aria-hidden="true">♫</span><span class="music-state">音乐 关</span></button>
@@ -12,7 +17,7 @@ window.setupSiteMusic = function (playlist, preview, siteRoot) {
   const clock = panel.querySelector(".track-time");
   let rotating = false;
   function publishMusic() {
-    const state = {type:"portfolio-music-state", available:tracks.length > 0, playing:rotating};
+    const state = {type:"portfolio-music-state", skin, available:tracks.length > 0, playing:rotating};
     document.querySelector(".interactive-frame")?.contentWindow?.postMessage(state, "*");
     window.dispatchEvent(new CustomEvent(state.type, {detail:state}));
   }
@@ -22,15 +27,11 @@ window.setupSiteMusic = function (playlist, preview, siteRoot) {
         !(event.origin === location.origin || (location.protocol === "file:" && event.origin === "null"))) return;
     if (event.data?.type === "portfolio-music-query") publishMusic();
     if (event.data?.type === "portfolio-music-shuffle") playRandomTrack();
+    if (event.data?.type === "portfolio-change-skin") changeSkin(event.data.skin);
   });
   window.addEventListener("portfolio-music-query", publishMusic);
   window.addEventListener("portfolio-music-shuffle", playRandomTrack);
-  publishMusic();
-  if (!tracks.length) {
-    toggle.disabled = true;
-    toggle.title = "歌单为空";
-    return;
-  }
+  window.addEventListener("portfolio-change-skin", event => changeSkin(event.detail.skin));
 
   panel.querySelector(".track-info").hidden = false;
   const audio = document.createElement("audio");
@@ -46,16 +47,21 @@ window.setupSiteMusic = function (playlist, preview, siteRoot) {
   const level = .35;
   const fadeMs = 360;
   audio.volume = 0;
-  const key = "portfolio-table-v1:" + siteRoot.pathname + (preview ? ":preview" : "") + ":music";
+  const musicKey = () => scope + ":music" + (skin === "celadon" ? "" : ":" + skin);
   let index = 0, wanted = false, offset = 0, dragging = false;
   // null means ordered playback; an empty list means this shuffle has been exhausted.
   let remaining = null;
-  const sources = tracks.map(track => track.src);
-  const trackKeys = sources.map(src => {
-    try { return new URL(src.trim(), siteRoot).href; }
-    catch { return src.trim(); }
-  });
-  const uniqueTracks = [...new Set(trackKeys)];
+  function loadList() {
+    tracks = (playlists[skin] || []).filter(track => track.src.trim());
+    sources = tracks.map(track => track.src);
+    trackKeys = sources.map(src => {
+      try { return new URL(src.trim(), siteRoot).href; }
+      catch { return src.trim(); }
+    });
+    uniqueTracks = [...new Set(trackKeys)];
+    toggle.disabled = !tracks.length;
+    panel.querySelector(".track-info").hidden = !tracks.length;
+  }
   let trackId = 0, playId = 0, fadeTimer = 0, sourceReady, objectUrl = "", localCopy;
   let seekId = 0, pendingSeek = null;
   let destination = "";
@@ -80,6 +86,11 @@ window.setupSiteMusic = function (playlist, preview, siteRoot) {
   function display(error = "") {
     label.textContent = wanted ? "音乐 开" : "音乐 关";
     toggle.setAttribute("aria-pressed", String(wanted));
+    if (!tracks.length) {
+      toggle.title = "当前皮肤的歌单为空";
+      title.textContent = "";
+      return;
+    }
     toggle.title = error || (wanted ? "关闭背景音乐" : "开启背景音乐");
     const track = tracks[index];
     const filename = track.src.split(/[?#]/)[0].split("/").pop().replace(/\.[^.]+$/, "");
@@ -90,8 +101,9 @@ window.setupSiteMusic = function (playlist, preview, siteRoot) {
   }
 
   function save() {
+    if (!tracks.length) return;
     try {
-      sessionStorage.setItem(key, JSON.stringify({src: tracks[index].src,
+      sessionStorage.setItem(musicKey(), JSON.stringify({src: tracks[index].src,
         shuffle: remaining === null ? null : {played: uniqueTracks.filter(key => !remaining.includes(key))},
         time: pendingSeek ?? (offset || audio.currentTime || 0), playing: wanted && !audio.paused, destination}));
     } catch { /* Browser storage is optional. */ }
@@ -150,6 +162,12 @@ window.setupSiteMusic = function (playlist, preview, siteRoot) {
     audio.volume = 0;
     if (objectUrl) URL.revokeObjectURL(objectUrl);
     objectUrl = "";
+    if (!tracks.length) {
+      audio.removeAttribute("src");
+      audio.load();
+      display();
+      return;
+    }
     const path = tracks[index].src.trim();
     sourceReady = (async () => {
       const file = preview ? await window.playlistFiles.get(path) : null;
@@ -193,13 +211,14 @@ window.setupSiteMusic = function (playlist, preview, siteRoot) {
     }
   }
 
-  function restore(cached) {
+  function restore(cached, startList = false) {
     destination = "";
     wanted = false;
     offset = 0;
     remaining = null;
+    index = 0;
     try {
-      const saved = JSON.parse(sessionStorage.getItem(key));
+      const saved = startList ? null : JSON.parse(sessionStorage.getItem(musicKey()));
       const found = tracks.findIndex(track => track.src === saved?.src);
       if (found >= 0) {
         index = found;
@@ -221,8 +240,20 @@ window.setupSiteMusic = function (playlist, preview, siteRoot) {
           (nav !== "reload" && (fromSite || saved.destination === location.href)));
       }
     } catch { /* Direct visits start quietly. */ }
+    if (startList && tracks.length) wanted = true;
     audio.loop = remaining === null && tracks.length === 1;
     selectTrack();
+  }
+
+  function changeSkin(next) {
+    if (!["celadon", "brocade"].includes(next) || next === skin) return;
+    try { sessionStorage.removeItem(musicKey()); } catch {}
+    skin = next;
+    try { sessionStorage.setItem(scope + ":skin", skin); } catch {}
+    rotating = false;
+    loadList();
+    restore(false, true);
+    publishMusic();
   }
 
   toggle.addEventListener("click", () => { if (wanted) stop(); else start(); });
@@ -283,6 +314,14 @@ window.setupSiteMusic = function (playlist, preview, siteRoot) {
     audio.pause();
     audio.volume = 0;
   });
-  window.addEventListener("pageshow", event => { if (event.persisted) restore(true); });
+  window.addEventListener("pageshow", event => {
+    if (!event.persisted) return;
+    try { skin = sessionStorage.getItem(scope + ":skin") === "brocade" ? "brocade" : "celadon"; } catch {}
+    loadList();
+    restore(true);
+    publishMusic();
+  });
+  loadList();
   restore(false);
+  publishMusic();
 };

@@ -1,10 +1,10 @@
-// Each eyelid pose spans three breathing rows. Fingers use the five columns independently.
+// Each eyelid pose has seven cloth phases. Hands and eyes share one resting glow row per eyelid pose.
 (() => {
   const ghost = document.getElementById("ghost");
   const portrait = ghost.querySelector(".ghost-portrait");
   const motion = matchMedia("(prefers-reduced-motion: reduce)");
-  // Hold the relaxed pose, inhale, pause at the top, then settle back onto the elbows.
-  const breath = [[0, 1240], [1, 550], [2, 650], [1, 1010]];
+  // The lower folds crest after the shoulder and settle last.
+  const breath = [[0, 750], [1, 310], [2, 310], [3, 455], [4, 455], [5, 575], [6, 655]];
   // A small windup, a quick first strike, a shorter second knock and a trailing fingertip.
   const knocks = [[1, 95], [2, 100], [3, 125], [4, 55], [0, 170],
     [1, 65], [2, 90], [4, 55], [0, 0]];
@@ -13,7 +13,8 @@
   let breathRow = 0, lid = 0;
 
   function showFace() {
-    portrait.style.setProperty("--pose-y", (lid * 3 + breathRow) * -100 + "%");
+    portrait.style.setProperty("--pose-y", (lid * breath.length + breathRow) * -100 + "%");
+    portrait.style.setProperty("--ember-y", (lid * 3) * -100 + "%");
   }
 
   function breathe(step) {
@@ -62,6 +63,7 @@
     lid = breathRow = 0;
     portrait.style.removeProperty("--pose-x");
     portrait.style.removeProperty("--pose-y");
+    portrait.style.removeProperty("--ember-y");
     if (active) {
       breathe(0);
       waitForTap();
@@ -88,10 +90,11 @@
     sheet.className = "idle-sheet";
     sheet.alt = "";
     sheet.draggable = false;
-    sheet.src = layer.classList.contains("portrait-embers")
-      ? "art/celadon-idle-expression.png?v=eyelids" : "art/celadon-idle.png?v=eyelids";
+    const isGlow = layer.classList.contains("portrait-embers");
+    sheet.src = isGlow
+      ? "art/celadon-idle-expression.png?v=eyelids" : "art/celadon-idle.png?v=anchored-arms";
     await sheet.decode();
-    if (sheet.naturalWidth !== 640 || sheet.naturalHeight !== 1152) throw new Error("Unexpected portrait sheet size");
+    if (sheet.naturalWidth !== 640 || sheet.naturalHeight !== (isGlow ? 1152 : 2688)) throw new Error("Unexpected portrait sheet size");
     layer.append(sheet);
   })).then(() => { loaded = true; updateIdle(); }).catch(() => { /* Keep the resting portrait. */ });
 })();

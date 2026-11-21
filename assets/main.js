@@ -85,6 +85,7 @@ window.initSiteEffects = function initSiteEffects() {
       fromPortfolio = from.origin === siteHome.origin && (from.pathname === new URL("posts.html", siteHome).pathname ||
         from.pathname.startsWith(new URL("projects/", siteHome).pathname));
     }
+    if (fromPortfolio && navigation?.type !== "reload" && location.hash) document.body.dataset.tableReturn = "true";
     if ((!fromPortfolio && !returning) || motion.matches || !Element.prototype.animate ||
         (!returning && !cached && (navigation?.type === "reload" || (navigation?.type !== "back_forward" && location.hash !== "#top")))) return;
     clear();
