@@ -43,6 +43,7 @@
     paths.add("assets/site-music.js");
     paths.add("assets/site-music.css");
     paths.add("interactive/ghost-idle.js");
+    paths.add("interactive/art/book-prints.js");
     paths.add("interactive/art/celadon-idle.png");
     paths.add("interactive/art/celadon-idle-expression.png");
     paths.add("interactive/art/celadon-brocade-sheet.png");

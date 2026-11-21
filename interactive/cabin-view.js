@@ -759,7 +759,7 @@ void main(){
     gramTip.style.top=Math.min(...gramHull.map(p=>p[1]))+"px";
     drawHornNote(now,projectGram);
     followModel(gramOutline.layer,gramOutline,props.gramBase.start,props.gramRecord.end,camera,focal,w,h,width,height);
-    const shelfAnchor=tablePosition(narrow ? .88 : .913, narrow ? 2.36 : compact ? 2.78 : 3.42,
+    const shelfAnchor=tablePosition(narrow ? .89 : .924, narrow ? 2.31 : compact ? 2.62 : 3.12,
       narrow ? .46 : Math.min(1.06,width/1370)*.88,w,focal,width);
     const shelfYaw=narrow ? -1.17 : -1.36, co=Math.cos(shelfYaw), si=Math.sin(shelfYaw);
     placePart(props.shelf,shelfAnchor,0,shelfYaw);
@@ -774,14 +774,14 @@ void main(){
       if(Math.abs(goal-volume.pull)<.003) volume.pull=goal;
       else bookMoving=true;
       const scale=shelfAnchor.scale, lean=.13*volume.pull;
-      const heel=book.depth*.5*Math.sin(lean)+.12*volume.pull;
+      const heel=book.depth*.5*Math.sin(lean)+(book.print ? .26 : .12)*volume.pull;
       const x=shelfAnchor.x+book.offset*co*scale, z=shelfAnchor.z-book.offset*si*scale;
       // Keep the entire swept cover clear of the bell, even on intermediate aspect ratios.
       const reach=book.depth*.5+book.height*Math.sin(.13);
       const radius=.72*bellAnchor.scale+.07;
       const leftRoom=((x-bellAnchor.x-radius)/scale-book.width*.5*co)/-si-reach;
       const backRoom=((bellAnchor.z-z-radius)/scale+book.width*.5*si)/co-reach;
-      const slide=volume.pull*Math.max(0,Math.min(.76,Math.max(leftRoom,backRoom)));
+      const slide=volume.pull*Math.max(0,Math.min(book.print ? 1.15 : .76,Math.max(leftRoom,backRoom)));
       placePart(book,{x:x+si*slide*scale,z:z+co*slide*scale,scale},.18+heel,shelfYaw,lean);
       const coverDepth=.08*book.depth, coverHeight=.56*book.height;
       const coverZ=slide+coverDepth*Math.cos(lean)+coverHeight*Math.sin(lean);

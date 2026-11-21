@@ -345,10 +345,11 @@ window.buildCabinMesh = function buildCabinMesh() {
   });
   // From the right edge, the open shelf faces across the table. The backboard and feet
   // extend behind the books; the low lip leaves a clear path to pull a volume out.
+  const {bloodborne,nightreign}=window.portfolioBookPrints;
   const bindings=[
     {width:.20,height:1.44,color:"526e63",label:"青绿色布面书"},
-    {width:.23,height:1.29,color:"874e45",label:"酒红色皮面书",musicBook:"portfolio-red-book-click"},
-    {width:.17,height:1.12,color:"566477",label:"灰蓝色小册",musicBook:"portfolio-blue-book-click"}
+    {width:.23,height:1.29,color:"874e45",label:"酒红色皮面书",print:bloodborne,musicBook:"portfolio-red-book-click"},
+    {width:.17,height:1.12,color:"566477",label:"灰蓝色小册",print:nightreign,musicBook:"portfolio-blue-book-click"}
   ];
   const bookGap=.13;
   const rowWidth=bindings.reduce((sum,book)=>sum+book.width,0)+bookGap*(bindings.length-1);
@@ -379,7 +380,7 @@ window.buildCabinMesh = function buildCabinMesh() {
     }
   });
   let bookLeft=-rowWidth/2;
-  const books=bindings.map(({width,height,color,label,musicBook},index)=>{
+  const books=bindings.map(({width,height,color,label,musicBook,print},index)=>{
     const offset=bookLeft+width/2;
     bookLeft+=width+bookGap;
     const depth=1.05, front=depth/2, foil="d5b47b";
@@ -398,10 +399,21 @@ window.buildCabinMesh = function buildCabinMesh() {
       face(points,foil,0,.42);
       box(0,height*.39,z,width*.43,.014,.012,foil);
       // Pressed border on the broad cover becomes visible as the book tilts out.
-      const coverX=width/2+.002;
+      const coverX=width/2+.002, frameHalfHeight=height*.415, frameStroke=.018;
       for(const edge of [-1,1]){
         box(coverX,height/2,edge*depth*.40,.008,height*.83,.018,"ae9168");
-        box(coverX,height*(.5+edge*.415),0,.008,.018,depth*.80,"ae9168");
+        box(coverX,height/2+edge*frameHalfHeight,0,.008,frameStroke,depth*.80,"ae9168");
+      }
+      if(print){
+        // Paint on the outward (+X) leather board. Local +Z points to the viewer's left.
+        const pixel=depth*.76/64, surface=width/2+.0035, middle=height*.50;
+        for(const [col,row,cols,rows] of print.rectangles){
+          const left=(32-col)*pixel, right=left-cols*pixel;
+          // Extend the solid sky to the inside of this cover’s top rail.
+          const top=row===0 ? middle+frameHalfHeight-frameStroke/2 : middle+(32-row)*pixel;
+          const bottom=middle+(32-row-rows)*pixel;
+          face([[surface,top,left],[surface,bottom,left],[surface,bottom,right],[surface,top,right]],print.ink);
+        }
       }
     });
     return {...geometry,offset,width,height,depth,label,musicBook,guard:guards[index]?.flat()};

@@ -7,6 +7,7 @@ $runtimeFiles = @(
     'prototype.css'
     'prototype.js'
     'table-audio.js'
+    'art/book-prints.js'
     'cabin-mesh.js'
     'cabin-view.js'
     'ghost-idle.js'
