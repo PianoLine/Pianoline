@@ -133,21 +133,23 @@ window.buildCabinMesh = function buildCabinMesh() {
     const ox=-dz*k, oz=dx*k, y=1.539;
     face([[x1+ox,y,z1+oz],[x2+ox,y,z2+oz],[x2-ox,y,z2-oz],[x1-ox,y,z1-oz]],"b08a60",1);
   }
-  // Three open-corner card places keep the wood visible through their centres.
-  for(const x of [-1.48,0,1.48]) {
-    for(const side of [-1,1]) {
-      const edge=x+side*.56;
-      tableLine(edge,.29,edge,1.48);
-      for(const z of [.20,1.57]) {
-        tableLine(x+side*.09,z,x+side*.48,z,.085);
-      }
+  // A single row spans the clear space between the dealer and the hand.
+  const playerSlots = [];
+  const far = -.30, near = 2.31, halfWidth = .56;
+  for (const x of [-1.43, 0, 1.43]) {
+    for (const side of [-1, 1]) {
+      const edge = x + side * halfWidth;
+      tableLine(edge, far + .10, edge, near - .10, .057);
+      for (const z of [far, near]) tableLine(x + side * .10, z, edge - side * .055, z, .08);
     }
+    playerSlots.push([[x-halfWidth,far],[x+halfWidth,far],[x+halfWidth,near],[x-halfWidth,near]]
+      .map(([u,v]) => [.83*u, 1.545, .04+.78*v]));
   }
-  const dividerZ=1.96;
-  for(const side of [-1,1]) {
-    tableLine(side*.20,dividerZ,side*2.24,dividerZ,.032);
-    tableLine(0,dividerZ-.095,side*.12,dividerZ,.031);
-    tableLine(side*.12,dividerZ,0,dividerZ+.095,.031);
+  const dividerZ = near + .22;
+  for (const side of [-1, 1]) {
+    tableLine(side*.20, dividerZ, side*2.11, dividerZ, .032);
+    tableLine(0, dividerZ-.095, side*.12, dividerZ, .031);
+    tableLine(side*.12, dividerZ, 0, dividerZ+.095, .031);
   }
   function book(x,y,z,w,d,h,yaw,color) {
     box(x,y+.034,z,w,.068,d,color,0,yaw);
@@ -344,7 +346,7 @@ window.buildCabinMesh = function buildCabinMesh() {
   const bindings=[
     {width:.20,height:1.44,color:"526e63",label:"青绿色布面书"},
     {width:.23,height:1.29,color:"874e45",label:"酒红色皮面书"},
-    {width:.17,height:1.12,color:"566477",label:"灰蓝色小册"}
+    {width:.17,height:1.12,color:"566477",label:"灰蓝色小册",musicBook:true}
   ];
   const bookGap=.13;
   const rowWidth=bindings.reduce((sum,book)=>sum+book.width,0)+bookGap*(bindings.length-1);
@@ -375,7 +377,7 @@ window.buildCabinMesh = function buildCabinMesh() {
     }
   });
   let bookLeft=-rowWidth/2;
-  const books=bindings.map(({width,height,color,label},index)=>{
+  const books=bindings.map(({width,height,color,label,musicBook},index)=>{
     const offset=bookLeft+width/2;
     bookLeft+=width+bookGap;
     const depth=1.05, front=depth/2, foil="d5b47b";
@@ -400,7 +402,7 @@ window.buildCabinMesh = function buildCabinMesh() {
         box(coverX,height*(.5+edge*.415),0,.008,.018,depth*.80,"ae9168");
       }
     });
-    return {...geometry,offset,width,height,depth,label,guard:guards[index]?.flat()};
+    return {...geometry,offset,width,height,depth,label,musicBook,guard:guards[index]?.flat()};
   });
   // A pinned cord and stepped brass bezel stand proud of the back wall.
   const mirrorX=-2.62, mirrorY=3.90, mirrorZ=-5.36;
@@ -426,7 +428,7 @@ window.buildCabinMesh = function buildCabinMesh() {
     glass([[-.24,-.33],[-.18,-.27],[-.15,-.34],[-.20,-.43]],"9a8967");
     glass([[-.22,-.46],[-.17,-.43],[-.18,-.49]],"7a7660");
   });
-  const props = { mirror, mirrorRim:rim(1,.10), deckShadow, bellShadow, watchShadow, deckBase, leaves, bellBase, dome, plunger, watchCase, watchHand, gramShadow, gramBase, gramRecord, gramHit, hornMouth, shelf, books };
+  const props = { playerSlots, mirror, mirrorRim:rim(1,.10), deckShadow, bellShadow, watchShadow, deckBase, leaves, bellBase, dome, plunger, watchCase, watchHand, gramShadow, gramBase, gramRecord, gramHit, hornMouth, shelf, books };
   const shadowStart=vertices.length;
   for (const [radius,color,height] of [[.78,"473022",1.534],[.52,"362820",1.536]]) {
     const rim=Array.from({length:14},(_,i)=>{
@@ -437,3 +439,18 @@ window.buildCabinMesh = function buildCabinMesh() {
   }
   return {vertices:new Float32Array(vertices),props,flames,clusterOrigin,clusterStart,clusterEnd,shadowStart};
 };
+
+// Map the flat artwork onto a perspective quadrilateral in the iframe viewport.
+  window.fitCardPlane = function (corners, width, height) {
+    const [[x0,y0],[x1,y1],[x2,y2],[x3,y3]] = corners;
+    const ax=x1-x2, ay=y1-y2, bx=x3-x2, by=y3-y2;
+    const ex=x0-x1+x2-x3, ey=y0-y1+y2-y3;
+    const determinant=ax*by-bx*ay;
+    const g=Math.abs(determinant)>1e-6 ? (ex*by-bx*ey)/determinant : 0;
+    const h=Math.abs(determinant)>1e-6 ? (ax*ey-ex*ay)/determinant : 0;
+    return "matrix3d("+[
+      (x1*(1+g)-x0)/width, (y1*(1+g)-y0)/width, 0, g/width,
+      (x3*(1+h)-x0)/height, (y3*(1+h)-y0)/height, 0, h/height,
+      0,0,1,0, x0,y0,0,1
+    ].join(",")+")";
+  };

@@ -118,6 +118,29 @@ const tableAudio = (() => {
       case "card-hover": return cardStock(.058, .075, [[.011,.035]]);
       case "card-open": return portalRush({duration:.32, fromHz:168, toHz:220, attack:.045, decay:.105, gain:.78});
       case "hit-transition": return portalRush({duration:.245, fromHz:225, toHz:131.9, attack:.016, decay:.068, gain:1});
+      case "board-flick": {
+        let fast = 0, slow = 0;
+        return sample(.18, t => {
+          const noise = Math.random() * 2 - 1;
+          fast += .56 * (noise - fast);
+          slow += .10 * (fast - slow);
+          const brush = Math.sin(Math.PI * t / .18) ** 2;
+          const flex = ring(t, 1160, .016) + .36 * ring(t, 2280, .009);
+          return .09 * flex + .30 * brush * (fast - slow);
+        });
+      }
+      case "board-strike": {
+        let grain = 0;
+        return sample(.31, t => {
+          grain += .62 * (Math.random() * 2 - 1 - grain);
+          const snap = .55 * grain * Math.exp(-t / .009);
+          const wood = .31 * ring(t, 184, .037) + .12 * ring(t, 412, .023);
+          const tail = Math.max(0, t - .014);
+          const brass = (1 - Math.exp(-tail / .006)) *
+            (.092 * ring(tail, 740, .065) + .058 * ring(tail, 1110, .088));
+          return snap + wood + brass;
+        });
+      }
       case "slide": return cardStock(.158, .24, [[.024,.20], [.084,.34], [.119,.14]]);
       case "cut": return cardStock(.079, .12, [[.008,.49], [.021,.36], [.039,.20]]);
       case "seat": return cardStock(.050, .05, [[.003,.68], [.012,.22]]);

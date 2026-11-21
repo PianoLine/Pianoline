@@ -126,7 +126,7 @@
     const workingScene = local && new URLSearchParams(location.search).get("scene") === "prototype";
     const sceneDir = workingScene ? "prototype" : "interactive";
     // Reload the local work-in-progress entry on each visit so it supplies current asset versions.
-    const sceneVersion = workingScene ? Date.now().toString(36) : "skin-names";
+    const sceneVersion = workingScene ? Date.now().toString(36) : "brocade-artist-d8123951";
     const navigationType = performance.getEntriesByType("navigation")[0]?.type;
     // Portfolio links back to the home page target one of its sections.
     const resumeTable = returning || navigationType === "back_forward" ||

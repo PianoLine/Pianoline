@@ -276,6 +276,7 @@ void main(){
     if(!frame && visible && !document.hidden) frame=requestAnimationFrame(render);
   }
   const deckButton = document.getElementById("deck");
+  const boardSlots = [...arena.querySelectorAll(".board-slot")];
   const mirrorButton = document.getElementById("skin-mirror");
   const deckZone = deckButton.closest(".deckzone");
   const bellButton = document.getElementById("end");
@@ -301,9 +302,13 @@ void main(){
   let lastSpot=-1;
   const candleNames=["烛台上的高蜡烛","烛台上的中蜡烛","烛台上的矮蜡烛","桌边的蜡烛","窗边的蜡烛"];
   const volumes=props.books.map(book=>{
-    const target=document.createElement("span");
+    const target=document.createElement(book.musicBook ? "button" : "span");
     target.className="book-spine";
-    target.setAttribute("role","img");
+    if(book.musicBook){
+      target.type="button";
+      target.tabIndex=-1;
+      target.addEventListener("click",()=>requestMusic("portfolio-blue-book-click"));
+    } else target.setAttribute("role","img");
     target.setAttribute("aria-label",book.label);
     arena.insertBefore(target,encounter);
     const outline=prepareOutline(target,arena);
@@ -649,6 +654,11 @@ void main(){
       return [width*(.5+focal/w*dot(camera[0],px,py,pz)/d),
         height*(.5-focal/h*dot(camera[1],px,py,pz)/d)];
     };
+    props.playerSlots.forEach((quad, index) => {
+      const slot = boardSlots[index];
+      const corners = quad.map(point => project(...point));
+      slot.style.transform = fitCardPlane(corners, 160, 224);
+    });
     // On narrow screens the title occupies the lower left wall.
     const mirrorDX=narrow ? 1.8 : 0, mirrorDY=narrow ? 1.22 : 0;
     fitHitPolygon(mirrorButton,props.mirrorRim.map(([x,y,z])=>project(x+mirrorDX,y+mirrorDY,z)),0);

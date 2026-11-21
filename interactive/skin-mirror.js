@@ -5,22 +5,19 @@
   const portrait = encounter.querySelector(".ghost-portrait");
   const reduced = matchMedia("(prefers-reduced-motion: reduce)");
   const embedded = window.parent !== window && new URLSearchParams(location.search).has("embed");
-  const mist = document.createElement("canvas");
+  const layers = portrait.querySelector(".skin-layers");
+  const veil = createGoldenVeil();
+  const mist = veil.canvas;
   mist.className = "skin-mist";
-  mist.width = 108;
-  mist.height = 112;
   mist.hidden = true;
   mist.setAttribute("aria-hidden", "true");
-  encounter.append(mist);
-  const ctx = mist.getContext("2d");
-  const pixels = ctx?.createImageData(mist.width, mist.height);
-  const tones = [[49,55,57], [65,76,77], [88,103,101], [119,134,126], [151,158,141]];
+  portrait.append(mist);
   let sheetReady, busy = false, desired = "celadon";
   function loadBrocade() {
     if (!sheetReady) {
       const sheet = new Image();
       sheet.className = "brocade-sheet";
-      sheet.src = "art/celadon-brocade-sheet.png?v=anchored-arms";
+      sheet.src = "art/celadon-brocade-sheet.png?v=brocade-artist-d8123951";
       sheet.alt = "";
       sheet.draggable = false;
       sheetReady = sheet.decode().then(() => {
@@ -56,61 +53,31 @@
   });
   request("portfolio-music-query");
 
-  // Overlapping bands travel at different heights. Quantized shades and
-  // two-pixel edge steps keep the mist on the same grid as the sprite.
-  function paint(t, cover) {
-    const {width, height} = mist;
-    const data = pixels.data;
-    data.fill(0);
-    for (let y = 0; y < height; y++) {
-      const v = (y + .5) / height;
-      for (let x = 0; x < width; x++) {
-        const u = (x + .5) / width;
-        let density = -1;
-        for (let band = 0; band < 5; band++) {
-          const side = band % 2 ? 1 : -1;
-          const cx = .5 + side * (1-cover) * .40 + .035*Math.sin(band*2.2+t*4);
-          const cy = .19 + band*.169 - .06*t + .13*Math.max(0,2*t-1) + .027*Math.sin(9*u+band+t*4);
-          const dx = (u-cx)/(.11+.32*cover), dy=(v-cy)/(.048+.145*cover);
-          density = Math.max(density,1-dx*dx-dy*dy);
-        }
-        const edge = density + .105*Math.sin(27*u+14*v-4*t) + .052*Math.sin(42*v-16*u);
-        if (edge <= 0) continue;
-        const light = edge*.57 + .18*Math.sin(24*v+4*u-5*t) + .21*(1-v);
-        const shade = tones[Math.min(4,Math.max(0,Math.floor(light*5)))];
-        const i = (y*width+x)*4;
-        data[i]=shade[0]; data[i+1]=shade[1]; data[i+2]=shade[2];
-        data[i+3]=Math.round(255*Math.min(1,cover*3)*Math.min(1,.52+edge*2));
-      }
-    }
-    ctx.putImageData(pixels,0,0);
-  }
   function reveal(next) {
     const commit = () => {
       desired = next;
       showSkin(next);
       request("portfolio-change-skin", next);
     };
-    if (!ctx || reduced.matches || document.hidden) { commit(); return; }
+    if (!veil.available || reduced.matches || document.hidden) { commit(); return; }
     return new Promise(resolve => {
       const start = performance.now();
       let committed = false, last = -100;
+      veil.paint(0);
       mist.hidden = false;
       function frame(now) {
-        const t = Math.min(1,(now-start)/900);
+        const t = Math.min(1,(now-start)/veil.duration);
         if (t>=1 || reduced.matches || document.hidden) {
           if (!committed) commit();
           mist.hidden = true;
-          portrait.style.removeProperty("opacity");
+          layers.style.removeProperty("opacity");
           resolve();
           return;
         }
         if (now-last>=40) {
           last=now;
-          const cover = Math.min(1,t/.43,(1-t)/.43);
-          paint(t,cover);
-          portrait.style.opacity = String(Math.max(0,Math.min(1,(1-cover)*4)));
-          if (!committed && t >= .44) { committed=true; commit(); }
+          layers.style.opacity = String(veil.paint(t));
+          if (!committed && t >= .50) { committed=true; commit(); }
         }
         requestAnimationFrame(frame);
       }

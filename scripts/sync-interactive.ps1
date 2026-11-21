@@ -10,6 +10,7 @@ $runtimeFiles = @(
     'cabin-mesh.js'
     'cabin-view.js'
     'ghost-idle.js'
+    'golden-veil.js'
     'skin-mirror.js'
     'art/celadon-brocade-sheet.png'
     'art/celadon-idle.png'

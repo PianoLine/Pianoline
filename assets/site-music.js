@@ -1,11 +1,20 @@
 window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
   const panel = document.querySelector(".site-music");
   const scope = "portfolio-table-v1:" + siteRoot.pathname + (preview ? ":preview" : "");
-  let skin = "celadon", tracks = [], sources = [], trackKeys = [], uniqueTracks = [];
-  try {
-    if (!resumeSkin) sessionStorage.removeItem(scope + ":skin");
-    else if (sessionStorage.getItem(scope + ":skin") === "brocade") skin = "brocade";
-  } catch {}
+  let skin = "celadon", playlist = "celadon", blueBookClicks = 0;
+  let tracks = [], sources = [], trackKeys = [], uniqueTracks = [];
+  function restoreSelection(resume) {
+    blueBookClicks = 0;
+    try {
+      if (!resume) {
+        sessionStorage.removeItem(scope + ":skin");
+        sessionStorage.removeItem(scope + ":playlist");
+      }
+      skin = sessionStorage.getItem(scope + ":skin") === "brocade" ? "brocade" : "celadon";
+      playlist = sessionStorage.getItem(scope + ":playlist") === "brocade" ? "brocade" : "celadon";
+    } catch {}
+  }
+  restoreSelection(resumeSkin);
   panel.setAttribute("role", "group");
   panel.setAttribute("aria-label", "背景音乐");
   panel.innerHTML = `<button type="button" class="music-toggle" aria-label="背景音乐" aria-pressed="false"><span class="music-note" aria-hidden="true">♫</span><span class="music-state">音乐 关</span></button>
@@ -27,10 +36,12 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
         !(event.origin === location.origin || (location.protocol === "file:" && event.origin === "null"))) return;
     if (event.data?.type === "portfolio-music-query") publishMusic();
     if (event.data?.type === "portfolio-music-shuffle") playRandomTrack();
+    if (event.data?.type === "portfolio-blue-book-click") clickBlueBook();
     if (event.data?.type === "portfolio-change-skin") changeSkin(event.data.skin);
   });
   window.addEventListener("portfolio-music-query", publishMusic);
   window.addEventListener("portfolio-music-shuffle", playRandomTrack);
+  window.addEventListener("portfolio-blue-book-click", clickBlueBook);
   window.addEventListener("portfolio-change-skin", event => changeSkin(event.detail.skin));
 
   const level = .35;
@@ -50,12 +61,12 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
     return player;
   }
 
-  const musicKey = () => scope + ":music" + (skin === "celadon" ? "" : ":" + skin);
+  const musicKey = () => scope + ":music" + (playlist === "celadon" ? "" : ":" + playlist);
   let index = 0, wanted = false, offset = 0, dragging = false;
   // null plays in order. An empty shuffle bag starts a new round on the next advance.
   let remaining = null;
   function loadList() {
-    tracks = (playlists[skin] || []).filter(track => track.src.trim());
+    tracks = (playlists[playlist] || []).filter(track => track.src.trim());
     sources = tracks.map(track => track.src);
     trackKeys = sources.map(src => {
       try { return new URL(src.trim(), siteRoot).href; }
@@ -92,7 +103,7 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
     toggle.setAttribute("aria-label", needsGesture ? label.textContent : "背景音乐");
     toggle.setAttribute("aria-pressed", String(wanted));
     if (!tracks.length) {
-      toggle.title = "当前皮肤的歌单为空";
+      toggle.title = "当前歌单为空";
       title.textContent = "";
       return;
     }
@@ -240,14 +251,14 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
     }
   }
 
-  function restore(cached, startList = false) {
+  function restore(cached, newListPlaying = null) {
     destination = "";
     wanted = false;
     offset = 0;
     remaining = null;
     index = 0;
     try {
-      const saved = startList ? null : JSON.parse(sessionStorage.getItem(musicKey()));
+      const saved = newListPlaying !== null ? null : JSON.parse(sessionStorage.getItem(musicKey()));
       const found = tracks.findIndex(track => track.src === saved?.src);
       if (found >= 0) {
         index = found;
@@ -269,20 +280,36 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
           (nav !== "reload" && (fromSite || saved.destination === location.href)));
       }
     } catch { /* Direct visits start quietly. */ }
-    if (startList && tracks.length) wanted = true;
+    if (newListPlaying !== null) wanted = newListPlaying && tracks.length > 0;
     audio.loop = (remaining === null ? tracks.length : uniqueTracks.length) === 1;
     selectTrack();
   }
 
   function changeSkin(next) {
     if (!["celadon", "brocade"].includes(next) || next === skin) return;
-    try { sessionStorage.removeItem(musicKey()); } catch {}
+    blueBookClicks = 0;
     skin = next;
     try { sessionStorage.setItem(scope + ":skin", skin); } catch {}
+    if (playlist !== "celadon") switchPlaylist("celadon", wanted);
+    else publishMusic();
+  }
+
+  function clickBlueBook() {
+    if (skin !== "brocade" || playlist === "brocade") return;
+    blueBookClicks++;
+    if (blueBookClicks < 3) return;
+    blueBookClicks = 0;
+    switchPlaylist("brocade", true);
+  }
+
+  function switchPlaylist(next, playing) {
+    save();
+    playlist = next;
+    try { sessionStorage.setItem(scope + ":playlist", playlist); } catch {}
     rotating = false;
     crossfadeFromCurrentPlayer();
     loadList();
-    restore(false, true);
+    restore(false, playing);
     publishMusic();
   }
 
@@ -352,7 +379,7 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
   });
   window.addEventListener("pageshow", event => {
     if (!event.persisted) return;
-    try { skin = sessionStorage.getItem(scope + ":skin") === "brocade" ? "brocade" : "celadon"; } catch {}
+    restoreSelection(true);
     loadList();
     restore(true);
     publishMusic();

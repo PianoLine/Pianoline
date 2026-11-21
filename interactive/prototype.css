@@ -82,8 +82,9 @@ a:focus-visible { outline: 3px solid #d75f36; outline-offset: 4px; }
 #skin-mirror {
   position: absolute; z-index: 2; cursor: pointer; background: transparent; border: 0; padding: 0;
 }
+.skin-layers { position: absolute; inset: 0; }
 .skin-mist {
-  position: absolute; width: 145%; height: 118%; left: -22.5%; top: -9%;
+  position: absolute; width: 150%; height: 128.125%; left: -25%; top: -9.375%;
   z-index: 1; pointer-events: none; image-rendering: pixelated;
   filter: brightness(calc(.32 + .68 * var(--portrait-light, 1)));
 }
@@ -576,3 +577,51 @@ a:focus-visible { outline-color: #f5b55f; }
 .sound-toggle[aria-pressed="true"] .speaker::after {
   top: 2px; height: 8px; border: solid currentColor; border-width: 1px 2px 1px 0; border-radius: 0 100% 100% 0;
 }
+
+/* Projected player slots follow the tabletop, including camera shake. */
+.board-slots { display: flex; justify-content: center; gap: 8px; }
+.board-slot { position: relative; width: min(20vw, 120px); aspect-ratio: 5/7; border: 1px solid #a485575e; }
+.arena:not(.modeled) .board-slots { position: relative; width: fit-content; margin: 4px auto 12px; }
+.arena:not(.modeled) .board-slots::before, .arena:not(.modeled) .board-slots::after {
+  content: ""; position: absolute; pointer-events: none;
+}
+.arena:not(.modeled) .board-slots::before {
+  inset: auto 0 -7px; height: 1px;
+  background: linear-gradient(to right, #a48557 0 calc(50% - 8px), transparent 0 calc(50% + 8px), #a48557 0);
+}
+.arena:not(.modeled) .board-slots::after {
+  left: 50%; bottom: -7px; width: 6px; height: 6px; border: 1px solid #a48557;
+  transform: translate(-50%,50%) scaleY(.55) rotate(45deg);
+}
+.modeled .board-slots { display: contents; }
+.modeled .board-slot {
+  position: absolute; left: 0; top: 0; width: 160px; height: 224px; transform-origin: 0 0;
+  border: 0; z-index: 1;
+}
+.modeled .board-slot.landing { z-index: 6; }
+/* A short gilded glint on the lift, then four brass corners kick out on contact. */
+.board-slot.landing .card::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(112deg, transparent 41%, #ffe9ae66 49%, transparent 54%) 100% 0 / 280% 100%;
+  animation: board-glint 190ms ease-out both;
+}
+@keyframes board-glint {
+  from { background-position: 100% 0; opacity: 0; }
+  35% { opacity: .8; }
+  to { background-position: 0 0; opacity: 0; }
+}
+.board-slot.struck::after {
+  content: ""; position: absolute; inset: -3px; pointer-events: none;
+  border: 3px solid #d5ae63;
+  mask: conic-gradient(at 11px 11px, transparent 25%, #000 0) 0 0 / calc(100% - 11px) calc(100% - 11px);
+  animation: board-impact 140ms ease-out both;
+}
+@keyframes board-impact {
+  from { transform: scale(.99); opacity: calc(.35 + .45 * var(--candle-light, 1)); }
+  to { transform: scale(1.11); opacity: 0; }
+}
+.board-slot.over { outline: 3px solid #e4bd73; background: #e4bd7329; }
+.board-slot .card { --cover-opacity: 1; height: 100%; width: 100%; }
+.board-slot .card[aria-disabled="true"] { cursor: default; }
+.modeled .hand { z-index: 2; pointer-events: none; }
+.modeled .hand .card-wrap { pointer-events: auto; }

@@ -20,10 +20,11 @@
   }
   const hand = [];
   const spent = [];
+  const board = [null, null, null];
   function saveTable(orderedDeck = deck) {
     try {
       const ids = indices => indices.map(index => projects[index].id);
-      sessionStorage.setItem(tableKey, JSON.stringify({ hand: ids(hand), deck: ids(orderedDeck), spent: ids(spent) }));
+      sessionStorage.setItem(tableKey, JSON.stringify({ hand: ids(hand), deck: ids(orderedDeck), spent: ids(spent), board: board.map(id => id === null ? null : projects[id].id) }));
     } catch { /* The table also works without browser storage. */ }
   }
   function restoreTable() {
@@ -33,11 +34,14 @@
       const indices = new Map(projects.map((project, index) => [project.id, index]));
       const savedSpent = saved.spent === undefined ? [] : saved.spent;
       if (!Array.isArray(savedSpent)) return false;
-      const all = [...saved.hand, ...saved.deck, ...savedSpent];
+      const savedBoard = saved.board ?? [null, null, null];
+      if (!Array.isArray(savedBoard) || savedBoard.length !== board.length) return false;
+      const all = [...saved.hand, ...saved.deck, ...savedSpent, ...savedBoard.filter(id => id !== null)];
       const known = new Set(all);
       if (known.size !== all.length) return false;
       const existing = ids => ids.filter(id => indices.has(id)).map(id => indices.get(id));
       const added = deck.filter(index => !known.has(projects[index].id));
+      savedBoard.forEach((id, i) => { board[i] = indices.get(id) ?? null; });
       spent.push(...existing(savedSpent));
       hand.push(...existing(saved.hand));
       deck.splice(0, deck.length, ...existing(saved.deck), ...added);
@@ -51,6 +55,7 @@
   const pile = get("deck");
   const tray = get("hand");
   const arena = get("arena");
+  const boardSlots = [...get("board-slots").children];
   const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
   const speech = get("speech");
   const voice = get("ghost-voice");
@@ -245,12 +250,18 @@
   });
 
   function createHandSlot(id) {
-    const project = projects[id];
     const wrap = document.createElement("div");
     wrap.className = "card-wrap";
     wrap.dataset.id = id;
     const face = document.createElement("div");
     face.className = "hand-face";
+    face.append(createCard(id));
+    wrap.append(face);
+    return wrap;
+  }
+
+  function createCard(id) {
+    const project = projects[id];
     const card = document.createElement("button");
     card.className = "card";
     card.dataset.id = id;
@@ -268,10 +279,120 @@
       image.src = new URL(cardImage, homeUrl).href;
       card.querySelector("card-print").append(image);
     }
-    face.append(card);
-    wrap.append(face);
-    return wrap;
+    return card;
   }
+
+  function renderBoard() {
+    boardSlots.forEach((slot, index) => {
+      const id = board[index];
+      if (id === null) { slot.replaceChildren(); return; }
+      let card = slot.firstElementChild;
+      if (!card || Number(card.dataset.id) !== id) {
+        card = createCard(id);
+        slot.replaceChildren(card);
+      }
+      const full = hand.length >= 5;
+      card.setAttribute("aria-disabled", String(full));
+      card.setAttribute("aria-label", full ? "手牌已满，暂时无法收回 " + projects[id].title : "收回 " + projects[id].title);
+      card.title = full ? "手牌已满" : "收回手牌";
+    });
+  }
+
+  async function placeOnBoard(id, slot, releaseCorners) {
+    const index = boardSlots.indexOf(slot);
+    const source = hand.indexOf(id);
+    if (index < 0 || source < 0 || board[index] !== null) return;
+    hand.splice(source, 1);
+    board[index] = id;
+    saveTable();
+    render();
+    if (reduced()) { tableAudio.play("board-strike"); return; }
+    tableAudio.play("board-flick");
+
+    const card = slot.firstElementChild;
+    const width = card.offsetWidth, height = card.offsetHeight;
+    const rest = [[0,0], [width,0], [width,height], [0,height]];
+    // Express the dragged corners in the slot's local plane, so camera motion
+    // keeps carrying the card even before its near edge has touched the wood.
+    const plane = new DOMMatrix(getComputedStyle(slot).transform);
+    function project(matrix, [x,y]) {
+      const point = matrix.transformPoint({x,y});
+      return [point.x / point.w, point.y / point.w];
+    }
+    const projected = rest.map(point => project(plane, point));
+    const rect = card.getBoundingClientRect();
+    const left = rect.left - Math.min(...projected.map(([x]) => x));
+    const top = rect.top - Math.min(...projected.map(([,y]) => y));
+    const inverse = plane.inverse();
+    const local = ([x,y]) => project(inverse, [x-left,y-top]);
+    const start = releaseCorners.map(local);
+    const cx = releaseCorners.reduce((sum, p) => sum + p[0], 0) / 4;
+    const cy = releaseCorners.reduce((sum, p) => sum + p[1], 0) / 4;
+    const lift = Math.min(25, rect.width * .14);
+    // Cock the card across the wrist in screen space, then strike the tabletop.
+    const poised = releaseCorners.map(([x,y]) => local([
+      cx + (x-cx)*1.035 - (y-cy)*.15 + lift*.25,
+      cy + (x-cx)*.15 + (y-cy)*1.035 - lift
+    ]));
+    const contact = .69;
+    let struck = false;
+    locked = true;
+    slot.classList.add("landing");
+    card.style.transformOrigin = "0 0";
+    const apply = t => {
+      const raise = 1 - (1 - Math.min(1, t / .26)) ** 3;
+      const swing = Math.max(0, Math.min(1, (t - .34) / (contact - .34)));
+      const after = Math.max(0, (t - contact) / (1 - contact));
+      const rebound = Math.sin(Math.PI * after) * (1-after) ** 2;
+      const quad = start.map(([x,y], i) => {
+        const upX = x + (poised[i][0] - x) * raise;
+        const upY = y + (poised[i][1] - y) * raise;
+        const snap = swing ** (i < 2 ? 2.5 : 1.8);
+        return [upX + (rest[i][0]-upX) * snap,
+          upY + (rest[i][1]-upY) * snap - rebound * (i < 2 ? height*.08 : 0)];
+      });
+      card.style.transform = fitCardPlane(quad, width, height);
+      if (!struck && t >= contact) {
+        struck = true;
+        slot.classList.add("struck");
+        tableAudio.play("board-strike");
+      }
+    };
+    try {
+      apply(0);
+      const began = performance.now();
+      await new Promise(resolve => {
+        function frame(now) {
+          const t = reduced() ? 1 : Math.max(0, Math.min(1, (now - began) / 460));
+          apply(t);
+          if (t < 1) requestAnimationFrame(frame);
+          else resolve();
+        }
+        requestAnimationFrame(frame);
+      });
+    } finally {
+      card.style.removeProperty("transform");
+      card.style.removeProperty("transform-origin");
+      slot.classList.remove("landing", "struck");
+      locked = false;
+    }
+  }
+  boardSlots.forEach((slot, index) => slot.addEventListener("click", async () => {
+    const id = board[index];
+    if (locked || pointer || id === null || hand.length >= 5) return;
+    locked = true;
+    const from = slot.firstElementChild.getBoundingClientRect();
+    board[index] = null;
+    hand.push(id);
+    saveTable();
+    render();
+    const card = tray.lastElementChild.querySelector(".card");
+    card.style.visibility = "hidden";
+    try {
+      tableAudio.play("slide");
+      await fly(card, from, card.getBoundingClientRect(), "recover", true);
+    } finally { card.style.visibility = ""; locked = false; }
+  }));
 
   function updateDeck(count = deck.length) {
     get("remaining").textContent = count;
@@ -279,6 +400,7 @@
   }
 
   function render(animate = true) {
+    renderBoard();
     // Removing even one flex item immediately re-centres every surviving slot.
     // Capture the entire visible fan before changing any children or cancelling a slide.
     const slots = new Map(Array.from(tray.children, slot => [Number(slot.dataset.id), slot]));
@@ -294,6 +416,7 @@
     tray.classList.toggle("hand-empty", !hand.length && projects.length > 0);
     if (!hand.length) {
       tray.textContent = projects.length ? "手牌为空，抽一张以继续" : "暂无项目卡。";
+      if (!deck.length && board.some(id => id !== null)) tray.textContent = "手牌为空，点击桌上的牌收回";
       if (spent.length === projects.length && spent.length) tray.textContent = "牌已用尽，点击怀表重新发牌";
       return;
     }
@@ -392,21 +515,6 @@
       const x=u*element.offsetWidth/2, y=v*element.offsetHeight/2;
       return [cx+matrix.a*x+matrix.c*y, cy+matrix.b*x+matrix.d*y];
     });
-  }
-
-  // Map the flat artwork onto a perspective quadrilateral in the iframe viewport.
-  function fitCardPlane(corners, width, height) {
-    const [[x0,y0],[x1,y1],[x2,y2],[x3,y3]] = corners;
-    const ax=x1-x2, ay=y1-y2, bx=x3-x2, by=y3-y2;
-    const ex=x0-x1+x2-x3, ey=y0-y1+y2-y3;
-    const determinant=ax*by-bx*ay;
-    const g=Math.abs(determinant)>1e-6 ? (ex*by-bx*ey)/determinant : 0;
-    const h=Math.abs(determinant)>1e-6 ? (ax*ey-ex*ay)/determinant : 0;
-    return "matrix3d("+[
-      (x1*(1+g)-x0)/width, (y1*(1+g)-y0)/width, 0, g/width,
-      (x3*(1+h)-x0)/height, (y3*(1+h)-y0)/height, 0, h/height,
-      0,0,1,0, x0,y0,0,1
-    ].join(",")+")";
   }
 
   async function returnToDeck(card, draggedCorners, delay = 0, duration = draggedCorners ? 430 : 485) {
@@ -694,6 +802,9 @@
     card.setPointerCapture(event.pointerId);
   });
   function dropTarget(event) {
+    // The captured hand card can lift over a slot while it is being dragged.
+    const slot = document.elementsFromPoint(event.clientX, event.clientY).find(el => el.classList.contains("board-slot"));
+    if (slot) return board[boardSlots.indexOf(slot)] === null ? slot : null;
     return [ghost, pile].find(target => {
       const rect = target.getBoundingClientRect();
       return event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
@@ -716,6 +827,7 @@
     const target = dropTarget(event);
     ghost.classList.toggle("over", target === ghost);
     pile.classList.toggle("over", target === pile);
+    for (const slot of boardSlots) slot.classList.toggle("over", slot === target);
     pointer.clone.classList.toggle("return-target", target === pile);
   });
   async function finish(event) {
@@ -728,10 +840,12 @@
     card.classList.remove("dragging");
     ghost.classList.remove("over");
     pile.classList.remove("over");
+    for (const slot of boardSlots) slot.classList.remove("over");
     if (event.type !== "pointerup") return;
     const id = Number(card.dataset.id);
     const target = dropTarget(event);
     if (!clone || target === ghost) playCard(id, Boolean(clone));
+    else if (boardSlots.includes(target)) await placeOnBoard(id, target, draggedCorners);
     else if (target === pile) putBack(id, draggedCorners);
     else {
       locked = true;

@@ -47,6 +47,7 @@
     paths.add("interactive/art/celadon-idle-expression.png");
     paths.add("interactive/art/celadon-brocade-sheet.png");
     paths.add("interactive/skin-mirror.js");
+    paths.add("interactive/golden-veil.js");
     for (const project of draft.projects || []) {
       if (!project.sharedPage) paths.add(window.portfolioProjectPath(project));
     }
