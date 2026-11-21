@@ -49,13 +49,15 @@
       <button type="button" class="button subtle" data-track-action="delete" data-index="${i}">删除</button>
       </div></div>`).join("");
     return `<section id="playlist" class="editor-group"><div class="editor-group-head"><h2>背景音乐歌单</h2>
-      <p>点击桌上的留声机会开始随机播放整个歌单。同一轮内每首只放一次，全部放完后停止。再点留声机可开启新一轮。</p></div>
-      <label class="editor-field"><span>角色皮肤</span><select class="playlist-skin"><option value="playlist">基础皮肤</option><option value="brocadePlaylist" ${playlistPath === "brocadePlaylist" ? "selected" : ""}>织金披肩</option></select></label>
+      <p>歌单按顺序循环。点击留声机后随机循环，每轮内每首只播一次。</p></div>
+      <p>把音频放进 <code>assets/media/music/守望人/</code> 或 <code>assets/media/music/白色人偶/</code>。选择整个 <code>music</code> 文件夹即可补入新歌，根目录的曲目归守望人。</p>
+      <div class="editor-card-actions"><button type="button" class="button" data-track-action="folder">同步音乐文件夹</button><input class="music-folder" type="file" webkitdirectory multiple hidden><button type="button" class="button" data-track-action="download">下载 site-content.js</button></div>
+      <label class="editor-field"><span>角色皮肤</span><select class="playlist-skin"><option value="playlist">${window.portfolioSkinNames.celadon}</option><option value="brocadePlaylist" ${playlistPath === "brocadePlaylist" ? "selected" : ""}>${window.portfolioSkinNames.brocade}</option></select></label>
       <div class="editor-mini-grid">${rows}</div><div class="editor-card-actions">
-      <button type="button" class="button" data-track-action="import">导入音频文件</button>
+      <button type="button" class="button" data-track-action="import">导入音频到整站 ZIP</button>
       <input class="track-import" type="file" accept="audio/*,.mp3,.m4a,.ogg,.wav,.flac,.aac,.opus" multiple hidden>
       <button type="button" class="button" data-track-action="add">＋ 添加音乐地址</button></div>
-      <p>导入的文件保存在当前浏览器。发布时选择「导出整站 ZIP」，音乐会随网站一起打包。</p></section>`;
+      <p>同步文件夹后，用下载的 site-content.js 替换 assets/site-content.js。发布时一起上传新增音频。使用「导入音频到整站 ZIP」的文件仅存于浏览器，需随 ZIP 发布。</p></section>`;
   }
   function refreshPlaylist() {
     root.querySelector("#playlist").outerHTML = playlistEditor();
@@ -96,6 +98,8 @@
     if (button.dataset.trackAction) {
       const list = draft[playlistPath], i = Number(button.dataset.index);
       switch (button.dataset.trackAction) {
+        case "folder": root.querySelector(".music-folder").click(); return;
+        case "download": downloadContent(); return;
         case "import": root.querySelector(".track-import").click(); return;
         case "add": list.push({title:"", src:""}); break;
         case "delete": list.splice(i, 1); break;
@@ -147,7 +151,43 @@
     if(file.size>1024*1024 && !confirm("这张图片超过 1 MB，可能占满浏览器草稿空间。建议压缩后使用，仍要继续吗？")) { input.value=""; return; }
     const reader=new FileReader(); reader.onload=()=>{ if(!draft.posts[i]?.blocks[j])return; draft.posts[i].blocks[j].src=reader.result; save(); render([...root.querySelectorAll("details[data-project][open]")].map(d=>d.dataset.project),[...root.querySelectorAll("details[data-post][open]")].map(d=>d.dataset.post)); }; reader.readAsDataURL(file);
   });
+  function syncMusicFolder(files) {
+    if (!files.length) return;
+    if (files[0].webkitRelativePath.split("/")[0] !== "music") {
+      status.textContent = "请选择项目中 assets/media/music 文件夹。";
+      return;
+    }
+    const groups = new Map([
+      [window.portfolioSkinNames.celadon, draft.playlist],
+      [window.portfolioSkinNames.brocade, draft.brocadePlaylist]
+    ]);
+    const known = new Map([...groups].map(([name, list]) => [name, new Set(list.map(track => {
+      try { return new URL(track.src, document.baseURI).href; } catch { return track.src; }
+    }))]));
+    const counts = new Map([...groups.keys()].map(name => [name, 0]));
+    const sorted = [...files].sort((a,b) => a.webkitRelativePath.localeCompare(b.webkitRelativePath, "zh-CN", {numeric:true}));
+    for (const file of sorted) {
+      if (!file.type.startsWith("audio/") && !/\.(mp3|m4a|ogg|wav|flac|aac|opus|weba)$/i.test(file.name)) continue;
+      const parts = file.webkitRelativePath.split("/");
+      const name = parts.length === 2 ? window.portfolioSkinNames.celadon : parts[1];
+      if (!groups.has(name)) continue;
+      const path = "assets/media/" + parts.map(part => part.replace(/[%?#]/g, encodeURIComponent)).join("/");
+      const key = new URL(path, document.baseURI).href;
+      if (known.get(name).has(key)) continue;
+      groups.get(name).push({title:file.name.replace(/\.[^.]+$/, ""), src:path});
+      known.get(name).add(key);
+      counts.set(name, counts.get(name) + 1);
+    }
+    save([...counts].map(([name, count]) => name + "新增 " + count + " 首").join("，"));
+    refreshPlaylist();
+  }
+
   root.addEventListener("change", async event => {
+    if (event.target.matches(".music-folder")) {
+      syncMusicFolder(event.target.files);
+      event.target.value = "";
+      return;
+    }
     if (event.target.matches(".playlist-skin")) {
       playlistPath = event.target.value;
       refreshPlaylist();
@@ -172,14 +212,23 @@
     }
     refreshPlaylist();
   });
+  function downloadContent() {
+    const blob = new Blob(["window.PORTFOLIO_CONTENT = " + JSON.stringify(draft, null, 2) + ";\n"], {type:"text/javascript;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "site-content.js";
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    save("已下载 site-content.js");
+  }
   document.querySelector(".editor-actions").addEventListener("click",event=>{
     const action=event.target.dataset.action;
     if(action==="save") save();
     if(action==="preview" && save("已保存草稿并打开预览")) { window.open("index.html?preview=1","_blank","noopener"); }
-    if(action==="download") {
-      const blob=new Blob([`window.PORTFOLIO_CONTENT = ${JSON.stringify(draft,null,2)};\n`],{type:"text/javascript;charset=utf-8"});
-      const url=URL.createObjectURL(blob), a=document.createElement("a"); a.href=url; a.download="site-content.js";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);save("已下载内容文件");
-    }
+    if(action==="download") downloadContent();
     if(action==="website") { save("正在整理完整网站……");window.exportPortfolioWebsite(draft).then(()=>status.textContent="完整网站已下载").catch(error=>status.textContent=`导出失败：${error.message}`); }
     if(action==="reset" && window.confirm("确定还原到当前网站文件中的内容？本浏览器草稿会被覆盖。")){clearTimeout(timer);draft=window.normalizePortfolio(published);render();save("已还原到网站文件版本");}
   });

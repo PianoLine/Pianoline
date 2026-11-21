@@ -1,3 +1,5 @@
+window.portfolioSkinNames = Object.freeze({ celadon: "守望人", brocade: "白色人偶" });
+
 // Existing works have dedicated pages. Editor-created works share one static entry.
 window.portfolioProjectPath = function (project, preview = false) {
   const id = encodeURIComponent(project.id);

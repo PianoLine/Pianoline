@@ -1,6 +1,7 @@
 (() => {
   const mirror = document.getElementById("skin-mirror");
   const encounter = document.querySelector(".encounter");
+  const character = encounter.querySelector("#ghost");
   const portrait = encounter.querySelector(".ghost-portrait");
   const reduced = matchMedia("(prefers-reduced-motion: reduce)");
   const embedded = window.parent !== window && new URLSearchParams(location.search).has("embed");
@@ -23,7 +24,7 @@
       sheet.alt = "";
       sheet.draggable = false;
       sheetReady = sheet.decode().then(() => {
-        if (sheet.naturalWidth !== 640 || sheet.naturalHeight !== 2688) throw Error("织金披肩图集尺寸不符");
+        if (sheet.naturalWidth !== 640 || sheet.naturalHeight !== 2688) throw Error("白色人偶图集尺寸不符");
         for (const layer of portrait.querySelectorAll(".portrait-layer:not(.portrait-embers)")) {
           layer.append(sheet.cloneNode());
         }
@@ -35,13 +36,19 @@
     if (embedded) window.parent.postMessage({type, skin}, "*");
     else window.dispatchEvent(new CustomEvent(type, {detail:{skin}}));
   }
+  function showSkin(skin) {
+    const name = window.portfolioSkinNames[skin];
+    encounter.dataset.skin = skin;
+    character.title = name;
+    character.setAttribute("aria-label", "和" + name + "聊天，或把作品卡拖给她");
+  }
   async function reflect(state) {
     if (busy || !["brocade","celadon"].includes(state?.skin)) return;
     desired = state.skin;
     if (desired === "brocade") {
       try { await loadBrocade(); } catch { return; }
     }
-    if (!busy) encounter.dataset.skin = desired;
+    if (!busy && encounter.dataset.skin !== desired) showSkin(desired);
   }
   window.addEventListener("portfolio-music-state", e => reflect(e.detail));
   window.addEventListener("message", e => {
@@ -80,7 +87,8 @@
   }
   function reveal(next) {
     const commit = () => {
-      encounter.dataset.skin = desired = next;
+      desired = next;
+      showSkin(next);
       request("portfolio-change-skin", next);
     };
     if (!ctx || reduced.matches || document.hidden) { commit(); return; }

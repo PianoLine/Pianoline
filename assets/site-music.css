@@ -24,7 +24,8 @@
   .site-music .track-info { flex: 1; margin-inline-end: 6px; }
   .site-music .now-playing { font-size: 13px; }
   .site-music .music-toggle { padding: 4px 6px; gap: 0; }
-  .site-music .music-state { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .site-music .music-toggle:not(.needs-gesture) .music-state { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .site-music .needs-gesture { gap: 4px; }
   .site-music .music-note { min-width: 16px; }
   .topbar-inner, .standalone { flex-wrap: wrap; }
 }

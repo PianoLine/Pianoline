@@ -1112,7 +1112,6 @@ window.PORTFOLIO_CONTENT = {
     }
   ],
   "posts": [],
-  "brocadePlaylist": [],
   "playlist": [
     {
       "title": "mwoytxpi-6skbjk-Eluvium---The-Well-Meaning-Professor",
@@ -1121,6 +1120,12 @@ window.PORTFOLIO_CONTENT = {
     {
       "title": "my head is empty - i was only temporary 2 u (1)",
       "src": "assets/media/music/my head is empty - i was only temporary 2 u (1).mp3"
+    }
+  ],
+  "brocadePlaylist": [
+    {
+      "title": "宮澤翔衣 - Heolstor the Nightlord",
+      "src": "assets/media/music/白色人偶/宮澤翔衣 - Heolstor the Nightlord.mp3"
     }
   ]
 };

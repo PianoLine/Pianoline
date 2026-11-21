@@ -33,23 +33,26 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
   window.addEventListener("portfolio-music-shuffle", playRandomTrack);
   window.addEventListener("portfolio-change-skin", event => changeSkin(event.detail.skin));
 
-  panel.querySelector(".track-info").hidden = false;
-  const audio = document.createElement("audio");
-  for (const event of ["playing","pause","waiting","ended","emptied","error"]) {
-    audio.addEventListener(event, () => {
-      rotating = event === "playing" && !audio.paused;
-      publishMusic();
-    });
-  }
-  panel.append(audio);
-  audio.preload = "metadata";
-  audio.loop = tracks.length === 1;
   const level = .35;
   const fadeMs = 360;
-  audio.volume = 0;
+  const retiringPlayers = new Set();
+  let audio = createPlayer();
+
+  function createPlayer(previous) {
+    const player = document.createElement("audio");
+    player.preload = "metadata";
+    player.volume = 0;
+    if (previous) previous.before(player);
+    else panel.append(player);
+    for (const type of ["playing","pause","waiting","ended","emptied","error","loadedmetadata","timeupdate","durationchange","seeked"]) {
+      player.addEventListener(type, onMediaEvent);
+    }
+    return player;
+  }
+
   const musicKey = () => scope + ":music" + (skin === "celadon" ? "" : ":" + skin);
   let index = 0, wanted = false, offset = 0, dragging = false;
-  // null means ordered playback; an empty list means this shuffle has been exhausted.
+  // null plays in order. An empty shuffle bag starts a new round on the next advance.
   let remaining = null;
   function loadList() {
     tracks = (playlists[skin] || []).filter(track => track.src.trim());
@@ -83,8 +86,10 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
     slider.setAttribute("aria-valuetext", clock.textContent);
   }
 
-  function display(error = "") {
-    label.textContent = wanted ? "音乐 开" : "音乐 关";
+  function display(error = "", needsGesture = false) {
+    label.textContent = needsGesture ? "点击打开音乐" : (wanted ? "音乐 开" : "音乐 关");
+    toggle.classList.toggle("needs-gesture", needsGesture);
+    toggle.setAttribute("aria-label", needsGesture ? label.textContent : "背景音乐");
     toggle.setAttribute("aria-pressed", String(wanted));
     if (!tracks.length) {
       toggle.title = "当前皮肤的歌单为空";
@@ -109,20 +114,43 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
     } catch { /* Browser storage is optional. */ }
   }
 
+  function rampVolume(player, to, done) {
+    const from = player.volume;
+    const duration = fadeMs * Math.abs(to - from) / level;
+    if (!duration) { done?.(); return 0; }
+    const start = performance.now();
+    const timer = setInterval(() => {
+      const t = Math.min(1, (performance.now() - start) / duration);
+      player.volume = Math.max(0, Math.min(level, from + (to - from) * t));
+      if (t === 1) { clearInterval(timer); done?.(); }
+    }, 16);
+    return timer;
+  }
+
   function fade(to, done) {
     clearInterval(fadeTimer);
-    const from = audio.volume, start = performance.now();
-    // Reverse an interrupted fade from its current volume.
-    const duration = fadeMs * Math.abs(to - from) / level;
-    function tick() {
-      const t = duration ? Math.min(1, (performance.now() - start) / duration) : 1;
-      audio.volume = Math.max(0, Math.min(level, from + (to - from) * t));
-      if (t < 1) return;
-      clearInterval(fadeTimer);
-      done?.();
+    fadeTimer = rampVolume(audio, to, done);
+  }
+
+  function crossfadeFromCurrentPlayer() {
+    const previous = audio;
+    const previousUrl = objectUrl;
+    objectUrl = "";
+    clearInterval(fadeTimer);
+    audio = createPlayer(previous);
+    let timer = 0;
+    function finish() {
+      clearInterval(timer);
+      previous.pause();
+      previous.removeAttribute("src");
+      previous.load();
+      previous.remove();
+      if (previousUrl) URL.revokeObjectURL(previousUrl);
+      retiringPlayers.delete(finish);
     }
-    fadeTimer = setInterval(tick, 16);
-    tick();
+    retiringPlayers.add(finish);
+    if (previous.paused) finish();
+    else timer = rampVolume(previous, 0, finish);
   }
 
   async function start() {
@@ -135,12 +163,13 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
       if (token !== playId) return;
       await audio.play();
       if (token === playId) fade(level);
-    } catch {
+    } catch (error) {
       if (token !== playId) return;
       wanted = false;
       audio.pause();
       audio.volume = 0;
-      display("无法开始播放，请检查音频或再点一次音乐开关");
+      if (error?.name === "NotAllowedError") display("浏览器已阻止播放，点击打开音乐", true);
+      else display("无法开始播放，请检查音频或再点一次音乐开关");
     }
   }
 
@@ -241,7 +270,7 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
       }
     } catch { /* Direct visits start quietly. */ }
     if (startList && tracks.length) wanted = true;
-    audio.loop = remaining === null && tracks.length === 1;
+    audio.loop = (remaining === null ? tracks.length : uniqueTracks.length) === 1;
     selectTrack();
   }
 
@@ -251,6 +280,7 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
     skin = next;
     try { sessionStorage.setItem(scope + ":skin", skin); } catch {}
     rotating = false;
+    crossfadeFromCurrentPlayer();
     loadList();
     restore(false, true);
     publishMusic();
@@ -261,6 +291,7 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
     if (remaining === null) {
       index = (index + 1) % tracks.length;
     } else {
+      if (!remaining.length) remaining = uniqueTracks.slice();
       const choices = remaining.length > 1 ? remaining.filter(key => key !== trackKeys[index]) : remaining;
       const next = choices[Math.floor(Math.random() * choices.length)];
       remaining.splice(remaining.indexOf(next), 1);
@@ -271,16 +302,14 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
   }
   function playRandomTrack() {
     if (!tracks.length) return;
-    if (remaining === null || !remaining.length) {
-      const alreadyPlaying = remaining === null && (!audio.paused || audio.played.length > 0 || offset > 0);
+    if (remaining === null) {
+      audio.loop = uniqueTracks.length === 1;
+      const alreadyPlaying = !audio.paused || audio.played.length > 0 || offset > 0;
       remaining = uniqueTracks.filter(key => !alreadyPlaying || key !== trackKeys[index]);
-      audio.loop = false;
-      if (uniqueTracks.length === 1 && !audio.paused) {
-        remaining = [];
-        if (!wanted) start();
-        return;
-      }
-      if (!remaining.length) remaining = uniqueTracks.slice();
+    }
+    if (uniqueTracks.length === 1 && !audio.paused) {
+      if (!wanted) start();
+      return;
     }
     wanted = true;
     advanceTrack();
@@ -288,25 +317,32 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
   slider.addEventListener("input", () => { dragging = true; timeline(); });
   slider.addEventListener("change", () => { dragging = false; seek(Number(slider.value)); });
   slider.addEventListener("pointercancel", () => { dragging = false; timeline(); });
-  audio.addEventListener("loadedmetadata", () => {
-    const time = offset;
-    offset = 0;
-    if (time > 0) seek(time);
-    else timeline();
-  });
-  for (const event of ["timeupdate", "durationchange", "seeked"]) audio.addEventListener(event, timeline);
-  audio.addEventListener("ended", () => {
-    if (!wanted) return;
-    if (remaining?.length === 0) {
-      wanted = false;
-      display();
-      save();
-    } else advanceTrack();
-  });
+  function onMediaEvent(event) {
+    if (event.currentTarget !== audio) return;
+    switch (event.type) {
+      case "loadedmetadata": {
+        const time = offset;
+        offset = 0;
+        if (time > 0) seek(time);
+        else timeline();
+        break;
+      }
+      case "timeupdate":
+      case "durationchange":
+      case "seeked":
+        timeline();
+        break;
+      default:
+        rotating = event.type === "playing" && !audio.paused;
+        publishMusic();
+        if (event.type === "ended" && wanted) advanceTrack();
+    }
+  }
   // Local HTML pages do not send a referrer. Match the outgoing navigation exactly.
   window.navigation?.addEventListener("navigate", event => { destination = event.destination.url; });
   window.addEventListener("pagehide", () => {
     save();
+    for (const finish of retiringPlayers) finish();
     ++playId;
     ++seekId;
     ++trackId;
