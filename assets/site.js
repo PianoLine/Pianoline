@@ -127,7 +127,7 @@
     const workingScene = local && pageUrl.searchParams.get("scene") === "prototype";
     const sceneDir = workingScene ? "prototype" : "interactive";
     // Reload the local work-in-progress entry on each visit so it supplies current asset versions.
-    const sceneVersion = workingScene ? Date.now().toString(36) : "taller-reed-window";
+    const sceneVersion = workingScene ? Date.now().toString(36) : "moving-camera";
     const navigationType = performance.getEntriesByType("navigation")[0]?.type;
     // Portfolio links back to the home page target one of its sections.
     const resumeTable = returning || navigationType === "back_forward" ||
@@ -156,12 +156,26 @@
     root.innerHTML = `<main id="top"><section class="interactive-hero" aria-label="互动作品集"><h1 class="interactive-intro">${escapeHtml(profile.name || "")} · ${escapeHtml(profile.headline || "游戏与交互作品集")}</h1><iframe class="interactive-frame" allow="autoplay" title="角色与作品卡牌桌" src="${sceneDir}/index.html?embed=1&v=${sceneVersion}${resumeTable ? "&resume=1" : ""}${previewQuery ? "&preview=1" : ""}"></iframe></section>${aboutSection}<section class="section" id="projects"><div class="container"><div class="section-head reveal"><div><h2 class="section-title">项目案例</h2></div><p class="section-intro">${escapeHtml(home.projectsIntro || "")}</p></div><div class="project-grid">${projects.map(projectCard).join("")}</div></div></section><section class="section" id="updates"><div class="container"><div class="section-head"><div><h2 class="section-title">动态与开发日志</h2></div><a class="button" href="posts.html${previewQuery}">查看全部 ↗</a></div><div class="post-grid">${visiblePosts().slice(0,3).map(postCard).join("") || "<p class=\"section-intro\">还没有发布动态，敬请期待。</p>"}</div></div></section><section class="section" id="contact"><div class="container"><div class="contact-card reveal"><div><h2>${escapeHtml(contact.heading || "联系方式与简历")}</h2>${contact.intro ? `<p>${escapeHtml(contact.intro)}</p>` : ""}</div><div class="contact-list">${videoNote}</div></div></div></section></main>${renderFooter("")}`;
   }
 
+  let heldHomeControls=[];
+  function setHomeRoomLock(active){
+    document.documentElement.classList.toggle("room-tearing",active);
+    if(active){
+      if(heldHomeControls.length) return;
+      heldHomeControls=[...document.querySelectorAll(".topbar, #top > section:not(.interactive-hero), #site-root > .footer")].filter(el=>!el.inert);
+      heldHomeControls.forEach(el=>{el.inert=true;});
+    }else{
+      heldHomeControls.forEach(el=>{el.inert=false;});
+      heldHomeControls=[];
+    }
+  }
+  window.addEventListener("pagehide",()=>setHomeRoomLock(false));
   window.addEventListener("message", event => {
     const frame = document.querySelector(".interactive-frame");
     if (!frame || event.source !== frame.contentWindow) return;
     // Chromium serializes messages from local files as "null", even when location.origin is "file://".
     const localFile = location.protocol === "file:" && event.origin === "null";
     if (!localFile && event.origin !== location.origin) return;
+    if(event.data?.type==="portfolio-room-tear" && typeof event.data.active==="boolean") setHomeRoomLock(event.data.active);
     if (event.data?.type === "portfolio-table-ready") {
       frame.dataset.ready = "true";
       window.dispatchEvent(new Event("portfolio-table-ready"));
@@ -332,6 +346,7 @@
   const pageBase = document.createElement("base");
   document.head.prepend(pageBase);
   function showRoute(url, returning) {
+    setHomeRoomLock(false);
     pageUrl = url;
     pageBase.href = url.href;
     pageType = document.body.dataset.page = routeType(url);

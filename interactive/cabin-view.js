@@ -8,30 +8,63 @@
   canvas.className = "cabin-view";
   canvas.setAttribute("aria-hidden", "true");
   arena.prepend(canvas);
-  const {vertices:rest,props,flames,clusterOrigin,clusterStart,clusterEnd,shadowStart}=window.buildCabinMesh();
-  const mesh=rest.slice();
-  const movingStart=clusterStart;
-  const movingVertices=mesh.subarray(movingStart);
+  const roomKey=tableKey+":room";
+  let room="cabin";
+  try { if(resumeTable && sessionStorage.getItem(roomKey)==="castle") room="castle"; }
+  catch { /* The room still switches without session storage. */ }
+  let rest,props,flames,clusterOrigin,clusterStart,clusterEnd,shadowStart,moon,moonDisc,clouds;
+  let mesh,movingVertices,windowVertices,vertexCount,objectIds,trays,projected;
+  let geometry;
+  function loadRoom(){
+    ({vertices:rest,props,flames,clusterOrigin,clusterStart,clusterEnd,shadowStart,moon,moonDisc,clouds}=window.buildCabinMesh(room));
+    mesh=rest.slice();
+    movingVertices=mesh.subarray(clusterStart);
+    windowVertices=mesh.subarray(moonDisc.start,clouds.at(-1)?.end ?? moonDisc.end);
+    vertexCount=mesh.length/7;
+    projected=new Float32Array(vertexCount*2);
+    objectIds=new Uint8Array(vertexCount);
+    trays=[...new Set(flames.map(f=>f.tray))];
+    const silhouettes=[
+      ...trays,...flames.map(f=>({start:f.waxStart,end:f.waxEnd})),
+      {start:props.deckBase.start,end:props.leaves.at(-1).end},
+      {start:props.bellBase.start,end:props.plunger.end},
+      {start:props.watchCase.start,end:props.watchHand.end},
+      {start:props.gramBase.start,end:props.gramRecord.end},
+      props.shelf,...props.books
+    ];
+    silhouettes.forEach(({start,end},i)=>objectIds.fill(i+1,start/7,end/7));
+    geometry={mesh,objectIds,vertexCount,room,moonDisc,windowVertices,clusterStart,movingVertices};
+    try { sessionStorage.setItem(roomKey,room); } catch { /* Optional resume state. */ }
+  }
+  loadRoom();
   const glows=flames.map(()=>{
-    const glow=document.createElement("i");
+    const glow=document.createElement("canvas");
+    glow.width=96;glow.height=112;
     glow.className="candle-halo";
     glow.setAttribute("aria-hidden","true");
     arena.prepend(glow);
     return glow;
   });
-  const vertexCount = mesh.length / 7;
-  // One ID per silhouette, shared by all moving parts and surface decoration of that prop.
-  const objectIds=new Uint8Array(vertexCount);
-  const trays=[...new Set(flames.map(f=>f.tray))];
-  const silhouettes=[
-    ...trays,...flames.map(f=>({start:f.waxStart,end:f.waxEnd})),
-    {start:props.deckBase.start,end:props.leaves.at(-1).end},
-    {start:props.bellBase.start,end:props.plunger.end},
-    {start:props.watchCase.start,end:props.watchHand.end},
-    {start:props.gramBase.start,end:props.gramRecord.end},
-    props.shelf,...props.books
-  ];
-  silhouettes.forEach(({start,end},i)=>objectIds.fill(i+1,start/7,end/7));
+  // The live halos and the outgoing photograph use the same transparent light sprites.
+  function updateRoomLighting(){
+    if(arena.dataset.room===room) return;
+    const castle=room==="castle";
+    for(const glow of glows){
+      const ctx=glow.getContext("2d");
+      const x=glow.width/2,y=glow.height/2;
+      const gradient=ctx.createRadialGradient(x,y,0,x,y,Math.hypot(x,y));
+      gradient.addColorStop(0,castle?"#b2ffe76b":"#ffcd7766");
+      gradient.addColorStop(castle ? .23 : .22,castle?"#45deb943":"#fa963039");
+      gradient.addColorStop(.50,castle?"#2997a51a":"#d5651412");
+      gradient.addColorStop(.72,"transparent");
+      ctx.clearRect(0,0,glow.width,glow.height);
+      ctx.save();
+      ctx.beginPath();ctx.ellipse(x,y,x,y,0,0,2*Math.PI);ctx.clip();
+      ctx.fillStyle=gradient;ctx.fillRect(0,0,glow.width,glow.height);
+      ctx.restore();
+    }
+    arena.dataset.room=room;
+  }
   const lampData=new Float32Array(flames.length*4); // world-space xyz and current intensity
   const candleKey=tableKey+":candles";
   let candlesLit=flames.map(()=>true);
@@ -47,6 +80,7 @@
   }else saveCandles();
   const brightness=candlesLit.map(Number);
   let roomLight=brightness.reduce((sum,n)=>sum+n,0)/brightness.length;
+  let exteriorLight=1;
   document.documentElement.style.setProperty("--candle-light",roomLight.toFixed(3));
   // World X/Z, footprint radius, and intensity of the overhead selection light.
   const spotlight=new Float32Array([0,0,1,0]);
@@ -98,9 +132,15 @@
         const diffuse=(.42+.22*Math.max(0,ny))*(.16+.34*roomLight+.50*localLight);
         const polish=rest[i+1]>floor+.020 ? 1 : .32;
         const reflection=polish*glint/(1+glint);
-        mesh[i+3]=238/255*diffuse+.044*polish*windowLight+.16*reflection;
-        mesh[i+4]=217/255*diffuse+.047*polish*windowLight+.12*reflection;
-        mesh[i+5]=159/255*diffuse+.054*polish*windowLight+.07*reflection;
+        if(room==="castle"){
+          mesh[i+3]=.55*diffuse+.18*polish*windowLight+.28*reflection;
+          mesh[i+4]=.78*diffuse+.29*polish*windowLight+.48*reflection;
+          mesh[i+5]=.76*diffuse+.31*polish*windowLight+.44*reflection;
+        }else{
+          mesh[i+3]=238/255*diffuse+.044*polish*windowLight+.16*reflection;
+          mesh[i+4]=217/255*diffuse+.047*polish*windowLight+.12*reflection;
+          mesh[i+5]=159/255*diffuse+.054*polish*windowLight+.07*reflection;
+        }
       }
     }
   }
@@ -124,6 +164,8 @@ void main(){
 varying vec3 world,color; varying float material;
 uniform vec4 lamps[5];
 uniform float roomLight;
+uniform float exteriorLight;
+uniform vec3 candleColor;
 uniform vec4 spotlight;
 uniform vec3 shaftAim;
 uniform sampler2D visibility;
@@ -147,13 +189,18 @@ void main(){
    float broken=sin(grain.x*2.+grain.y*7.)+sin(grain.x*.7-grain.y*3.);
    c*=1.+.040*sin((grain.y+drift)*55.)-.19*step(.82,rings)*smoothstep(-.35,.42,broken);
  }
+ if(material>3.6 && material<3.9){
+   vec2 p=vec2(world.x+.40*world.z,world.y+.72*world.z);
+   float strata=sin(p.x*3.1+p.y*6.+1.4*sin(p.y*2.8)+.7*sin(p.x*4.));
+   c*=.98+.055*strata+.040*smoothstep(.91,.99,strata);
+ }
  float night=1.-roomLight;
  if(material< -4.5 || (material< -2.5 && material> -3.5)){
    // Silver reflections and the emissive flame already carry their display colour.
  }else if(material< -1.5 && material> -2.5){
    c=mix(c,vec3(.93,.94,.80),night*night*night);
  }else if(material< -.5 && material> -1.5){
-   c*=1.+.76*night;
+   c*=exteriorLight;
  }else{
    float possible=0., active=0.;
    for(int i=0;i<5;i++){
@@ -164,7 +211,7 @@ void main(){
    }
    float lit=.56*active/possible+.44*roomLight;
    c*=vec3(.07,.095,.14)+vec3(.93,.905,.86)*lit;
-   if(material<3.5) c+=vec3(.083,.040,.010)*active;
+   if(material<3.5) c+=candleColor*active;
    if(material< -3.5) c+=vec3(.055,.066,.065)*night;
    if(spotlight.w>0. && world.y>=1.51){
      float radius=max(spotlight.z*.45,spotlight.z-.19*(world.y-1.53));
@@ -196,16 +243,28 @@ void main(){
     }
     const program=link(fragment), maskProgram=link(maskFragment);
     gl.deleteShader(vertex);
-    const buffer=gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER,buffer); gl.bufferData(gl.ARRAY_BUFFER,mesh,gl.DYNAMIC_DRAW);
-    for(const [name,size,offset] of [["position",3,0],["tint",3,12],["grain",1,24]]){
-      const attr=gl.getAttribLocation(program,name);
-      gl.enableVertexAttribArray(attr); gl.vertexAttribPointer(attr,size,gl.FLOAT,false,28,offset);
+    const buffers=new Map();
+    for(let i=0;i<4;i++) gl.enableVertexAttribArray(i);
+    let bound=null;
+    function bindGeometry(scene){
+      if(bound===scene) return;
+      let pair=buffers.get(scene);
+      if(!pair){
+        pair={vertices:gl.createBuffer(),ids:gl.createBuffer()};
+        buffers.set(scene,pair);
+        gl.bindBuffer(gl.ARRAY_BUFFER,pair.vertices);
+        gl.bufferData(gl.ARRAY_BUFFER,scene.mesh,gl.DYNAMIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER,pair.ids);
+        gl.bufferData(gl.ARRAY_BUFFER,scene.objectIds,gl.STATIC_DRAW);
+      }
+      gl.bindBuffer(gl.ARRAY_BUFFER,pair.ids);
+      gl.vertexAttribPointer(3,1,gl.UNSIGNED_BYTE,true,0,0);
+      gl.bindBuffer(gl.ARRAY_BUFFER,pair.vertices);
+      gl.vertexAttribPointer(0,3,gl.FLOAT,false,28,0);
+      gl.vertexAttribPointer(1,3,gl.FLOAT,false,28,12);
+      gl.vertexAttribPointer(2,1,gl.FLOAT,false,28,24);
+      bound=scene;
     }
-    const ids=gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER,ids); gl.bufferData(gl.ARRAY_BUFFER,objectIds,gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3,1,gl.UNSIGNED_BYTE,true,0,0);
-    gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
     const mask=gl.createTexture(), depth=gl.createRenderbuffer(), target=gl.createFramebuffer();
     gl.bindTexture(gl.TEXTURE_2D,mask);
     for(const name of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D,name,gl.NEAREST);
@@ -228,12 +287,19 @@ void main(){
     const texel=gl.getUniformLocation(program,"texel");
     const lamps=gl.getUniformLocation(program,"lamps[0]");
     const ambient=gl.getUniformLocation(program,"roomLight");
+    const exterior=gl.getUniformLocation(program,"exteriorLight");
+    const candleColor=gl.getUniformLocation(program,"candleColor");
     const spot=gl.getUniformLocation(program,"spotlight");
     const aim=gl.getUniformLocation(program,"shaftAim");
     gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
     gl.enable(gl.DEPTH_TEST);
-    return (camera,focal) => {
-      gl.bufferSubData(gl.ARRAY_BUFFER,movingStart*4,movingVertices);
+    function renderRoom(camera,focal,scene=geometry,lighting){
+      bindGeometry(scene);
+      const {room,vertexCount}=scene;
+      if(!lighting){
+        gl.bufferSubData(gl.ARRAY_BUFFER,scene.moonDisc.start*4,scene.windowVertices);
+        gl.bufferSubData(gl.ARRAY_BUFFER,scene.clusterStart*4,scene.movingVertices);
+      }
       gl.bindFramebuffer(gl.FRAMEBUFFER,target);
       if(canvas.width!==maskWidth || canvas.height!==maskHeight){
         maskWidth=canvas.width; maskHeight=canvas.height;
@@ -253,19 +319,30 @@ void main(){
       setSceneCamera(camera,focal);
       gl.uniform2f(texel,1/maskWidth,1/maskHeight);
       gl.enable(gl.BLEND); gl.enable(gl.DITHER);
-      gl.uniform4fv(lamps,lampData);
-      gl.uniform1f(ambient,roomLight);
+      gl.uniform4fv(lamps,lighting?.lamps ?? lampData);
+      gl.uniform1f(ambient,lighting?.ambient ?? roomLight);
+      gl.uniform1f(exterior,lighting?.exterior ?? exteriorLight);
+      if(room==="castle") gl.uniform3f(candleColor,.012,.083,.066);
+      else gl.uniform3f(candleColor,.083,.040,.010);
       gl.uniform4fv(spot,spotlight);
       gl.uniform3fv(aim,shaftAim);
       gl.clearColor(.12,.18,.17,1);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       gl.drawArrays(gl.TRIANGLES,0,vertexCount);
+    }
+    renderRoom.release=scene=>{
+      const pair=buffers.get(scene);
+      if(!pair) return;
+      gl.deleteBuffer(pair.vertices); gl.deleteBuffer(pair.ids); buffers.delete(scene);
+      if(bound===scene) bound=null;
     };
+    return renderRoom;
   }
 
   // Software depth-buffer rasterizer for machines without WebGL. It uses the actual room mesh.
-  function softwareRenderer(ctx) {
+  function softwareRenderer(ctx,{mesh,objectIds,room,vertexCount}=geometry) {
     let image, pixels, depths, visibleIds;
+    let lights,ambient,exterior;
     const xyDepth=new Float32Array(vertexCount*3);
     const pack=(r,g,b)=> (255<<24) | (b<<16) | (g<<8) | r;
     const palette=new Uint32Array(vertexCount/3*4);
@@ -278,23 +355,27 @@ void main(){
         return;
       }
       let red=1,green=1,blue=1,addR=0,addG=0,addB=0;
-      const night=1-roomLight;
+      const night=1-ambient;
       if(material===-2){
         const glow=night**3;
         red=green=blue=1-glow;
         addR=237*glow; addG=240*glow; addB=204*glow;
       }else if(material===-1){
-        red=green=blue=1+.76*night;
+        red=green=blue=exterior;
       }else if(material>=0 || material===-4){
         let total=0,active=0;
-        for(let k=0;k<lampData.length;k+=4){
-          const dx=x-lampData[k],dy=y-lampData[k+1],dz=z-lampData[k+2];
+        for(let k=0;k<lights.length;k+=4){
+          const dx=x-lights[k],dy=y-lights[k+1],dz=z-lights[k+2];
           const weight=1/(.42+dx*dx+dy*dy+dz*dz);
-          total+=weight; active+=weight*lampData[k+3];
+          total+=weight; active+=weight*lights[k+3];
         }
-        const lit=.56*active/total+.44*roomLight;
+        const lit=.56*active/total+.44*ambient;
         red=.07+.93*lit; green=.095+.905*lit; blue=.14+.86*lit;
-        if(material<3.5){addR=21.2*active;addG=10.2*active;addB=2.55*active;}
+        if(material<3.5){
+          addR=(room==="castle"?3:21.2)*active;
+          addG=(room==="castle"?21.2:10.2)*active;
+          addB=(room==="castle"?16.8:2.55)*active;
+        }
         if(material===-4){addR+=14*night;addG+=17*night;addB+=17*night;}
         if(spotlight[3]>0 && y>=1.51){
           const radius=Math.max(spotlight[2]*.45,spotlight[2]-.19*(y-1.53));
@@ -317,7 +398,10 @@ void main(){
         palette[i/3*4+tone]=pack(...channels);
       }
     }
-    return ([right,up,forward],focal) => {
+    return ([right,up,forward],focal,scene,lighting) => {
+      lights=lighting?.lamps ?? lampData;
+      ambient=lighting?.ambient ?? roomLight;
+      exterior=lighting?.exterior ?? exteriorLight;
       const w=canvas.width,h=canvas.height;
       if (!image || image.width!==w || image.height!==h){
         image=ctx.createImageData(w,h); pixels=new Uint32Array(image.data.buffer); depths=new Float32Array(w*h);
@@ -339,7 +423,7 @@ void main(){
         const left=Math.max(0,Math.floor(Math.min(x,x+bx,x+cx))), rightX=Math.min(w-1,Math.ceil(Math.max(x,x+bx,x+cx)));
         const top=Math.max(0,Math.floor(Math.min(y,y+by,y+cy))), bottom=Math.min(h-1,Math.ceil(Math.max(y,y+by,y+cy)));
         const k=i*7,material=mesh[k+6];
-        const shadow=(material-5)*(.36+.64*roomLight);
+        const shadow=(material-5)*(.36+.64*ambient);
         const sampleAcross=material>=0 && material<4.5 && (rightX-left)*(bottom-top)>2200;
         if(shadow<=0 && !sampleAcross) shadeTriangle(i,material,
           (mesh[k]+mesh[k+7]+mesh[k+14])/3,(mesh[k+1]+mesh[k+8]+mesh[k+15])/3,(mesh[k+2]+mesh[k+9]+mesh[k+16])/3);
@@ -413,7 +497,238 @@ void main(){
   const deckZone = deckButton.closest(".deckzone");
   const bellButton = document.getElementById("end");
   const hoverInput=matchMedia("(hover: hover)");
-  const projected=new Float32Array(mesh.length/7*2);
+  const moonButton=document.getElementById("window-moon");
+  const portrait=encounter.querySelector(".ghost-portrait");
+  let roomRequested=false, tear=null;
+  const tearDuration=1750;
+  const tearSurfaces="#speech:not([hidden]), .hand-face, .board-slot > .card";
+  let heldControls=[];
+  function setRoomLock(active){
+    if(arena.classList.contains("room-tearing")===active) return;
+    arena.classList.toggle("room-tearing",active);
+    if(active){
+      heldControls=[...document.querySelectorAll(".standalone, .arena button, .arena a, .book-spine, .board-slot")]
+        .filter(el=>!el.inert && !el.closest("#hand"));
+      heldControls.forEach(el=>{el.inert=true;});
+      for(const card of arena.querySelectorAll("#hand .card")) card.tabIndex=0;
+      arena.dispatchEvent(new Event("room-tear-start"));
+      spotlight[3]=0;
+    }else{
+      heldControls.forEach(el=>{el.inert=false;});
+      heldControls=[];
+      for(const card of arena.querySelectorAll("#hand .card")) card.tabIndex=-1;
+    }
+    if(window.parent!==window) window.parent.postMessage({type:"portfolio-room-tear",active},"*");
+  }
+  function tearBand(y,h){
+    const row=y/4,noise=Math.sin(row*78.23)*437.17,grain=noise-Math.floor(noise);
+    return {grain,jag:.044*Math.sin(y/h*14)+.022*Math.sin(row*.67)+.023*(grain-.5)};
+  }
+  // The two rooms share live cards and speech. Slide a perforated alpha mask across
+  // their own painted surfaces so text can keep typing and hand hit areas stay put.
+  function makeTearMask(w,h){
+    const mask=document.createElement("canvas");
+    mask.width=3*w; mask.height=h;
+    const ctx=mask.getContext("2d");
+    ctx.fillStyle="white";
+    for(let y=0;y<h;y+=4){
+      const {grain,jag}=tearBand(y,h);
+      const edge=Math.round(w*(1.5+jag));
+      ctx.fillRect(0,y,edge-Math.round(.10*w),4);
+      ctx.fillRect(edge,y,mask.width-edge,4);
+      for(let n=1;n<=3;n++){
+        const gap=Math.round(w*(.009+.018*grain)*n),chip=Math.round(w*(.012+.008*grain)/n);
+        ctx.fillRect(edge-gap-chip,y,chip,4);
+      }
+    }
+    return 'url("'+mask.toDataURL()+'")';
+  }
+  function maskTableSurfaces(front){
+    const view=canvas.getBoundingClientRect();
+    for(const el of arena.querySelectorAll(tearSurfaces)){
+      const rect=el.getBoundingClientRect();
+      if(!rect.width || !rect.height) continue;
+      const sx=el.offsetWidth/rect.width, sy=el.offsetHeight/rect.height;
+      el.style.setProperty("--tear-size",3*view.width*sx+"px "+view.height*sy+"px");
+      el.style.setProperty("--tear-offset",(view.left+(front-1.5)*view.width-rect.left)*sx+"px "+(view.top-rect.top)*sy+"px");
+    }
+  }
+  function finishRoomTear(){
+    tear?.layer.remove();
+    if(tear) tear.draw.release?.(tear.geometry);
+    tear=null;
+    roomRequested=false;
+    portrait.style.removeProperty("clip-path");
+    arena.style.removeProperty("--tear-mask");
+    for(const el of arena.querySelectorAll("#speech,.hand-face,.board-slot > .card")){
+      el.style.removeProperty("--tear-size");
+      el.style.removeProperty("--tear-offset");
+    }
+    setRoomLock(false);
+  }
+  function capturePortrait(){
+    // Flatten only the artwork in its current pose; the speech bubble is a sibling.
+    const frame=document.createElement("canvas"), paint=document.createElement("canvas");
+    frame.width=frame.height=paint.width=paint.height=128;
+    const actor=frame.getContext("2d"), brush=paint.getContext("2d");
+    const bounds=portrait.getBoundingClientRect();
+    if(!actor || !brush || !bounds.width || !bounds.height) return null;
+    let hasBase=false;
+    for(const layer of portrait.querySelectorAll(".portrait-layer")){
+      const style=getComputedStyle(layer);
+      if(Number(style.opacity)===0) continue;
+      const image=[...layer.querySelectorAll("img")].find(img=>img.naturalWidth && img.getClientRects().length);
+      if(!image) continue;
+      if(layer.classList.contains("portrait-ink")) hasBase=true;
+      const rect=image.getBoundingClientRect();
+      brush.clearRect(0,0,128,128);
+      brush.save();
+      if(style.clipPath!=="none" && hemEdge){
+        const clip=new Path2D();
+        for(const [i,p] of Array.from(hemEdge.points).entries()){
+          if(i===0) clip.moveTo(p.x,p.y); else clip.lineTo(p.x,p.y);
+        }
+        clip.closePath();
+        const arms=hemEdge.parentNode.querySelector("path");
+        if(arms) clip.addPath(new Path2D(arms.getAttribute("d")));
+        brush.clip(clip);
+      }
+      brush.imageSmoothingEnabled=false;
+      brush.filter=getComputedStyle(image).filter;
+      brush.drawImage(image,(bounds.left-rect.left)*image.naturalWidth/rect.width,
+        (bounds.top-rect.top)*image.naturalHeight/rect.height,bounds.width*image.naturalWidth/rect.width,
+        bounds.height*image.naturalHeight/rect.height,0,0,128,128);
+      if(layer.matches(".warm-left,.warm-right")){
+        const left=layer.classList.contains("warm-left");
+        const mask=brush.createLinearGradient(left?0:128,0,left?62:66,0);
+        mask.addColorStop(0,"black");mask.addColorStop(1,"transparent");
+        brush.filter="none";brush.globalCompositeOperation="destination-in";
+        brush.fillStyle=mask;brush.fillRect(0,0,128,128);
+      }
+      brush.restore();
+      actor.save();
+      if(style.mixBlendMode==="soft-light") actor.globalCompositeOperation="soft-light";
+      actor.filter=style.filter;actor.globalAlpha=Number(style.opacity);
+      actor.drawImage(paint,0,0);actor.restore();
+    }
+    if(!hasBase) return null;
+    const sprites=[{image:frame,x:0,y:0,w:1,h:1,
+      opacity:Number(getComputedStyle(portrait.querySelector(".skin-layers")).opacity),filter:"none"}];
+    const mist=portrait.querySelector(".skin-mist");
+    if(mist && !mist.hidden){
+      const image=mist.cloneNode(false), rect=mist.getBoundingClientRect();
+      image.getContext("2d").drawImage(mist,0,0);
+      sprites.push({image,x:(rect.left-bounds.left)/bounds.width,y:(rect.top-bounds.top)/bounds.height,
+        w:rect.width/bounds.width,h:rect.height/bounds.height,opacity:1,filter:getComputedStyle(mist).filter});
+    }
+    return sprites;
+  }
+  function refreshOutgoing(state,camera,focal){
+    const {still,copy,halo,lamps,sprites}=state;
+    if(still.width!==canvas.width || still.height!==canvas.height){
+      still.width=state.layer.width=canvas.width;
+      still.height=state.layer.height=canvas.height;
+      arena.style.setProperty("--tear-mask",makeTearMask(still.width,still.height));
+    }
+    copy.drawImage(canvas,0,0);
+    copy.save();
+    copy.globalCompositeOperation="screen";
+    for(const {point,radius,opacity} of lamps){
+      if(!opacity) continue;
+      const [cx,cy,depth]=camera.map(row=>row[0]*point[0]+row[1]*point[1]+row[2]*point[2]+row[3]);
+      const size=radius*focal/depth;
+      copy.globalAlpha=opacity;
+      copy.drawImage(halo,still.width/2+focal*cx/depth-.43*size,still.height/2-focal*cy/depth-.5*size,.86*size,size);
+    }
+    copy.restore();
+    if(sprites){
+      const bounds=portrait.getBoundingClientRect(),view=canvas.getBoundingClientRect();
+      copy.save();
+      copy.scale(still.width/view.width,still.height/view.height);
+      copy.translate(bounds.left-view.left,bounds.top-view.top);
+      copy.imageSmoothingEnabled=false;
+      for(const sprite of sprites){
+        copy.globalAlpha=sprite.opacity;copy.filter=sprite.filter;
+        copy.drawImage(sprite.image,sprite.x*bounds.width,sprite.y*bounds.height,sprite.w*bounds.width,sprite.h*bounds.height);
+      }
+      copy.restore();
+    }
+    state.camera=camera;
+    state.focal=focal;
+  }
+  function captureRoom(camera,focal){
+    const still=document.createElement("canvas"), layer=document.createElement("canvas");
+    still.width=layer.width=canvas.width;
+    still.height=layer.height=canvas.height;
+    const copy=still.getContext("2d"), ink=layer.getContext("2d");
+    if(!copy || !ink) return null;
+    const halo=glows[0].cloneNode(false);
+    halo.getContext("2d").drawImage(glows[0],0,0);
+    const forward=camera[2], pixelScale=canvas.width/canvas.clientWidth;
+    const lamps=glows.map((glow,i)=>{
+      const point=lampData.slice(i*4,i*4+3);
+      const depth=forward[0]*point[0]+forward[1]*point[1]+forward[2]*point[2]+forward[3];
+      return {point,radius:parseFloat(glow.style.height)*pixelScale*depth/focal,opacity:Number(glow.style.opacity)};
+    });
+    const state={still,layer,copy,ink,draw,geometry,halo,lamps,sprites:capturePortrait(),started:null,
+      lighting:{lamps:lampData.slice(),ambient:roomLight,exterior:exteriorLight}};
+    refreshOutgoing(state,camera,focal);
+    if(state.sprites) portrait.style.clipPath="inset(0 100% 0 0)";
+    ink.drawImage(still,0,0);
+    layer.className="room-tear";
+    layer.setAttribute("aria-hidden","true");
+    canvas.after(layer);
+    arena.style.setProperty("--tear-mask",makeTearMask(still.width,still.height));
+    maskTableSurfaces(-.22);
+    return state;
+  }
+  function paintTear(now){
+    const {still,ink,sprites}=tear;
+    if(tear.started===null) tear.started=now;
+    const t=Math.min(1,(now-tear.started)/tearDuration);
+    if(t===1 || motion.matches){
+      finishRoomTear();
+      return;
+    }
+    const w=still.width,h=still.height;
+    const front=(t*t*(3-2*t)*1.42-.22)*w;
+    maskTableSurfaces(front/w);
+    ink.clearRect(0,0,w,h);
+    function strip(x,y,width,height,shift){
+      if(width<=0) return;
+      ink.drawImage(still,x,y,width,height,x+shift,y,width,height);
+    }
+    for(let y=0;y<h;y+=4){
+      const height=Math.min(4,h-y),{grain,jag}=tearBand(y,h);
+      const edge=front+w*jag;
+      const cut=Math.round(Math.max(0,Math.min(w,edge)));
+      const pull=Math.round(w*.048*t*t*(.6+grain));
+      strip(cut,y,w-cut,height,pull);
+      for(let n=1;n<=3;n++){
+        const gap=Math.round(w*(.009+.018*grain)*n);
+        const fragment=Math.max(0,Math.round(w*(.012+.008*grain)/n));
+        const x=Math.round(edge-gap-fragment);
+        if(x>=0 && x+fragment<=w) strip(x,y,fragment,height,pull+Math.round(gap*.32));
+      }
+    }
+    // Reveal the live character behind the trailing fragments of the captured one.
+    if(sprites){
+      const bounds=portrait.getBoundingClientRect(),view=canvas.getBoundingClientRect();
+      const right=bounds.right-(view.left+(front/w-.105)*view.width);
+      if(right<=0) portrait.style.removeProperty("clip-path");
+      else portrait.style.clipPath="inset(0 "+Math.min(bounds.width,right)+"px 0 0)";
+    }
+  }
+  const labelMoon=()=>{
+    moonButton.setAttribute("aria-label",room==="castle" ? "回到小屋" : "进入城堡");
+  };
+  labelMoon();
+  moonButton.addEventListener("click",()=>{
+    if(roomRequested || tear) return;
+    roomRequested=true;
+    setRoomLock(true);
+    schedule();
+  });
   function prepareOutline(button, host = button.querySelector(".control-art")) {
     const layer=document.createElement("canvas");
     layer.className="prop-outline";
@@ -430,7 +745,7 @@ void main(){
   shaft.className="table-light-shaft";
   shaft.setAttribute("aria-hidden","true");
   shaft.hidden=true;
-  arena.prepend(shaft);
+  arena.insertBefore(shaft,encounter);
   let lastSpot=-1;
   const candleNames=["高蜡烛","中等高度的蜡烛","矮蜡烛","桌边的蜡烛","窗边的蜡烛"];
   const volumes=props.books.map(book=>{
@@ -630,7 +945,7 @@ void main(){
   function followModel(control, outline, first, last, camera, focal, w, h, width, height) {
     const {button,layer,ctx}=outline;
     const returning=button === deckButton && button.matches(".over,.returning");
-    const highlighted=ctx && (returning || button.classList.contains("prop-cue") || (hoverInput.matches && button.matches(":hover")) || button.matches(".book-spine:active"));
+    const highlighted=ctx && !roomRequested && !tear && (returning || button.classList.contains("prop-cue") || (hoverInput.matches && button.matches(":hover")) || button.matches(".book-spine:active"));
     // Candles have separate wick hit targets; only project wax for a visible outline.
     if(control===layer && !highlighted){ layer.hidden=true; return; }
     const [r,u,f]=camera;
@@ -742,6 +1057,16 @@ void main(){
     host.defaultView.addEventListener("resize",updateVisibleTop);
     updateVisibleTop();
   }
+  // Smoothly interpolate between gusts of different strengths, sampled once per wick.
+  function airCurrent(time){
+    const cell=Math.floor(time), f=time-cell;
+    const sample=n=>{
+      const hash=Math.sin(n*127.1+311.7)*43758.5453;
+      return 2*(hash-Math.floor(hash))-1;
+    };
+    const a=sample(cell);
+    return a+(sample(cell+1)-a)*f*f*(3-2*f);
+  }
   function render(now){
     frame=0;
     const width=canvas.clientWidth,height=canvas.clientHeight;
@@ -800,6 +1125,15 @@ void main(){
       return [width*(.5+focal/w*dot(camera[0],px,py,pz)/d),
         height*(.5-focal/h*dot(camera[1],px,py,pz)/d)];
     };
+    // Keep the moon in the inner pane on phones, where the outer pane falls outside the viewport.
+    const moonDX=narrow ? (room==="castle" ? -7.85 : -8.8) : 0;
+    for(let i=moonDisc.start;i<moonDisc.end;i+=7) mesh[i]=rest[i]+moonDX;
+    clouds.forEach(({start,end},layer)=>{
+      const drift=(sceneTime*(.32+layer*.23)+layer*2)%10;
+      for(let i=start;i<end;i+=7) mesh[i]=rest[i]+drift;
+    });
+    fitHitPolygon(moonButton,moon.map(([mx,my,mz])=>project(mx+moonDX,my,mz)),5);
+    moonButton.hidden=false;
     // Convert the projected table edge to the portrait's native 128 px grid.
     const [edgeA,edgeB]=props.tableRearEdge.map(point=>project(...point));
     const pixelSize=(foot-crown)/121;
@@ -841,26 +1175,32 @@ void main(){
       }
       const fz=index<3 ? clusterZ+(flame.z-clusterOrigin.z)*scale : flame.z;
       const wick=1.53+(flame.y-1.53)*scale;
-      const t=sceneTime+flame.phase;
-      const sway=.105*Math.sin(3.6*t)+.046*Math.sin(8.4*t+.7);
-      const pulse=.67*Math.sin(4.7*t)+.33*Math.sin(10.6*t+1);
+      const t=sceneTime*(1+.035*index)+flame.phase;
+      const draftTime=sceneTime*.94+flame.x*.18+flame.z*.12;
+      const lean=.085*airCurrent(draftTime)+.057*airCurrent(2.3*t);
+      // Air disturbs the belly first. The tip follows a moment later and can curl back.
+      const sway=.085*airCurrent(draftTime-.14)+.057*airCurrent(2.3*t-.32)+.042*airCurrent(4.6*t+17);
+      const pulse=.70*airCurrent(3*t+9)+.30*Math.sin(7*t+1);
+      const stretch=1+.105*pulse-.48*Math.abs(sway), breadth=1-.10*pulse;
       for(let i=flame.start;i<flame.end;i+=7){
         const dy=rest[i+1]-flame.y;
-        mesh[i]=fx+(rest[i]-flame.x+sway*(dy/.46)**2)*scale*power;
-        mesh[i+2]=fz+(rest[i+2]-flame.z)*scale*power;
-        mesh[i+1]=wick+dy*(1+.13*pulse)*scale*power;
+        const bend=Math.max(0,(dy-.063)/(flame.flameHeight-.063));
+        const offset=bend*bend*sway+2*bend*(1-bend)*lean;
+        mesh[i]=fx+((rest[i]-flame.x)*breadth+offset)*scale*power;
+        mesh[i+2]=fz+(rest[i+2]-flame.z)*breadth*scale*power;
+        mesh[i+1]=wick+(.063+(dy-.063)*stretch)*scale*power;
         mesh[i+3]=Math.min(1,rest[i+3]*(.96+.04*pulse));
         mesh[i+4]=rest[i+4]*(.94+.06*pulse);
       }
-      const fy=wick+.2*scale, d=dot(camera[2],fx,fy,fz);
-      const cx=(w/2+focal*dot(camera[0],fx,fy,fz)/d)*width/w;
-      const cy=(h/2-focal*dot(camera[1],fx,fy,fz)/d)*height/h;
+      const lightX=fx+(.44*lean+.11*sway)*scale*power;
+      const fy=wick+(.063+.137*stretch)*scale*power, d=dot(camera[2],lightX,fy,fz);
+      const [cx,cy]=project(lightX,fy,fz);
       const size=focal/d*width/w*scale*(1.24+.07*pulse);
       const glow=glows[index];
       glow.style.transform="translate("+cx+"px,"+cy+"px) translate(-50%,-50%)";
-      glow.style.width=size+"px"; glow.style.height=size+"px"; glow.style.opacity=power*(.58+.10*pulse);
+      glow.style.width=size*.86+"px"; glow.style.height=size+"px"; glow.style.opacity=power*(.54+.08*pulse);
       const k=index*4;
-      lampData[k]=fx; lampData[k+1]=fy; lampData[k+2]=fz;
+      lampData[k]=lightX; lampData[k+1]=fy; lampData[k+2]=fz;
       lampData[k+3]=power*(1+.065*pulse);
       // Use the same flickering lamps as the wood. Weight nearby flames at face height more strongly.
       const dx=fx-actorX, dy=fy-(footY+actorHeight*.65), dz=fz-footZ;
@@ -871,7 +1211,7 @@ void main(){
       const rightShare=.5+.5*dx/Math.sqrt(dx*dx+dz*dz+.01);
       leftWarmth+=energy*(1-rightShare);
       rightWarmth+=energy*rightShare;
-      const flameHeight=Math.max(.11,.46*(1+.13*pulse)*power)*scale;
+      const flameHeight=Math.max(.11,(.063+(flame.flameHeight-.063)*stretch)*power)*scale;
       // The shared dish has no switch of its own. Each wick keeps its individual hit area.
       const baseRadius=index<3 ? 1.23*flame.r : flame.tray.radius;
       fitCandleButton(button,project,fx,wick-(flame.h+.040)*scale,wick,fz,baseRadius*scale,flame.r*scale,
@@ -883,6 +1223,7 @@ void main(){
       roomLight=light;
       document.documentElement.style.setProperty("--candle-light",light.toFixed(3));
     }
+    exteriorLight=1+.76*(1-roomLight);
     const exposure=Math.min(1,.65*portraitLight/availableLight+.35*roomLight);
     encounter.style.setProperty("--portrait-light",exposure.toFixed(3));
     encounter.style.setProperty("--warm-left",Math.min(.42,leftWarmth/availableLight*.64).toFixed(3));
@@ -930,7 +1271,7 @@ void main(){
     let bookMoving=false;
     for(const volume of volumes){
       const {book,target}=volume;
-      const hover=(hoverInput.matches && target.matches(":hover")) || target.matches(":active");
+      const hover=!roomRequested && !tear && ((hoverInput.matches && target.matches(":hover")) || target.matches(":active"));
       if(hover && !volume.selected && volume.pull < .5) arena.dispatchEvent(new Event("book-pull"));
       volume.selected=hover;
       const goal=hover ? 1 : 0;
@@ -1016,7 +1357,7 @@ void main(){
       placePart(leaf,packet,leafHeight(i)+stackLift+(top ? liftTop : 0)+(upper ? Math.abs(cut)*.17 : 0),
         leafYaw(i)+cut*spread*.22,top ? -.12*pulse(drawTime,250) : 0,i<count);
     });
-    const watchTarget=(hoverInput.matches && shuffleButton.matches(":hover")) ? 1.17 : 0;
+    const watchTarget=(!roomRequested && !tear && hoverInput.matches && shuffleButton.matches(":hover")) ? 1.17 : 0;
     watchTilt+=(watchTarget-watchTilt)*(motion.matches ? 1 : step);
     if(Math.abs(watchTarget-watchTilt)<.003) watchTilt=watchTarget;
     // Rotate around the front rim so the case keeps contact with the wood.
@@ -1033,7 +1374,7 @@ void main(){
     followModel(shuffleButton,shuffleOutline,props.watchCase.start,props.watchHand.end,camera,focal,w,h,width,height);
     followModel(bellButton,bellOutline,props.bellBase.start,props.plunger.end,camera,focal,w,h,width,height);
     const over=hoverInput.matches ? litProps.findIndex(button=>button.matches(":hover")) : -1;
-    const selected=deckButton.matches(".over") ? 0 : over>=0 ? over :
+    const selected=roomRequested || tear ? -1 : deckButton.matches(".over") ? 0 : over>=0 ? over :
       litProps.findIndex(button=>button.matches(":active"));
     const amount=selected<0 ? 0 : Math.max(0,1-roomLight/.72);
     if(selected>=0 && selected!==lastSpot){
@@ -1069,7 +1410,32 @@ void main(){
       shaft.style.opacity=spotlight[3];
     }
     shadeSilverTrays();
+    // Reproject the frozen outgoing room only when the view moves. Both passes use
+    // the same lens, while the tear itself stays in screen coordinates.
+    if(tear && (tear.still.width!==w || tear.still.height!==h || focal!==tear.focal ||
+      camera.some((row,i)=>row.some((v,j)=>Math.abs(v-tear.camera[i][j])>.00001)))){
+      tear.draw(camera,focal,tear.geometry,tear.lighting);
+      refreshOutgoing(tear,camera,focal);
+    }
     draw(camera,focal);
+    updateRoomLighting();
+    if(roomRequested){
+      roomRequested=false;
+      if(!motion.matches) tear=captureRoom(camera,focal);
+      if(!tear) draw.release?.(geometry);
+      room=room==="castle" ? "cabin" : "castle";
+      loadRoom();
+      volumes.forEach((volume,i)=>{volume.book=props.books[i];});
+      if(!gpu) draw=softwareRenderer(canvas.getContext("2d"));
+      labelMoon();
+      if(!tear) setRoomLock(false);
+      schedule();
+      return;
+    }
+    if(tear){
+      paintTear(now);
+      if(tear){schedule();return;}
+    }
     canvas.classList.add("painted");
     if (!arena.classList.contains("modeled")) {
       arena.classList.add("modeled");
@@ -1103,10 +1469,14 @@ void main(){
   });
   motion.addEventListener("change",()=>{x=y=targetX=targetY=0;hit=-Infinity;schedule();});
   new ResizeObserver(schedule).observe(canvas);
-  new IntersectionObserver(([entry])=>{visible=entry.isIntersecting;if(visible)schedule();}).observe(canvas);
-  document.addEventListener("visibilitychange",()=>{if(!document.hidden)schedule();});
+  function releaseHiddenRoom(){
+    if(roomRequested || tear) finishRoomTear();
+  }
+  new IntersectionObserver(([entry])=>{visible=entry.isIntersecting;if(visible)schedule();else releaseHiddenRoom();}).observe(canvas);
+  document.addEventListener("visibilitychange",()=>{if(document.hidden) releaseHiddenRoom();else schedule();});
+  window.addEventListener("pagehide",releaseHiddenRoom);
   window.addEventListener("pageshow",()=>{hit=-Infinity;previous=0;center();});
-  canvas.addEventListener("webglcontextlost",event=>{event.preventDefault();canvas.classList.remove("painted");visible=false;});
+  canvas.addEventListener("webglcontextlost",event=>{event.preventDefault();releaseHiddenRoom();canvas.classList.remove("painted");visible=false;});
   canvas.addEventListener("webglcontextrestored",()=>{makeRenderer();visible=true;schedule();});
   schedule();
 })();

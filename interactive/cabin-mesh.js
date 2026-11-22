@@ -1,5 +1,6 @@
 /* All dimensions are in room space. +Y is up, and +Z points toward the visitor. */
-window.buildCabinMesh = function buildCabinMesh() {
+window.buildCabinMesh = function buildCabinMesh(room="cabin") {
+  const castle=room==="castle";
   const vertices = [];
   const palette = new Map();
   const wicks = [];
@@ -27,8 +28,8 @@ window.buildCabinMesh = function buildCabinMesh() {
       const distance = Math.min((x-clusterOrigin.x)**2+(y-2.7)**2+(z-clusterOrigin.z)**2,
         (x-singleCandle.x)**2+(y-2.41)**2+(z-singleCandle.z)**2);
       const amber = (1-emission) * .67 / (1+distance*.19);
-      return [x,y,z, Math.min(1,r/255*(shade+amber)), Math.min(1,g/255*(shade+amber*.70)),
-        Math.min(1,b/255*(shade+amber*.30)),grain];
+      return [x,y,z, Math.min(1,r/255*(shade+amber*(castle ? .38 : 1))), Math.min(1,g/255*(shade+amber*(castle ? 1 : .70))),
+        Math.min(1,b/255*(shade+amber*(castle ? .88 : .30))),grain];
     });
     for (let i=1; i<lit.length-1; i++) vertices.push(...lit[0],...lit[i],...lit[i+1]);
   }
@@ -60,24 +61,63 @@ window.buildCabinMesh = function buildCabinMesh() {
     for(let i=0;i<4;i++){const k=(i+1)%4;face([front[i],back[i],back[k],front[k]],paint,2);}
   }
   // The rear wall has an actual opening. Trees, moon and hills are beyond it.
-  face([[-60,-20,-32],[60,-20,-32],[60,30,-32],[-60,30,-32]],"233b3c",0,1);
+  face([[-60,-20,-32],[60,-20,-32],[60,30,-32],[-60,30,-32]],castle ? "382532" : "233b3c",0,1);
   const moon = Array.from({length:14},(_,i)=>{
-    const a=i*2*Math.PI/14; return [15.9+1.02*Math.cos(a),8.2+1.02*Math.sin(a),-26];
+    const a=i*2*Math.PI/14; return [15.9+1.02*Math.cos(a),7.78+1.02*Math.sin(a),-26];
   });
-  face(moon,"999f87",0,1);
-  for (const [z,count,tint,scale] of [[-22,31,"304f51",1.18],[-14.2,24,"254b48",1],[-8.1,18,"1a3530",.76]]) {
+  const moonDisc=part(()=>face(moon,castle ? "945553" : "a6ad94",0,1));
+  const clouds=[];
+  // Bound the sightlines through the rear opening for the full eye travel, including camera shake.
+  // Projection of an axis-aligned tree box onto the wall reaches its extrema at these endpoints.
+  function visibleThroughWindow(x,z,radius,bottom,top){
+    let left=Infinity,right=-Infinity,low=Infinity,high=-Infinity;
+    for(const eyeZ of [7.31,7.47]) for(const depth of [z-radius,z+radius]){
+      const t=(eyeZ+5.78)/(eyeZ-depth);
+      left=Math.min(left,-.91*(1-t)+(x-radius)*t);
+      right=Math.max(right,.91*(1-t)+(x+radius)*t);
+      low=Math.min(low,3.20*(1-t)+bottom*t);
+      high=Math.max(high,3.86*(1-t)+top*t);
+    }
+    return right>=2.0 && left<=7.71 && high>=1.86 && low<=6.16;
+  }
+  if(!castle) for (const [z,count,tint,scale] of [[-22,31,"304f51",1.18],[-14.2,24,"254b48",1],[-8.1,18,"1a3530",.76]]) {
     for (let i=0;i<count;i++) {
       const x=(i-count/2)*1.54+(random()-.5)*.65, h=(4.9+random()*3.35)*scale;
       const base=-1.3, spread=(1+random()*.43)*scale;
+      const visible=visibleThroughWindow(x,z,spread+.15,base,base+h);
       for(let j=0;j<3;j++){
         const y=base+h*(.13+j*.22), rad=spread*(1-j*.23);
-        turned(x,z+random()*.15,[[y,rad],[y+h*(.47-j*.045),.018]],5,tint,.58);
+        const treeZ=z+random()*.15;
+        if(visible) turned(x,treeZ,[[y,rad],[y+h*(.47-j*.045),.018]],5,tint,.58);
       }
+    }
+  }
+  if(castle){
+    // Distant battlements break the horizon above three overlapping banks of mist.
+    for(const [x,y,w] of [[9,5.0,.85],[11.4,5.75,1.12],[18.7,5.05,.85]]){
+      turned(x,-24,[[y-3,w*.52],[y,w*.52],[y+.10,w*.65],[y+.24,w*.63]],8,"4a3644",.65);
+      turned(x,-24,[[y+.24,w*.70],[y+1.16,.09],[y+1.48,.015]],8,"332a38",.70);
+      box(x,y-.27,-24+w*.51,.10,.37,.04,"ae745e");
+    }
+    for(const [layer,z,y,paint,crest] of [[0,-22,4.1,"593843","68434b"],[1,-16,3.25,"65414b","794e53"],[2,-10,2.42,"412f3c","593c46"]]){
+      clouds.push(part(()=>{
+        // The profile repeats every ten units, so each bank can travel continuously.
+        const edge=x=>{
+          const a=x*2*Math.PI/10;
+          return y+.34*Math.sin(a+layer)+.16*Math.cos(2*a-layer)+.09*Math.sin(3*a+.6*layer);
+        };
+        for(let x=-10;x<28;x+=.5){
+          const a=edge(x), b=edge(x+.5);
+          face([[x,-4,z],[x+.5,-4,z],[x+.5,b,z],[x,a,z]],paint,0,1);
+          face([[x,a,z],[x+.5,b,z],[x+.5,b+.06,z],[x,a+.06,z]],crest,0,1);
+        }
+      }));
     }
   }
   // Negative material tags identify scenery and features with their own night light.
   for (let i=6;i<vertices.length;i+=7) vertices[i]=-1;
   const wood=["523321","483022","533726","493123","583d2a","4d3425"];
+  if(!castle){
   box(-5,3.6,-5.78,14,8.5,.14,"221d17");
   box(9.87,3.6,-5.78,4.34,8.5,.14,"221d17");
   box(4.88,.64,-5.78,6.1,2.48,.14,"221d17");
@@ -101,6 +141,57 @@ window.buildCabinMesh = function buildCabinMesh() {
   for(const y of [1.86,6.15]) box(4.88,y,-5.09,6,.26,.68,"9a7148",1);
   box(4.88,3.73,-5.21,5.69,.13,.31,"715539",1);
   for(const x of [2.11,5.04,7.63]) box(x,4,-5.17,.17,4.32,.34,"83613e",2);
+  }else{
+    const stones=["516869","657c78","546f71","6c827a","597473","617e7b"];
+    box(-5,3.55,-5.91,14,9,.3,"334d50");
+    box(10,3.55,-5.91,4.6,9,.3,"334d50");
+    box(4.85,.62,-5.91,5.76,2.52,.3,"334d50");
+    box(4.85,7.53,-5.91,5.76,1.56,.3,"334d50");
+    for(let row=0;row<13;row++){
+      const lower=-.74+row*.75, upper=lower+.73;
+      for(let x=-13+(row%2)*.87;x<12;x+=1.74){
+        const spans=upper<=1.87 || lower>=6.75 ? [[-12,12]] : [[-12,1.98],[7.72,12]];
+        for(const [lo,hi] of spans){
+          const a=Math.max(x,lo),b=Math.min(x+1.71,hi);
+          if(b>a+.04){
+            const paint=stones[Math.floor(random()*stones.length)];
+            box((a+b)/2,(lower+upper)/2,-5.64,b-a,.73,.25,paint,3.75);
+            face([[a,upper,-5.505],[b,upper,-5.505],[b-.025,upper-.032,-5.493],[a+.024,upper-.026,-5.493]],paint,3.75,.41);
+          }
+        }
+      }
+    }
+    for(const side of [-1,1]){
+      box(side*8.8,3.5,0,.45,8.5,13,"496366");
+      for(const z of [-3.3,.4,4]) box(side*8.52,3.4,z,.52,8.2,.65,"73857e");
+    }
+    box(0,-.60,0,23,.22,14,"465556");
+    box(0,7.26,0,22,.3,14,"354e55");
+    // Recessed arch with individual wedge stones, a raised keystone and a deep inner reveal.
+    const arch=(a,r,z)=>[4.85+r*Math.cos(a),3.91+r*.88*Math.sin(a),z];
+    for(let i=0;i<15;i++){
+      const a=i*Math.PI/15,b=(i+1)*Math.PI/15,outer=i===7 ? 3.34 : 3.14;
+      const p=arch(a,2.82,-5.62),q=arch(b,2.82,-5.62);
+      face([p,q,[q[0],6.81,-5.62],[p[0],6.81,-5.62]],"536c6c");
+      face([arch(a,2.82,-5.65),arch(b,2.82,-5.65),arch(b,2.82,-5.17),arch(a,2.82,-5.17)],"718780");
+      face([arch(a+.005,2.82,-5.17),arch(b-.005,2.82,-5.17),arch(b-.005,outer,-5.17),arch(a+.005,outer,-5.17)],i===7?"afbaa5":stones[(i+2)%6],0,.34);
+    }
+    for(const x of [1.87,7.83,-.65,-7.9]){
+      box(x,2.8,-5.37,.48,5.8,.48,"657c78");
+      for(const [y,w,h] of [[1.0,.59,.15],[3.90,.68,.19],[4.06,.57,.12]]) box(x,y,-5.35,w,h,.60,"9ba99a");
+    }
+    box(4.86,1.86,-5.13,6.38,.26,.85,"91a196");
+    // A split-tail woven hanging and moon embroidery, beside the mirror.
+    {
+      const x=-.02;
+      box(x,5.65,-5.23,1.23,.075,.08,"b7a878");
+      face([[x-.52,5.59,-5.24],[x+.52,5.59,-5.24],[x+.52,3.65,-5.24],[x,3.24,-5.24],[x-.52,3.65,-5.24]],"275d5c",0,.30);
+      for(const side of [-1,1]) box(x+side*.46,4.66,-5.20,.028,1.8,.03,"a49368");
+      const stitch=(dx,y)=>[x+dx,y,-5.18];
+      face([stitch(0,5.15),stitch(.19,4.73),stitch(0,4.33),stitch(-.19,4.73)],"b4ae88",0,.64);
+      face([stitch(0,5.02),stitch(.105,4.73),stitch(0,4.46),stitch(-.105,4.73)],"365f60",0,.34);
+    }
+  }
   // Shelf contents occupy independent depths and cast small contact shadows.
   const covers=["71423a","65705a","9a7244","425656","84613d","705c4e"];
   for(const x of [-7.8,-4.2]) box(x,2.82,-3.65,.16,4.95,.82,"715035",2);
@@ -126,7 +217,8 @@ window.buildCabinMesh = function buildCabinMesh() {
   const tableRearEdge=[-1,1].map(x=>[x,boardY+boardHeight/2,firstBoardZ-boardDepth/2]);
   for(let i=0;i<10;i++){
     const z=firstBoardZ+i*.80;
-    box(0,boardY,z,16.8,boardHeight,boardDepth,["855a37","93613b","805436","936840","855c3b"][i%5],1);
+    const boards=castle ? ["446465","496b68","436464","506e69","466864"] : ["855a37","93613b","805436","936840","855c3b"];
+    box(0,boardY,z,16.8,boardHeight,castle ? .799 : boardDepth,boards[i%5],castle ? 3.75 : 1);
   }
   box(0,1.19,-1.98,16.8,.25,.14,"4c3021",1);
   // Faded brass-coloured lines follow the boards, in the same depth pass as the props.
@@ -179,19 +271,20 @@ window.buildCabinMesh = function buildCabinMesh() {
       return [radius*.92*Math.cos(angle),radius*.92*Math.sin(angle)];
     });
     const shadow=contactShadow(footprint,-.035*radius,.055*radius,x,base,z);
-    const geometry=part(()=>turned(x,z,[[base,radius*.68],[base+.017,radius*.74],
+    const profile=castle ? [[base,radius*.68],[base+.024,radius*.73],[base+.043,radius*.90],[base+.09,radius],[base+.105,radius*.98],[base+.098,radius*.91],[floor,radius*.79],[floor,radius*.36]] : [[base,radius*.68],[base+.017,radius*.74],
       [base+.050,radius*.98],[base+.067,radius],[base+.082,radius*.985],
-      [base+.084,radius*.94],[floor,radius*.78],[floor,radius*.36]],24,"aeb5ba",0,.21,-5));
+      [base+.084,radius*.94],[floor,radius*.78],[floor,radius*.36]];
+    const geometry=part(()=>turned(x,z,profile,castle ? 12 : 24,"aeb5ba",0,.21,-5));
     return {...geometry,radius,floor,shadow};
   }
   function candle(x,z,r,h,tray) {
     const y=tray.floor;
     const waxStart=vertices.length;
-    turned(x,z,[[y,r*1.23],[y+.08,r*1.17],[y+.13,r],[y+h-.07,r],[y+h,r*.85]],8,"c29658");
+    turned(x,z,[[y,r*1.23],[y+.08,r*1.17],[y+.13,r],[y+h-.07,r],[y+h,r*.85]],castle ? 10 : 8,castle ? "b3cab1" : "c29658");
     // Small separate wax ridges hang down over the faceted front.
     for(const [offset,drop] of [[-.38,.21],[.43,.13]]) {
       const ridge=r*.13, front=z+r*.86;
-      turned(x+offset*r,front,[[y+h-drop,ridge*.42],[y+h-drop+.045,ridge],[y+h-.028,ridge]],5,"d0a665");
+      turned(x+offset*r,front,[[y+h-drop,ridge*.42],[y+h-drop+.045,ridge],[y+h-.028,ridge]],5,castle ? "d4d6bb" : "d0a665");
     }
     turned(x,z,[[y+h-.01,r*.73],[y+h+.004,r*.65]],8,"aa804b");
     turned(x,z,[[y+h,.027],[y+h+.085,.018]],5,"35251c");
@@ -212,10 +305,22 @@ window.buildCabinMesh = function buildCabinMesh() {
   const flames = wicks.map((wick, index) => {
     const {x,y,z,r}=wick;
     const start=vertices.length;
-    turned(x,z,[[y+.055,.025],[y+.18,r*.48],[y+.46,.008,.02]],6,"ffae42",1);
-    turned(x,z+.04,[[y+.055,.018],[y+.14,r*.25],[y+.28,.006]],5,"fff2b4",1);
-    for (let i=start+6;i<vertices.length;i+=7) vertices[i]=-3;
-    return {...wick,phase:index*2.13,start,end:vertices.length};
+    const flameHeight=.32+r;
+    turned(x,z,[[y+.063,r*.15],[y+.105,r*.43],[y+.17,r*.62],[y+.25,r*.45],[y+.32,r*.22],[y+flameHeight,.003]],7,"ffffff",1,.21,-3);
+    // A luminous belly and a coloured envelope on the same surface also read at low resolution.
+    const base=castle ? [.12,.55,.66] : [.88,.37,.09];
+    const edge=castle ? [.18,.90,.76] : [1,.61,.15];
+    const core=castle ? [.84,1,.94] : [1,.96,.74];
+    for(let i=start;i<vertices.length;i+=7){
+      const dy=vertices[i+1]-y;
+      const blend=Math.min(1,Math.max(0,(dy-.063)/.10));
+      const hot=Math.max(0,1-Math.abs(dy-.18)/.17)*Math.max(0,Math.min(1,.55+(vertices[i+2]-z)/r));
+      for(let c=0;c<3;c++){
+        const tint=base[c]+(edge[c]-base[c])*blend;
+        vertices[i+3+c]=tint+(core[c]-tint)*hot;
+      }
+    }
+    return {...wick,flameHeight,phase:index*2.13,start,end:vertices.length};
   });
   // Tabletop props are local-space solids. The renderer places their feet on the table.
   function part(build) {
@@ -251,6 +356,7 @@ window.buildCabinMesh = function buildCabinMesh() {
     const a=i*Math.PI/12; return [.54*Math.cos(a),.54*Math.sin(a)];
   }),-.07,.045);
   const deckBase = part(() => {
+    if(castle) slab(1.46,1.91,0,.065,.22,"526b67","b3ad86");
     slab(1.37,1.82,0,.09,.14,"39271c","7c5730");
     slab(1.29,1.73,.09,.125,.10,"ad814a","373a31");
   });
@@ -279,6 +385,7 @@ window.buildCabinMesh = function buildCabinMesh() {
     turned(0,0,[[.22,.57],[.32,.55],[.35,.47]],12,"503b28",.32);
   });
   const dome = part(() => {
+    if(castle) turned(0,0,[[.32,.65],[.38,.61],[.47,.55]],8,"90b6a7",.55);
     turned(0,0,[[.29,.57],[.34,.59],[.40,.54],[.53,.48],[.65,.36],[.73,.21],[.75,.08]],12,"c69956",.22);
     turned(0,0,[[.32,.59],[.35,.61],[.38,.56]],12,"d1aa6e",.46);
   });
@@ -288,6 +395,7 @@ window.buildCabinMesh = function buildCabinMesh() {
   });
   // Pocket watch face lies in the local XZ plane; twelve o'clock points toward -Z.
   const watchCase=part(()=>{
+    if(castle) turned(0,0,[[.03,.58],[.12,.58],[.15,.52]],8,"829e92",.48);
     turned(0,0,[[0,.46],[.04,.54],[.11,.56],[.165,.52],[.17,.48]],24,"ba8d48",.56);
     turned(0,0,[[.171,.47],[.178,.455]],24,"f0ddaf",.80);
     for(let i=0;i<12;i++){
@@ -326,9 +434,9 @@ window.buildCabinMesh = function buildCabinMesh() {
     // An open, scalloped horn: its throat and widening inner facets are visible from the table.
     const rings=[[-.44,.81,-.29,.066],[-.40,.94,-.26,.085],[-.31,1.02,-.20,.12],
       [-.17,1.10,-.12,.19],[.005,1.22,-.025,.32],[...hornMouth,.47]];
-    const sides=12;
+    const sides=castle ? 10 : 12;
     const ring=([x,y,z,r],inner,lip)=>Array.from({length:sides},(_,i)=>{
-      const a=i*Math.PI*2/sides, scallop=lip && i%2 ? .94 : 1;
+      const a=i*Math.PI*2/sides, scallop=lip && i%2 ? (castle ? .78 : .94) : 1;
       const u=r*Math.cos(a)*inner*scallop,v=r*Math.sin(a)*inner*scallop;
       return [x+.73*u-.32*v,y+.89*v,z-.68*u-.34*v];
     });
@@ -340,7 +448,7 @@ window.buildCabinMesh = function buildCabinMesh() {
     }
     for(let j=1;j<rings.length;j++) for(let i=0;i<sides;i++){
       const k=(i+1)%sides;
-      face([outer[j-1][i],outer[j][i],outer[j][k],outer[j-1][k]],i%3===0?"bd9858":"987540",0,.27);
+      face([outer[j-1][i],outer[j][i],outer[j][k],outer[j-1][k]],castle ? (i%2 ? "73988c":"99b6a1") : i%3===0?"bd9858":"987540",0,.27);
       face([inner[j-1][k],inner[j][k],inner[j][i],inner[j-1][i]],j<3?"4c3522":i%2?"a47e43":"8c693a",0,.19);
       if(j===rings.length-1) face([outer[j][i],inner[j][i],inner[j][k],outer[j][k]],"d1ae6d",0,.48);
     }
@@ -402,6 +510,10 @@ window.buildCabinMesh = function buildCabinMesh() {
     return [x,x+.052].map(px=>profile.map(([y,z])=>[px,y,z]));
   });
   const shelf=part(()=>{
+    if(castle) for(const side of [-1,1]){
+      const x=side*(shelfWidth/2-.07);
+      turned(x,-.80,[[.15,.09],[1.50,.064],[1.59,.10],[1.72,.012]],6,"9da994",.45);
+    }
     box(0,.09,-.12,shelfWidth,.18,1.65,"745039",1);
     box(0,.145,.708,shelfWidth+.02,.055,.035,"b08a5a",1);
     box(0,.83,-.85,shelfWidth-.06,1.46,.13,"664838",1);
@@ -425,6 +537,7 @@ window.buildCabinMesh = function buildCabinMesh() {
       box(0,height/2,-.02,width-.032,height-.06,depth-.09,"cfb992");
       for(const side of [-1,1]) box(side*(width/2-.009),height/2,0,.018,height,depth,color);
       box(0,height/2,front-.035,width,height,.07,color);
+      if(castle) for(const level of [.07,.93]) box(0,height*level,front,width*.99,.07,.105,"a5ab8e");
       for(const level of [.12,.19,.80,.85]){
         box(0,height*level,front+.002,width*.88,.018,.013,foil);
       }
@@ -488,7 +601,7 @@ window.buildCabinMesh = function buildCabinMesh() {
     });
     face(rim,color,0,.40);
   }
-  return {vertices:new Float32Array(vertices),props,flames,clusterOrigin,clusterStart,clusterEnd,shadowStart};
+  return {vertices:new Float32Array(vertices),props,flames,clusterOrigin,clusterStart,clusterEnd,shadowStart,moon,moonDisc,clouds};
 };
 
 // Map the flat artwork onto a perspective quadrilateral in the iframe viewport.

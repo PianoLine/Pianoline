@@ -261,7 +261,9 @@
     wrap.dataset.id = id;
     const face = document.createElement("div");
     face.className = "hand-face";
-    face.append(createCard(id));
+    const card = createCard(id);
+    if (arena.classList.contains("room-tearing")) card.tabIndex = 0;
+    face.append(card);
     wrap.append(face);
     return wrap;
   }
@@ -809,7 +811,8 @@
   tray.addEventListener("pointerdown", event => {
     const card = event.target.closest(".card-wrap")?.querySelector(".card");
     if (!card || pointer || locked || !event.isPrimary || event.button !== 0) return;
-    pointer = { card, id: event.pointerId, x: event.clientX, y: event.clientY, clone: null };
+    pointer = { card, id: event.pointerId, x: event.clientX, y: event.clientY, clone: null,
+      tapOnly: arena.classList.contains("room-tearing"), moved: false };
     card.setPointerCapture(event.pointerId);
   });
   function dropTarget(event) {
@@ -823,6 +826,11 @@
   }
   tray.addEventListener("pointermove", event => {
     if (pointer?.id !== event.pointerId) return;
+    if (pointer.tapOnly || arena.classList.contains("room-tearing")) {
+      pointer.tapOnly = true;
+      if (Math.hypot(event.clientX - pointer.x, event.clientY - pointer.y) > 7) pointer.moved = true;
+      return;
+    }
     if (!pointer.clone) {
       if (Math.hypot(event.clientX - pointer.x, event.clientY - pointer.y) <= 7) return;
       pointer.clone = pointer.card.cloneNode(true);
@@ -843,7 +851,7 @@
   });
   async function finish(event) {
     if (pointer?.id !== event.pointerId) return;
-    const { card, clone } = pointer;
+    const { card, clone, tapOnly, moved, x, y } = pointer;
     pointer = null;
     const droppedFrom = clone?.getBoundingClientRect();
     const draggedCorners = clone && cardCorners(clone,clone);
@@ -854,6 +862,10 @@
     for (const slot of boardSlots) slot.classList.remove("over");
     if (event.type !== "pointerup") return;
     const id = Number(card.dataset.id);
+    if (tapOnly || arena.classList.contains("room-tearing")) {
+      if (!clone && !moved && Math.hypot(event.clientX-x,event.clientY-y) <= 7) playCard(id, false);
+      return;
+    }
     const target = dropTarget(event);
     if (!clone || target === ghost) playCard(id, Boolean(clone));
     else if (boardSlots.includes(target)) await placeOnBoard(id, target, draggedCorners);
@@ -866,6 +878,16 @@
     }
   }
   ["pointerup", "pointercancel", "lostpointercapture"].forEach(type => tray.addEventListener(type, finish));
+  arena.addEventListener("room-tear-start", () => {
+    if (!pointer) return;
+    const {card, id} = pointer;
+    finish({type: "pointercancel", pointerId: id});
+    if (card.hasPointerCapture(id)) card.releasePointerCapture(id);
+  });
+  tray.addEventListener("click", event => {
+    const card = event.target.closest(".card");
+    if (card && event.detail === 0 && arena.classList.contains("room-tearing")) playCard(Number(card.dataset.id), false);
+  });
   const chatter = [
     "把蜡烛吹灭试试？",
     "这里的留声机放的都是我喜欢的歌",
@@ -954,7 +976,7 @@
     const firstDraw = arena.classList.contains("modeled") || !arena.querySelector(".cabin-view")
       ? Promise.resolve() : new Promise(resolve => arena.addEventListener("cabin-painted", resolve, {once:true}));
     const images = arena.querySelectorAll(".portrait-ink img:first-child, .hand .card-image img");
-    Promise.allSettled([firstDraw, document.fonts.ready, ...Array.from(images, img => img.decode())]).then(() => {
+    Promise.allSettled([firstDraw, ...Array.from(images, img => img.decode())]).then(() => {
       requestAnimationFrame(() => requestAnimationFrame(() => window.parent.postMessage({type:"portfolio-table-ready"}, "*")));
     });
   }

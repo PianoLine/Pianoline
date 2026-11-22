@@ -9,6 +9,8 @@
   const knocks = [[1, 95], [2, 100], [3, 125], [4, 55], [0, 170],
     [1, 65], [2, 90], [4, 55], [0, 0]];
   let loaded = false, inView = false, onPage = true, running = false;
+  let sheetsRequested = false;
+  const arena = ghost.closest(".arena");
   let breathTimer, tapTimer, blinkTimer;
   let breathRow = 0, lid = 0;
 
@@ -52,8 +54,16 @@
   }
 
   function updateIdle() {
-    const active = loaded && inView && onPage && !document.hidden && !motion.matches &&
-      !ghost.matches(".over, .hurt");
+    const visible = inView && onPage && !document.hidden && !motion.matches;
+    if (visible && !sheetsRequested && (arena.classList.contains("modeled") || !arena.querySelector(".cabin-view"))) {
+      sheetsRequested = true;
+      // Give the resting portrait and the first room frame a paint before decoding the animation.
+      requestAnimationFrame(() => {
+        if (window.requestIdleCallback) window.requestIdleCallback(loadIdleSheets, {timeout: 1200});
+        else setTimeout(loadIdleSheets, 0);
+      });
+    }
+    const active = loaded && visible && !ghost.matches(".over, .hurt");
     if (running === active) return;
     running = active;
     portrait.classList.toggle("idle-playing", active);
@@ -77,6 +87,7 @@
   }).observe(portrait);
   new MutationObserver(updateIdle).observe(ghost, {attributes: true, attributeFilter: ["class"]});
   motion.addEventListener("change", updateIdle);
+  arena.addEventListener("cabin-painted", updateIdle, {once: true});
   document.addEventListener("visibilitychange", updateIdle);
   window.addEventListener("pagehide", () => { onPage = false; updateIdle(); });
   window.addEventListener("pageshow", () => { onPage = true; updateIdle(); });
@@ -85,16 +96,28 @@
   for (const layer of portrait.querySelectorAll(".warm-left, .warm-right")) {
     layer.append(resting.cloneNode());
   }
-  Promise.all(Array.from(portrait.querySelectorAll(".portrait-layer"), async layer => {
+  async function loadIdleSheets() {
+    if (!inView || !onPage || document.hidden || motion.matches) {
+      sheetsRequested = false;
+      return;
+    }
+    try {
+      await Promise.all(Array.from(portrait.querySelectorAll(".portrait-layer"), loadLayer));
+      loaded = true;
+      updateIdle();
+    } catch { /* Keep the resting portrait. */ }
+  }
+  async function loadLayer(layer) {
     const sheet = new Image();
     sheet.className = "idle-sheet";
     sheet.alt = "";
     sheet.draggable = false;
+    sheet.fetchPriority = "low";
     const isGlow = layer.classList.contains("portrait-embers");
     sheet.src = isGlow
       ? "art/celadon-idle-expression.png?v=eyelids" : "art/celadon-idle.png?v=anchored-arms";
     await sheet.decode();
     if (sheet.naturalWidth !== 640 || sheet.naturalHeight !== (isGlow ? 1152 : 2688)) throw new Error("Unexpected portrait sheet size");
     layer.append(sheet);
-  })).then(() => { loaded = true; updateIdle(); }).catch(() => { /* Keep the resting portrait. */ });
+  }
 })();

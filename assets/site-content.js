@@ -88,6 +88,7 @@ window.PORTFOLIO_CONTENT = {
         }
       ],
       "cover": {
+        "cardSrc": "assets/media/card-covers/scroll-of-phantom-city.webp",
         "src": "assets/media/portfolio-docx/image1.png",
         "alt": "《幽都绘卷》关卡与路线引导"
       },
@@ -253,6 +254,7 @@ window.PORTFOLIO_CONTENT = {
         }
       ],
       "cover": {
+        "cardSrc": "assets/media/card-covers/forging-simulator.webp",
         "src": "assets/media/portfolio-docx/image5.png",
         "alt": "《锻刀模拟器》项目展示图"
       },
@@ -403,6 +405,7 @@ window.PORTFOLIO_CONTENT = {
         }
       ],
       "cover": {
+        "cardSrc": "assets/media/card-covers/yellow-river-cleaner.webp",
         "src": "assets/media/portfolio-docx/image6.jpeg",
         "alt": "《黄河清扫员》战斗截图"
       },
@@ -549,6 +552,7 @@ window.PORTFOLIO_CONTENT = {
         }
       ],
       "cover": {
+        "cardSrc": "assets/media/card-covers/greedy-ghost.webp",
         "src": "assets/media/portfolio-docx/image8.jpeg",
         "alt": "《贪婪幽灵》书架机关截图"
       },
@@ -667,6 +671,7 @@ window.PORTFOLIO_CONTENT = {
         }
       ],
       "cover": {
+        "cardSrc": "assets/media/card-covers/infinite-elevator.webp",
         "src": "assets/media/portfolio-docx/image9.png",
         "alt": "《无限电梯》游戏画面"
       },
@@ -813,6 +818,7 @@ window.PORTFOLIO_CONTENT = {
         }
       ],
       "cover": {
+        "cardSrc": "assets/media/card-covers/mind-museum.webp",
         "src": "assets/media/portfolio-docx/image12.png",
         "alt": "《心灵博物馆》随机房间截图"
       },
@@ -971,6 +977,7 @@ window.PORTFOLIO_CONTENT = {
         }
       ],
       "cover": {
+        "cardSrc": "assets/media/card-covers/so-we-set-off.webp",
         "src": "assets/media/portfolio-docx/image15.jpeg",
         "alt": "《So, we set off》战斗场景截图"
       },

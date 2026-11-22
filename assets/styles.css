@@ -26,6 +26,7 @@
 * { box-sizing: border-box; }
 
 html { scroll-behavior: smooth; overflow-x: clip; }
+html.room-tearing { overflow: hidden; scrollbar-gutter: stable; }
 
 body { margin: 0; color: var(--text); background: #10100f; font: 16px/1.7 "Microsoft YaHei", system-ui, sans-serif; }
 
