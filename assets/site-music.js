@@ -75,7 +75,7 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
   }
 
   const musicKey = () => scope + ":music" + (playlist === "celadon" ? "" : ":" + playlist);
-  let index = 0, wanted = false, offset = 0, dragging = false;
+  let index = 0, wanted = false, dragging = false;
   // null plays in order. An empty shuffle bag starts a new round on the next advance.
   let remaining = null;
   function loadList() {
@@ -103,7 +103,7 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
     const known = Number.isFinite(duration) && duration > 0;
     slider.disabled = !known;
     slider.max = known ? String(duration) : "0";
-    const time = dragging ? Number(slider.value) : pendingSeek ?? (offset || audio.currentTime || 0);
+    const time = dragging ? Number(slider.value) : audio.currentTime || 0;
     if (!dragging) slider.value = String(time);
     const elapsed = format(known ? Math.min(time, duration) : time);
     clock.textContent = elapsed + " / " + (known ? format(duration) : "--:--");
@@ -134,7 +134,7 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
     try {
       sessionStorage.setItem(musicKey(), JSON.stringify({src: tracks[index].src,
         shuffle: remaining === null ? null : {played: uniqueTracks.filter(key => !remaining.includes(key))},
-        time: pendingSeek ?? (offset || audio.currentTime || 0), playing: wanted && !audio.paused, destination}));
+        time: pendingSeek ?? (audio.currentTime || 0), playing: wanted && !audio.paused, destination}));
     } catch { /* Browser storage is optional. */ }
   }
 
@@ -232,13 +232,14 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
     fade(0, () => { audio.pause(); save(); });
   }
 
-  function selectTrack() {
+  function selectTrack(resumeTime = 0) {
     const token = ++trackId;
     ++playId;
     clearInterval(fadeTimer);
     dragging = false;
-    pendingSeek = null;
-    if (wanted && tracks.length) keepPlayingWhileBuffering();
+    pendingSeek = resumeTime > 0 ? resumeTime : null;
+    // Keep the gesture-unlocked player and a single media request on phones.
+    if (wanted && tracks.length && !window.matchMedia("(pointer: coarse)").matches) keepPlayingWhileBuffering();
     else releaseOutgoing();
     audio.pause();
     audio.volume = 0;
@@ -254,7 +255,7 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
     function setSource(file) {
       if (token !== trackId) return;
       objectUrl = file ? URL.createObjectURL(file) : "";
-      audio.preload = wanted ? "auto" : "metadata";
+      audio.preload = wanted || pendingSeek !== null ? "auto" : "metadata";
       audio.src = objectUrl || new URL(path, siteRoot).href;
     }
     sourceReady = preview ? window.playlistFiles.get(path).then(setSource) : null;
@@ -273,7 +274,8 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
     applyPendingSeek();
   }
   function applyPendingSeek() {
-    if (pendingSeek === null) return;
+    if (pendingSeek === null || !audio.readyState || !Number.isFinite(audio.duration) || !audio.duration) return;
+    pendingSeek = Math.min(pendingSeek, audio.duration);
     // On sequential-only servers, reuse the player's incoming bytes until the target is reachable.
     const covers = ranges => {
       for (let i = 0; i < ranges.length; i++) {
@@ -291,7 +293,7 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
   function restore(cached, newListPlaying = null) {
     destination = "";
     wanted = false;
-    offset = 0;
+    let resumeTime = 0;
     remaining = null;
     index = 0;
     try {
@@ -308,7 +310,7 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
           const playedKeys = new Set(played.map(src => new URL(src, siteRoot).href));
           remaining = uniqueTracks.filter(key => !playedKeys.has(key));
         }
-        offset = Math.max(0, Number(saved.time) || 0);
+        if (Number.isFinite(saved.time)) resumeTime = Math.max(0, saved.time);
         const nav = performance.getEntriesByType("navigation")[0]?.type;
         // Only continue an already playing track across an internal navigation.
         const from = document.referrer && new URL(document.referrer);
@@ -319,7 +321,7 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
     } catch { /* Direct visits start quietly. */ }
     if (newListPlaying !== null) wanted = newListPlaying && tracks.length > 0;
     audio.loop = (remaining === null ? tracks.length : uniqueTracks.length) === 1;
-    selectTrack();
+    selectTrack(resumeTime);
   }
 
   function changeSkin(next) {
@@ -360,14 +362,13 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
       remaining.splice(remaining.indexOf(next), 1);
       index = trackKeys.indexOf(next);
     }
-    offset = 0;
     selectTrack();
   }
   function playRandomTrack() {
     if (!tracks.length) return;
     if (remaining === null) {
       audio.loop = uniqueTracks.length === 1;
-      const alreadyPlaying = !audio.paused || audio.played.length > 0 || offset > 0;
+      const alreadyPlaying = !audio.paused || audio.played.length > 0 || pendingSeek > 0;
       remaining = uniqueTracks.filter(key => !alreadyPlaying || key !== trackKeys[index]);
     }
     if (uniqueTracks.length === 1 && !audio.paused) {
@@ -385,18 +386,11 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
     switch (event.type) {
       case "progress":
       case "canplay":
-        applyPendingSeek();
-        break;
-      case "loadedmetadata": {
-        const time = offset;
-        offset = 0;
-        if (time > 0) seek(time);
-        else timeline();
-        break;
-      }
+      case "loadedmetadata":
       case "timeupdate":
       case "durationchange":
       case "seeked":
+        applyPendingSeek();
         timeline();
         break;
       default:

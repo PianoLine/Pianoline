@@ -354,13 +354,17 @@ a:focus-visible { outline-color: #f5b55f; }
   from { background-color: transparent; }
   to { background-color: rgb(13 11 9 / 48%); }
 }
-.scene-edges::before, .scene-edges::after { content: ""; position: absolute; inset: 0; }
-.scene-edges::before {
-  -webkit-backdrop-filter: blur(7px); backdrop-filter: blur(7px);
-  mask-image: linear-gradient(to right,black,transparent var(--side-fade),transparent calc(100% - var(--side-fade)),black),
-              linear-gradient(to bottom,black,transparent var(--top-fade),transparent calc(100% - var(--foot-fade)),black);
+.scene-edges::before, .scene-edges::after { position: absolute; inset: 0; }
+@media (min-width:721px) and (hover:hover) and (pointer:fine) {
+  .scene-edges::before {
+    content: "";
+    -webkit-backdrop-filter: blur(7px); backdrop-filter: blur(7px);
+    mask-image: linear-gradient(to right,black,transparent var(--side-fade),transparent calc(100% - var(--side-fade)),black),
+                linear-gradient(to bottom,black,transparent var(--top-fade),transparent calc(100% - var(--foot-fade)),black);
+  }
 }
 .scene-edges::after {
+  content: "";
   background: linear-gradient(to right,#10100f,transparent var(--side-fade),transparent calc(100% - var(--side-fade)),#10100f),
               linear-gradient(to bottom,#10100f,transparent var(--top-fade),transparent calc(100% - var(--foot-fade)),#10100f 99.8%);
 }

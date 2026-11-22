@@ -1088,7 +1088,14 @@ void main(){
     frame=0;
     const width=canvas.clientWidth,height=canvas.clientHeight;
     if(!width || !height || !visible || document.hidden) return;
-    const resolution=Math.min(.64,(gpu?860:510)/width,(gpu?530:330)/height);
+    const landscape=document.documentElement.classList.contains("phone-landscape");
+    const narrow=width<=720 || landscape;
+    // Keep small props legible on dense phone screens. Budget total pixels
+    // so portrait and landscape can use the same framebuffer capacity.
+    const resolution=narrow
+      ? Math.min(window.devicePixelRatio || 1, gpu ? 1.5 : 1,
+          Math.sqrt((gpu ? 860*530 : 510*330)/(width*height)))
+      : Math.min(.64,(gpu?860:510)/width,(gpu?530:330)/height);
     const w=Math.max(1,Math.round(width*resolution)),h=Math.max(1,Math.round(height*resolution));
     if(canvas.width!==w || canvas.height!==h){ canvas.width=w; canvas.height=h; }
     const delta=Math.min(100,previous ? now-previous : 16);
@@ -1099,8 +1106,6 @@ void main(){
     const seconds=Math.max(0,(now-hit)/1000);
     const shakeTime=heavyHit ? .32 : .15;
     const kick=seconds<shakeTime ? (heavyHit ? .86 : .22)*(1-seconds/shakeTime)**2 : 0;
-    const landscape=document.documentElement.classList.contains("phone-landscape");
-    const narrow=width<=720 || landscape;
     const focal=landscape ? Math.min(w*.46,stage.offsetHeight*1.9*h/height) : narrow ? Math.max(w*.71,Math.min(w*.98,stage.offsetHeight*1.67*h/height)) : Math.min(h*1.47,Math.max(h*1.01,w*.545));
     const cameraX=x*Math.min(1,width/1000);
     const camera=cameraRows(cameraX,y*.78,kick,kick ? seconds : 0);
