@@ -31,9 +31,7 @@
     sheet.draggable = false;
     const loading = sheet.decode().then(() => {
       if (sheet.naturalWidth !== 640 || sheet.naturalHeight !== 2688) throw Error(names[skin] + "图集尺寸不符");
-      for (const layer of portrait.querySelectorAll(".portrait-layer:not(.portrait-embers)")) {
-        layer.append(sheet.cloneNode());
-      }
+      portrait.querySelector(".portrait-ink").append(sheet);
     }).catch(error => { ready.delete(skin); throw error; });
     ready.set(skin, loading);
     return loading;
@@ -48,6 +46,7 @@
       sheet.classList.toggle("current-skin-sheet", sheet.dataset.costume === skin);
     }
     encounter.dataset.skin = skin;
+    character.dispatchEvent(new Event("skin-changed"));
     character.title = name;
     character.setAttribute("aria-label", "和" + name + "聊天，或把作品卡拖给她");
   }

@@ -960,11 +960,16 @@
   }
   arena.addEventListener("pointerdown",endCues,{once:true,capture:true});
 
+  // Fly-in cards are attached to the body, so start dealing only after the room is visible.
+  const hasRoom = !!arena.querySelector(".cabin-view");
+  if (!hasRoom) arena.classList.add("scene-unavailable");
+  const firstDraw = arena.classList.contains("modeled") || !hasRoom
+    ? Promise.resolve() : new Promise(resolve => arena.addEventListener("cabin-painted", resolve, {once:true}));
   updateDeck();
   if (resumed) {
     render();
     locked = false;
-  } else requestAnimationFrame(() => requestAnimationFrame(async () => {
+  } else if (hasRoom) firstDraw.then(() => requestAnimationFrame(async () => {
     try { await dealHand(); }
     finally {
       locked = false;
@@ -973,8 +978,6 @@
   }));
   if (embedded) {
     new ResizeObserver(() => window.parent.postMessage({ type: "portfolio-table-height", height: Math.ceil(arena.getBoundingClientRect().height) }, "*")).observe(arena);
-    const firstDraw = arena.classList.contains("modeled") || !arena.querySelector(".cabin-view")
-      ? Promise.resolve() : new Promise(resolve => arena.addEventListener("cabin-painted", resolve, {once:true}));
     const images = arena.querySelectorAll(".portrait-ink img:first-child, .hand .card-image img");
     Promise.allSettled([firstDraw, ...Array.from(images, img => img.decode())]).then(() => {
       requestAnimationFrame(() => requestAnimationFrame(() => window.parent.postMessage({type:"portfolio-table-ready"}, "*")));

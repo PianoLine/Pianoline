@@ -20,7 +20,7 @@ $runtimeFiles = @(
     'art/celadon-ghost.png'
     'art/celadon-ghost-expression.png'
     'art/project-stamps.png'
-    'art/polygon-cabin.webp'
+    'portrait-light.js'
 )
 
 foreach ($file in $runtimeFiles) {

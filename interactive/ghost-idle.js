@@ -12,11 +12,22 @@
   let sheetsRequested = false;
   const arena = ghost.closest(".arena");
   let breathTimer, tapTimer, blinkTimer;
-  let breathRow = 0, lid = 0;
+  let breathRow = 0, lid = 0, handColumn = 0;
+  const ink = portrait.querySelector(".portrait-ink");
+  const resting = ink.querySelector("img");
+  function updatePortrait() {
+    const image = ink.querySelector(".current-skin-sheet") || (running && ink.querySelector(".idle-sheet")) || resting;
+    const animated = running && image !== resting;
+    portraitPainter.setFrame(image, animated ? handColumn : 0, animated ? lid * breath.length + breathRow : 0);
+  }
+  resting.addEventListener("load", updatePortrait);
+  ghost.addEventListener("skin-changed", updatePortrait);
+  updatePortrait();
 
   function showFace() {
     portrait.style.setProperty("--pose-y", (lid * breath.length + breathRow) * -100 + "%");
     portrait.style.setProperty("--ember-y", (lid * 3) * -100 + "%");
+    updatePortrait();
   }
 
   function breathe(step) {
@@ -35,6 +46,8 @@
 
   function tap(step) {
     const [column, duration] = knocks[step];
+    handColumn = column;
+    updatePortrait();
     portrait.style.setProperty("--pose-x", column * -100 + "%");
     if (step + 1 === knocks.length) waitForTap();
     else tapTimer = setTimeout(() => tap(step + 1), duration);
@@ -70,7 +83,8 @@
     clearTimeout(breathTimer);
     clearTimeout(tapTimer);
     clearTimeout(blinkTimer);
-    lid = breathRow = 0;
+    lid = breathRow = handColumn = 0;
+    updatePortrait();
     portrait.style.removeProperty("--pose-x");
     portrait.style.removeProperty("--pose-y");
     portrait.style.removeProperty("--ember-y");
@@ -91,11 +105,6 @@
   document.addEventListener("visibilitychange", updateIdle);
   window.addEventListener("pagehide", () => { onPage = false; updateIdle(); });
   window.addEventListener("pageshow", () => { onPage = true; updateIdle(); });
-  // Local HTML can display ordinary images even where URL-based CSS masks are blocked.
-  const resting = portrait.querySelector(".portrait-ink img");
-  for (const layer of portrait.querySelectorAll(".warm-left, .warm-right")) {
-    layer.append(resting.cloneNode());
-  }
   async function loadIdleSheets() {
     if (!inView || !onPage || document.hidden || motion.matches) {
       sheetsRequested = false;

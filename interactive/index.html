@@ -2,6 +2,8 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
+  <meta name="color-scheme" content="dark">
+  <style>html { background: #10100f; }</style>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>个人作品集 · 作品卡</title>
   <script>
@@ -15,14 +17,9 @@
     function updatePhoneLayout() { document.documentElement.classList.toggle("phone-landscape", phoneLandscape.matches); }
     updatePhoneLayout();
     phoneLandscape.addEventListener("change", updatePhoneLayout);
-    if (matchMedia("(max-width:720px)").matches || phoneLandscape.matches) {
-      document.documentElement.classList.add("awaiting-room");
-      // Show the illustrated fallback if initialization stalls or the renderer is unavailable.
-      setTimeout(() => document.documentElement.classList.remove("awaiting-room"), 900);
-    }
   </script>
   <link rel="stylesheet" href="../assets/fonts/titles.css?v=pixel-table-3">
-  <link rel="stylesheet" href="prototype.css?v=phone-clarity">
+  <link rel="stylesheet" href="prototype.css?v=lit-room">
   <link rel="stylesheet" href="../assets/site-music.css?v=music-prompt">
 </head>
 <body>
@@ -57,8 +54,6 @@
           <span class="ghost-portrait" aria-hidden="true">
             <span class="skin-layers">
               <span class="portrait-layer portrait-ink"><img src="art/celadon-ghost.png?v=eyelids" width="128" height="128" alt="" draggable="false"></span>
-              <span class="portrait-layer warm-left"></span>
-              <span class="portrait-layer warm-right"></span>
               <span class="portrait-layer portrait-embers"><img src="art/celadon-ghost-expression.png?v=eyelids" width="128" height="128" alt="" draggable="false"></span>
             </span>
           </span>
@@ -100,13 +95,14 @@
   <script src="../assets/site-content.js?v=stream-playback"></script>
   <script src="art/book-prints.js?v=sky-to-rim"></script>
   <script src="cabin-mesh.js?v=phone-table"></script>
-  <script src="cabin-view.js?v=phone-clarity"></script>
-  <script src="ghost-idle.js?v=table-tear"></script>
+  <script src="portrait-light.js?v=lit-room"></script>
+  <script src="cabin-view.js?v=lit-room"></script>
+  <script src="ghost-idle.js?v=lit-room"></script>
   <script src="golden-veil.js?v=mist-wisps"></script>
-  <script src="skin-mirror.js?v=skin-dialogue"></script>
+  <script src="skin-mirror.js?v=lit-room"></script>
   <script src="table-audio.js?v=duel-placement"></script>
   <script src="../assets/music-spectrum.js?v=stream-playback"></script>
   <script src="../assets/site-music.js?v=mobile-playhead"></script>
-  <script src="prototype.js?v=table-tear"></script>
+  <script src="prototype.js?v=lit-room"></script>
 </body>
 </html>

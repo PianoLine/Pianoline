@@ -68,10 +68,10 @@ a:focus-visible { outline: 3px solid #d75f36; outline-offset: 4px; }
 }
 .idle-playing .portrait-embers > .idle-sheet { height: 900%; top: var(--ember-y, 0%); }
 .portrait-ink { filter: brightness(calc(.13 + .73 * var(--portrait-light, 1))) sepia(calc(.12 + .22 * var(--portrait-light, 1))); }
-.ghost-portrait :is(.warm-left,.warm-right) { mix-blend-mode: soft-light; }
-.ghost-portrait :is(.warm-left,.warm-right) img { filter: brightness(0) invert(78%) sepia(61%) saturate(790%) hue-rotate(326deg); }
-.warm-left { opacity: var(--warm-left, .22); mask-image: linear-gradient(95deg, black, transparent 48%); }
-.warm-right { opacity: var(--warm-right, .24); mask-image: linear-gradient(95deg, transparent 48%, black); }
+.portrait-ink.lit { filter: sepia(var(--portrait-sepia, .34)); }
+.lit-portrait { display: none; position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+.portrait-ink.lit .lit-portrait { display: block; }
+.portrait-ink.lit img { visibility: hidden; }
 .portrait-embers { opacity: var(--red-glow, 0); filter: drop-shadow(0 0 2px #fc322778) drop-shadow(0 0 5px #e5231938); }
 .portrait-layer .skin-sheet { display: none; }
 .encounter[data-skin]:not([data-skin="celadon"]) .portrait-layer:not(.portrait-embers) > img { display: none; }
@@ -105,9 +105,6 @@ a:focus-visible { outline: 3px solid #d75f36; outline-offset: 4px; }
 .room-tearing .card-wrap:focus-within { z-index: 6; }
 .room-tearing .card-wrap:focus-within .hand-face { transform: translateY(calc(-1 * var(--reveal-height))) scale(1.035); }
 html:has(.room-tearing):not(.embedded) { overflow: hidden; scrollbar-gutter: stable; }
-.arena[data-room="castle"] .ghost-portrait :is(.warm-left,.warm-right) img {
-  filter: brightness(0) invert(83%) sepia(45%) saturate(400%) hue-rotate(102deg);
-}
 .modeled .encounter[data-skin="dream"] .portrait-layer:not(.portrait-embers) { clip-path: url(#dream-table-contact); }
 .skin-layers { position: absolute; inset: 0; }
 .skin-mist {
@@ -240,11 +237,8 @@ html:has(.room-tearing):not(.embedded) { overflow: hidden; scrollbar-gutter: sta
   color: #f3e2c1;
   background: #201b14;
 }
-.arena::before {
-  content: ""; position: absolute; inset: 0; z-index: -3; pointer-events: none;
-  background: linear-gradient(90deg, #0b100f47, transparent 41%), url("art/polygon-cabin.webp") center 54% / cover no-repeat;
-  image-rendering: pixelated;
-}
+.arena:not(.modeled) { visibility: hidden; }
+.arena.scene-unavailable .browse { visibility: visible; }
 .cabin-view {
   display: block; position: absolute; inset: 0; z-index: -3;
   width: 100%; height: 100%; pointer-events: none; image-rendering: pixelated; opacity: 0;
@@ -290,7 +284,6 @@ html:has(.room-tearing):not(.embedded) { overflow: hidden; scrollbar-gutter: sta
 a:focus-visible { outline-color: #f5b55f; }
 
 @media (max-width: 720px) {
-  .arena::before { background-position: 58% center; }
   .stage { min-height: 233px; }
   .opening h1 { font-size: 36px; }
   .ghost-portrait { width: 98px; }
@@ -657,7 +650,6 @@ a:focus-visible { outline-color: #f5b55f; }
 .modeled .hand .card-wrap { pointer-events: auto; }
 
 @media (max-width:720px) {
-  .awaiting-room .arena::before, .arena:has(.cabin-view.painted)::before { background-image: none; }
   .stage { min-height: clamp(215px, 56vw, 270px); grid-template-columns: 40% 1fr; padding-block: 50px 13px; }
   .opening h1 { font-size: clamp(26px, 7vw, 36px); margin-block: 6px 4px; }
   .edition { font-size: 13px; gap: 6px; }
@@ -686,4 +678,3 @@ a:focus-visible { outline-color: #f5b55f; }
   --hand-card-width: clamp(66px, 9vw, 84px);
 }
 .phone-landscape .scene-edges { --side-fade: 3vw; --top-fade: 12px; --foot-fade: 12px; }
-.phone-landscape.awaiting-room .arena::before, .phone-landscape .arena:has(.cabin-view.painted)::before { background-image: none; }

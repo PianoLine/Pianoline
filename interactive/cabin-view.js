@@ -483,7 +483,7 @@ void main(){
     if(ctx) draw=softwareRenderer(ctx);
   }
   makeRenderer();
-  if(!draw){ canvas.remove(); return; }
+  if(!draw){ canvas.remove(); arena.classList.add("scene-unavailable"); return; }
 
   const motion=matchMedia("(prefers-reduced-motion: reduce)");
   let targetX=0,targetY=0,x=0,y=0,hit=-Infinity,frame=0,previous=0,visible=true;
@@ -578,7 +578,8 @@ void main(){
     for(const layer of portrait.querySelectorAll(".portrait-layer")){
       const style=getComputedStyle(layer);
       if(Number(style.opacity)===0) continue;
-      const image=[...layer.querySelectorAll("img")].find(img=>img.naturalWidth && img.getClientRects().length);
+      const image=layer.classList.contains("lit") ? layer.querySelector(".lit-portrait") :
+        [...layer.querySelectorAll("img")].find(img=>img.naturalWidth && img.getClientRects().length);
       if(!image) continue;
       if(layer.classList.contains("portrait-ink")) hasBase=true;
       const rect=image.getBoundingClientRect();
@@ -596,19 +597,12 @@ void main(){
       }
       brush.imageSmoothingEnabled=false;
       brush.filter=getComputedStyle(image).filter;
-      brush.drawImage(image,(bounds.left-rect.left)*image.naturalWidth/rect.width,
-        (bounds.top-rect.top)*image.naturalHeight/rect.height,bounds.width*image.naturalWidth/rect.width,
-        bounds.height*image.naturalHeight/rect.height,0,0,128,128);
-      if(layer.matches(".warm-left,.warm-right")){
-        const left=layer.classList.contains("warm-left");
-        const mask=brush.createLinearGradient(left?0:128,0,left?62:66,0);
-        mask.addColorStop(0,"black");mask.addColorStop(1,"transparent");
-        brush.filter="none";brush.globalCompositeOperation="destination-in";
-        brush.fillStyle=mask;brush.fillRect(0,0,128,128);
-      }
+      const scaleX=(image.naturalWidth || image.width)/rect.width;
+      const scaleY=(image.naturalHeight || image.height)/rect.height;
+      brush.drawImage(image,(bounds.left-rect.left)*scaleX,(bounds.top-rect.top)*scaleY,
+        bounds.width*scaleX,bounds.height*scaleY,0,0,128,128);
       brush.restore();
       actor.save();
-      if(style.mixBlendMode==="soft-light") actor.globalCompositeOperation="soft-light";
       actor.filter=style.filter;actor.globalAlpha=Number(style.opacity);
       actor.drawImage(paint,0,0);actor.restore();
     }
@@ -1255,8 +1249,9 @@ void main(){
     exteriorLight=1+.76*(1-roomLight);
     const exposure=Math.min(1,.65*portraitLight/availableLight+.35*roomLight);
     encounter.style.setProperty("--portrait-light",exposure.toFixed(3));
-    encounter.style.setProperty("--warm-left",Math.min(.42,leftWarmth/availableLight*.64).toFixed(3));
-    encounter.style.setProperty("--warm-right",Math.min(.42,rightWarmth/availableLight*.64).toFixed(3));
+    encounter.style.setProperty("--portrait-sepia",(.12+.22*exposure).toFixed(3));
+    portraitPainter.setLight(exposure,Math.min(.42,leftWarmth/availableLight*.64),
+      Math.min(.42,rightWarmth/availableLight*.64),room==="castle");
     const dark=Math.max(0,1-exposure/.80);
     encounter.style.setProperty("--red-glow",(dark*dark*(3-2*dark)).toFixed(3));
     const compact=width<=1050;
