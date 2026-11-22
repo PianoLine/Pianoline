@@ -41,6 +41,8 @@
     paths.add("projects/detail.html");
     paths.add("assets/playlist-files.js");
     paths.add("assets/site-music.js");
+    paths.add("assets/music-spectrum.js");
+    paths.add("assets/gramophone-scores.js");
     paths.add("assets/site-music.css");
     paths.add("interactive/ghost-idle.js");
     paths.add("interactive/art/book-prints.js");

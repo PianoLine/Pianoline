@@ -22,6 +22,8 @@ window.buildCabinMesh = function buildCabinMesh() {
     const diffuse = .56 + .31*Math.abs(ny/length) + .19*nx/length + .14*nz/length;
     const shade = diffuse * (1-emission) * (grain === 4 ? 1 : .51) + emission;
     const lit = points.map(([x,y,z]) => {
+      // Silver uses this space for its facet normal until the renderer computes its reflections.
+      if(grain===-5) return [x,y,z,nx/length,ny/length,nz/length,grain];
       const distance = Math.min((x-clusterOrigin.x)**2+(y-2.7)**2+(z-clusterOrigin.z)**2,
         (x-singleCandle.x)**2+(y-2.41)**2+(z-singleCandle.z)**2);
       const amber = (1-emission) * .67 / (1+distance*.19);
@@ -38,16 +40,16 @@ window.buildCabinMesh = function buildCabinMesh() {
       face(indices.map(i=>corners[i]),color,grain);
     }
   }
-  function turned(x,z,levels,sides,paint,emission=0,rotation=.21) {
+  function turned(x,z,levels,sides,paint,emission=0,rotation=.21,material=0) {
     const rings=levels.map(([y,r,dx=0])=>Array.from({length:sides},(_,i)=>{
       const a=rotation+2*Math.PI*i/sides;
       return [x+dx+r*Math.cos(a),y,z+r*Math.sin(a)];
     }));
     for (let j=1;j<rings.length;j++) for (let i=0;i<sides;i++) {
       const k=(i+1)%sides;
-      face([rings[j-1][i],rings[j][i],rings[j][k],rings[j-1][k]],paint,0,emission);
+      face([rings[j-1][i],rings[j][i],rings[j][k],rings[j-1][k]],paint,material,emission);
     }
-    face(rings.at(-1).slice().reverse(),paint,0,emission);
+    face(rings.at(-1).slice().reverse(),paint,material,emission);
   }
   function beam(x1,y1,x2,y2,z,thickness,depth,paint) {
     const len=Math.hypot(x2-x1,y2-y1), dx=-(y2-y1)*thickness/(2*len),dy=(x2-x1)*thickness/(2*len);
@@ -170,7 +172,20 @@ window.buildCabinMesh = function buildCabinMesh() {
   });
   face(inkFoot,"523a28",1);
   bottle(inkX,1.534,inkZ,.44,"375e55");
-  function candle(x,y,z,r,h) {
+  function silverTray(x,base,z,radius) {
+    const floor=base+.040;
+    const footprint=Array.from({length:24},(_,i)=>{
+      const angle=.21+i*Math.PI/12;
+      return [radius*.92*Math.cos(angle),radius*.92*Math.sin(angle)];
+    });
+    const shadow=contactShadow(footprint,-.035*radius,.055*radius,x,base,z);
+    const geometry=part(()=>turned(x,z,[[base,radius*.68],[base+.017,radius*.74],
+      [base+.050,radius*.98],[base+.067,radius],[base+.082,radius*.985],
+      [base+.084,radius*.94],[floor,radius*.78],[floor,radius*.36]],24,"aeb5ba",0,.21,-5));
+    return {...geometry,radius,floor,shadow};
+  }
+  function candle(x,z,r,h,tray) {
+    const y=tray.floor;
     const waxStart=vertices.length;
     turned(x,z,[[y,r*1.23],[y+.08,r*1.17],[y+.13,r],[y+h-.07,r],[y+h,r*.85]],8,"c29658");
     // Small separate wax ridges hang down over the faceted front.
@@ -181,16 +196,18 @@ window.buildCabinMesh = function buildCabinMesh() {
     turned(x,z,[[y+h-.01,r*.73],[y+h+.004,r*.65]],8,"aa804b");
     turned(x,z,[[y+h,.027],[y+h+.085,.018]],5,"35251c");
     for(let i=waxStart+6;i<vertices.length;i+=7) vertices[i]=-4;
-    wicks.push({x,y:y+h,z,r,h,waxStart,waxEnd:vertices.length});
+    wicks.push({x,y:y+h,z,r,h,tray,waxStart,waxEnd:vertices.length});
   }
   const clusterStart=vertices.length;
-  turned(clusterOrigin.x,clusterOrigin.z,[[1.53,.55],[1.58,.61],[1.65,.55]],9,"755538");
-  candle(clusterOrigin.x-.02,1.65,clusterOrigin.z-.09,.146,.79);
-  candle(clusterOrigin.x+.20,1.65,clusterOrigin.z+.11,.13,.55);
-  candle(clusterOrigin.x-.22,1.65,clusterOrigin.z+.19,.105,.31);
+  const sharedTray=silverTray(clusterOrigin.x,1.53,clusterOrigin.z,.72);
+  candle(clusterOrigin.x-.02,clusterOrigin.z-.17,.110,.79,sharedTray);
+  candle(clusterOrigin.x+.26,clusterOrigin.z+.15,.098,.55,sharedTray);
+  candle(clusterOrigin.x-.26,clusterOrigin.z+.21,.079,.31,sharedTray);
   const clusterEnd=vertices.length;
-  candle(singleCandle.x,1.53,singleCandle.z,.15,.61);
-  candle(5.54,1.99,-4.94,.16,.66);
+  const tableTray=silverTray(singleCandle.x,1.53,singleCandle.z,.36);
+  candle(singleCandle.x,singleCandle.z,.113,.61,tableTray);
+  const windowTray=silverTray(5.54,1.99,-5.09,.32);
+  candle(5.54,-5.09,.120,.66,windowTray);
   // Put moving geometry together so the room stays in its static vertex buffer.
   const flames = wicks.map((wick, index) => {
     const {x,y,z,r}=wick;
@@ -218,10 +235,10 @@ window.buildCabinMesh = function buildCabinMesh() {
     face(high,lid,0,.55);
   }
   // Thin translucent footprints let the table grain show through the candle shadows.
-  function contactShadow(outline, dx, dz) {
+  function contactShadow(outline, dx, dz, originX=0, base=0, originZ=0) {
     return part(() => {
       for(const [size,offset,y,opacity] of [[1.13,1,.002,.24],[1.03,.30,.004,.39]]) {
-        const rim=outline.map(([x,z])=>[x*size+dx*offset,y,z*size+dz*offset]);
+        const rim=outline.map(([x,z])=>[originX+x*size+dx*offset,base+y,originZ+z*size+dz*offset]);
         face(rim,"100b07",5+opacity,1);
       }
     });
@@ -302,6 +319,9 @@ window.buildCabinMesh = function buildCabinMesh() {
     slab(1.24,1.01,.02,.11,.09,"4c3327","81593b");
     slab(1.16,.94,.11,.30,.055,"684534","886344");
     slab(1.22,.99,.30,.35,.07,"a4814d","534735");
+    // A brass bezel with a recessed, dark bed on the audience-facing panel.
+    box(0,.205,.475,1.01,.186,.016,"8d7145");
+    box(0,.205,.486,.961,.157,.012,"29231c");
     turned(-.44,-.29,[[.35,.105],[.41,.11],[.45,.073],[.87,.064]],8,"a78149",.31);
     // An open, scalloped horn: its throat and widening inner facets are visible from the table.
     const rings=[[-.44,.81,-.29,.066],[-.40,.94,-.26,.085],[-.31,1.02,-.20,.12],
@@ -329,6 +349,15 @@ window.buildCabinMesh = function buildCabinMesh() {
     box(.35,.545,-.08,.045,.04,.43,"b09461",0,-.28);
     box(.29,.51,.12,.082,.075,.075,"a98e60");
   });
+  const reedFootY=.138;
+  const gramReeds=Array.from({length:7},(_,band)=>part(()=>{
+    const x=(band-3)*.13;
+    const strip=(halfWidth,low,high,z,paint,shine)=>face([
+      [x-halfWidth,low,z],[x+halfWidth,low,z],[x+halfWidth,high,z],[x-halfWidth,high,z]
+    ],paint,0,shine);
+    strip(.040,reedFootY,reedFootY+.130,.496,"bb965d",.55);
+    strip(.040,reedFootY+.104,reedFootY+.130,.497,"e1bc76",.72);
+  }));
   const gramRecord=part(()=>{
     turned(0,0,[[.355,.425],[.375,.44],[.396,.435]],24,"292a28",.36);
     turned(0,0,[[.397,.135],[.403,.135]],16,"a17442",.43);
@@ -343,6 +372,14 @@ window.buildCabinMesh = function buildCabinMesh() {
     }
     box(.072,.407,.02,.058,.006,.025,"e0c48a");
   });
+  // Stretch only the cabinet's middle course; everything above its lip moves up intact.
+  function cabinetY(y){
+    return y+.5*Math.max(0,Math.min(.30,y)-.11);
+  }
+  for(let i=gramBase.start+1;i<gramRecord.end;i+=7) vertices[i]=cabinetY(vertices[i]);
+  for(const point of gramHit) point[1]=cabinetY(point[1]);
+  hornMouth[1]=cabinetY(hornMouth[1]);
+  const reedFoot=cabinetY(reedFootY);
   // From the right edge, the open shelf faces across the table. The backboard and feet
   // extend behind the books; the low lip leaves a clear path to pull a volume out.
   const {bloodborne,nightreign}=window.portfolioBookPrints;
@@ -442,7 +479,7 @@ window.buildCabinMesh = function buildCabinMesh() {
     glass([[-.24,-.33],[-.18,-.27],[-.15,-.34],[-.20,-.43]],"9a8967");
     glass([[-.22,-.46],[-.17,-.43],[-.18,-.49]],"7a7660");
   });
-  const props = { tableRearEdge, playerSlots, mirror, mirrorRim:rim(1,.10), deckShadow, bellShadow, watchShadow, deckBase, leaves, bellBase, dome, plunger, watchCase, watchHand, gramShadow, gramBase, gramRecord, gramHit, hornMouth, shelf, books };
+  const props = { tableRearEdge, playerSlots, mirror, mirrorRim:rim(1,.10), deckShadow, bellShadow, watchShadow, deckBase, leaves, bellBase, dome, plunger, watchCase, watchHand, gramShadow, gramBase, gramReeds, reedFoot, gramRecord, gramHit, hornMouth, shelf, books };
   const shadowStart=vertices.length;
   for (const [radius,color,height] of [[.78,"473022",1.534],[.52,"362820",1.536]]) {
     const rim=Array.from({length:14},(_,i)=>{

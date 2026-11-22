@@ -20,6 +20,18 @@
     return glow;
   });
   const vertexCount = mesh.length / 7;
+  // One ID per silhouette, shared by all moving parts and surface decoration of that prop.
+  const objectIds=new Uint8Array(vertexCount);
+  const trays=[...new Set(flames.map(f=>f.tray))];
+  const silhouettes=[
+    ...trays,...flames.map(f=>({start:f.waxStart,end:f.waxEnd})),
+    {start:props.deckBase.start,end:props.leaves.at(-1).end},
+    {start:props.bellBase.start,end:props.plunger.end},
+    {start:props.watchCase.start,end:props.watchHand.end},
+    {start:props.gramBase.start,end:props.gramRecord.end},
+    props.shelf,...props.books
+  ];
+  silhouettes.forEach(({start,end},i)=>objectIds.fill(i+1,start/7,end/7));
   const lampData=new Float32Array(flames.length*4); // world-space xyz and current intensity
   const candleKey=tableKey+":candles";
   let candlesLit=flames.map(()=>true);
@@ -46,16 +58,51 @@
   const pitchSin=Math.sin(restPitch), pitchCos=Math.cos(restPitch);
   const backDepth=(horizonY-eyeHeight)*pitchSin-(actorZ-eyeZ)*pitchCos;
   const backUp=(horizonY-eyeHeight)*pitchCos+(actorZ-eyeZ)*pitchSin;
+  const eye=new Float32Array(3);
   function cameraRows(x, y, kick, time) {
     const yaw = -.041*x + .013*kick*Math.sin(time*83);
     const pitch = restPitch - .031*y + .023*kick*Math.cos(time*72);
     const roll = .014*kick*Math.sin(time*66);
-    const eye = [x*.76 + .15*kick*Math.cos(time*89), eyeHeight-y*.28 + .095*kick*Math.sin(time*97), eyeZ+.16*kick];
+    eye.set([x*.76 + .15*kick*Math.cos(time*89), eyeHeight-y*.28 + .095*kick*Math.sin(time*97), eyeZ+.16*kick]);
     const sy=Math.sin(yaw), cy=Math.cos(yaw), sp=Math.sin(pitch), cp=Math.cos(pitch);
     const right=[cy,0,sy], up=[-sy*sp,cp,cy*sp], forward=[sy*cp,sp,-cy*cp];
     const cr=Math.cos(roll), sr=Math.sin(roll);
     const axes=[right.map((v,i)=>v*cr+up[i]*sr), up.map((v,i)=>v*cr-right[i]*sr), forward];
     return axes.map(axis=>[...axis,-axis.reduce((sum,v,i)=>sum+v*eye[i],0)]);
+  }
+
+  // Both renderers use the same ivory metal finish. Sample the cool window and the live
+  // candle lights along the view ray reflected by each facet of the rolled rim and dish.
+  function shadeSilverTrays(){
+    for(const {start,end,floor} of trays){
+      for(let i=start;i<end;i+=7){
+        const x=mesh[i],y=mesh[i+1],z=mesh[i+2];
+        const nx=rest[i+3],ny=rest[i+4],nz=rest[i+5];
+        const vx=eye[0]-x,vy=eye[1]-y,vz=eye[2]-z;
+        const invView=1/Math.hypot(vx,vy,vz);
+        const twiceDot=2*(nx*vx+ny*vy+nz*vz);
+        const rx=(twiceDot*nx-vx)*invView,ry=(twiceDot*ny-vy)*invView,rz=(twiceDot*nz-vz)*invView;
+        const windowLight=Math.pow(Math.max(0,.38*rx+.32*ry-.87*rz),12);
+        let glint=0, incident=0;
+        for(let k=0;k<lampData.length;k+=4){
+          const dx=lampData[k]-x,dy=lampData[k+1]-y,dz=lampData[k+2]-z;
+          const distanceSquared=dx*dx+dy*dy+dz*dz;
+          const invDistance=1/Math.sqrt(distanceSquared);
+          const alignment=Math.max(0,(rx*dx+ry*dy+rz*dz)*invDistance);
+          const facing=Math.max(0,(nx*dx+ny*dy+nz*dz)*invDistance);
+          incident+=facing*lampData[k+3]/(.32+distanceSquared);
+          glint+=Math.pow(alignment,12)*lampData[k+3]/(.68+distanceSquared);
+        }
+        // The matte ivory well catches local candlelight. The rolled edge keeps a little polish.
+        const localLight=incident/(.75+incident);
+        const diffuse=(.42+.22*Math.max(0,ny))*(.16+.34*roomLight+.50*localLight);
+        const polish=rest[i+1]>floor+.020 ? 1 : .32;
+        const reflection=polish*glint/(1+glint);
+        mesh[i+3]=238/255*diffuse+.044*polish*windowLight+.16*reflection;
+        mesh[i+4]=217/255*diffuse+.047*polish*windowLight+.12*reflection;
+        mesh[i+5]=159/255*diffuse+.054*polish*windowLight+.07*reflection;
+      }
+    }
   }
 
   function gpuRenderer(gl) {
@@ -65,13 +112,13 @@
       if (!gl.getShaderParameter(shader,gl.COMPILE_STATUS)) throw Error(gl.getShaderInfoLog(shader));
       return shader;
     }
-    const vertex = compile(gl.VERTEX_SHADER, `attribute vec3 position,tint; attribute float grain;
+    const vertex = compile(gl.VERTEX_SHADER, `attribute vec3 position,tint; attribute float grain,objectId;
 uniform vec4 right,up,forward; uniform vec2 scale;
-varying vec3 world,color; varying float material;
+varying vec3 world,color; varying float material,id;
 void main(){
  vec4 p=vec4(position,1.); float depth=dot(p,forward);
  gl_Position=vec4(dot(p,right)*scale.x,dot(p,up)*scale.y,1.0025*depth-.20025,depth);
- world=position; color=tint; material=grain;
+ world=position; color=tint; material=grain; id=objectId;
 }`);
     const fragment = compile(gl.FRAGMENT_SHADER, `precision mediump float;
 varying vec3 world,color; varying float material;
@@ -79,8 +126,19 @@ uniform vec4 lamps[5];
 uniform float roomLight;
 uniform vec4 spotlight;
 uniform vec3 shaftAim;
+uniform sampler2D visibility;
+uniform vec2 texel;
+bool outlinedBy(vec2 uv,vec2 center){
+ vec2 neighbor=texture2D(visibility,uv).rg;
+ return neighbor.r>0. && abs(neighbor.r-center.r)>.002 && neighbor.g>=center.g;
+}
 void main(){
  if(material>4.5){gl_FragColor=vec4(.045,.029,.018,(material-5.)*(.36+.64*roomLight));return;}
+ vec2 uv=gl_FragCoord.xy*texel, center=texture2D(visibility,uv).rg;
+ if(outlinedBy(uv+vec2(texel.x,0.),center) || outlinedBy(uv-vec2(texel.x,0.),center) ||
+    outlinedBy(uv+vec2(0.,texel.y),center) || outlinedBy(uv-vec2(0.,texel.y),center)){
+   gl_FragColor=vec4(0.,0.,0.,1.);return;
+ }
  vec3 c=color;
  if(material>.5 && material<3.5){
    vec2 grain=material<1.5 ? vec2(world.x,world.y+world.z) : material<2.5 ? vec2(world.y,world.x+world.z) : vec2(world.z,world.x+world.y);
@@ -90,8 +148,8 @@ void main(){
    c*=1.+.040*sin((grain.y+drift)*55.)-.19*step(.82,rings)*smoothstep(-.35,.42,broken);
  }
  float night=1.-roomLight;
- if(material< -2.5 && material> -3.5){
-   // The visible flame itself is emissive.
+ if(material< -4.5 || (material< -2.5 && material> -3.5)){
+   // Silver reflections and the emissive flame already carry their display colour.
  }else if(material< -1.5 && material> -2.5){
    c=mix(c,vec3(.93,.94,.80),night*night*night);
  }else if(material< -.5 && material> -1.5){
@@ -120,47 +178,105 @@ void main(){
  c=floor(c*43.+.5+d*.68)/43.;
  gl_FragColor=vec4(c,1.);
 }`);
-    const program=gl.createProgram();
-    gl.attachShader(program,vertex); gl.attachShader(program,fragment); gl.linkProgram(program);
-    gl.deleteShader(vertex); gl.deleteShader(fragment);
-    if(!gl.getProgramParameter(program,gl.LINK_STATUS)) throw Error(gl.getProgramInfoLog(program));
-    gl.useProgram(program);
+    // Only the nearest solid surface contributes an ID. Translucent footprints cast no outline.
+    const maskFragment=compile(gl.FRAGMENT_SHADER,`precision mediump float;
+varying float material,id;
+void main(){
+ if(material>4.5) discard;
+ gl_FragColor=vec4(id,min(1.,4.*gl_FragCoord.w),0.,1.);
+}`);
+    function link(fragmentShader){
+      const p=gl.createProgram();
+      gl.attachShader(p,vertex); gl.attachShader(p,fragmentShader);
+      ["position","tint","grain","objectId"].forEach((name,i)=>gl.bindAttribLocation(p,i,name));
+      gl.linkProgram(p);
+      if(!gl.getProgramParameter(p,gl.LINK_STATUS)) throw Error(gl.getProgramInfoLog(p));
+      gl.deleteShader(fragmentShader);
+      return p;
+    }
+    const program=link(fragment), maskProgram=link(maskFragment);
+    gl.deleteShader(vertex);
     const buffer=gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER,buffer); gl.bufferData(gl.ARRAY_BUFFER,mesh,gl.DYNAMIC_DRAW);
     for(const [name,size,offset] of [["position",3,0],["tint",3,12],["grain",1,24]]){
       const attr=gl.getAttribLocation(program,name);
       gl.enableVertexAttribArray(attr); gl.vertexAttribPointer(attr,size,gl.FLOAT,false,28,offset);
     }
-    const rows=["right","up","forward"].map(name=>gl.getUniformLocation(program,name));
-    const scale=gl.getUniformLocation(program,"scale");
+    const ids=gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER,ids); gl.bufferData(gl.ARRAY_BUFFER,objectIds,gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3,1,gl.UNSIGNED_BYTE,true,0,0);
+    gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
+    const mask=gl.createTexture(), depth=gl.createRenderbuffer(), target=gl.createFramebuffer();
+    gl.bindTexture(gl.TEXTURE_2D,mask);
+    for(const name of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D,name,gl.NEAREST);
+    for(const name of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T]) gl.texParameteri(gl.TEXTURE_2D,name,gl.CLAMP_TO_EDGE);
+    gl.bindFramebuffer(gl.FRAMEBUFFER,target);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,mask,0);
+    gl.bindRenderbuffer(gl.RENDERBUFFER,depth);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.RENDERBUFFER,depth);
+    let maskWidth=0, maskHeight=0;
+    function cameraUniforms(p){
+      const rows=["right","up","forward"].map(name=>gl.getUniformLocation(p,name));
+      const scale=gl.getUniformLocation(p,"scale");
+      return (camera,focal)=>{
+        gl.useProgram(p);
+        camera.forEach((row,i)=>gl.uniform4fv(rows[i],row));
+        gl.uniform2f(scale,2*focal/canvas.width,2*focal/canvas.height);
+      };
+    }
+    const setMaskCamera=cameraUniforms(maskProgram), setSceneCamera=cameraUniforms(program);
+    const texel=gl.getUniformLocation(program,"texel");
     const lamps=gl.getUniformLocation(program,"lamps[0]");
     const ambient=gl.getUniformLocation(program,"roomLight");
     const spot=gl.getUniformLocation(program,"spotlight");
     const aim=gl.getUniformLocation(program,"shaftAim");
-    gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
-    gl.enable(gl.DEPTH_TEST); gl.clearColor(.12,.18,.17,1);
+    gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+    gl.enable(gl.DEPTH_TEST);
     return (camera,focal) => {
       gl.bufferSubData(gl.ARRAY_BUFFER,movingStart*4,movingVertices);
+      gl.bindFramebuffer(gl.FRAMEBUFFER,target);
+      if(canvas.width!==maskWidth || canvas.height!==maskHeight){
+        maskWidth=canvas.width; maskHeight=canvas.height;
+        gl.bindTexture(gl.TEXTURE_2D,mask);
+        gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,maskWidth,maskHeight,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
+        gl.bindRenderbuffer(gl.RENDERBUFFER,depth);
+        gl.renderbufferStorage(gl.RENDERBUFFER,gl.DEPTH_COMPONENT16,maskWidth,maskHeight);
+      }
+      gl.bindTexture(gl.TEXTURE_2D,null);
+      gl.viewport(0,0,maskWidth,maskHeight);
+      gl.disable(gl.BLEND); gl.disable(gl.DITHER);
+      gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      setMaskCamera(camera,focal);
+      gl.drawArrays(gl.TRIANGLES,0,vertexCount);
+      gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+      gl.bindTexture(gl.TEXTURE_2D,mask);
+      setSceneCamera(camera,focal);
+      gl.uniform2f(texel,1/maskWidth,1/maskHeight);
+      gl.enable(gl.BLEND); gl.enable(gl.DITHER);
       gl.uniform4fv(lamps,lampData);
       gl.uniform1f(ambient,roomLight);
       gl.uniform4fv(spot,spotlight);
       gl.uniform3fv(aim,shaftAim);
-      gl.viewport(0,0,canvas.width,canvas.height);
+      gl.clearColor(.12,.18,.17,1);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      camera.forEach((row,i)=>gl.uniform4fv(rows[i],row));
-      gl.uniform2f(scale,2*focal/canvas.width,2*focal/canvas.height);
       gl.drawArrays(gl.TRIANGLES,0,vertexCount);
     };
   }
 
   // Software depth-buffer rasterizer for machines without WebGL. It uses the actual room mesh.
   function softwareRenderer(ctx) {
-    let image, pixels, depths;
+    let image, pixels, depths, visibleIds;
     const xyDepth=new Float32Array(vertexCount*3);
     const pack=(r,g,b)=> (255<<24) | (b<<16) | (g<<8) | r;
     const palette=new Uint32Array(vertexCount/3*4);
     const litTones=new Uint32Array(4);
     function shadeTriangle(i,material,x,y,z){
+      if(material===-5){
+        const k=i*7;
+        const channel=j=>Math.round(85*(mesh[k+j]+mesh[k+7+j]+mesh[k+14+j]));
+        litTones.fill(pack(channel(3),channel(4),channel(5)));
+        return;
+      }
       let red=1,green=1,blue=1,addR=0,addG=0,addB=0;
       const night=1-roomLight;
       if(material===-2){
@@ -205,8 +321,9 @@ void main(){
       const w=canvas.width,h=canvas.height;
       if (!image || image.width!==w || image.height!==h){
         image=ctx.createImageData(w,h); pixels=new Uint32Array(image.data.buffer); depths=new Float32Array(w*h);
+        visibleIds=new Uint8Array(w*h);
       }
-      pixels.fill(pack(35,53,51)); depths.fill(0);
+      pixels.fill(pack(35,53,51)); depths.fill(0); visibleIds.fill(0);
       for(let i=0;i<vertexCount;i++){
         const k=i*7,j=i*3,x=mesh[k],y=mesh[k+1],z=mesh[k+2];
         const d=1/(forward[0]*x+forward[1]*y+forward[2]*z+forward[3]);
@@ -240,6 +357,7 @@ void main(){
               pixels[index]=pack((base&255)*keep+11*shadow,((base>>>8)&255)*keep+7*shadow,((base>>>16)&255)*keep+5*shadow);
               continue;
             }
+            visibleIds[index]=objectIds[i];
             if(sampleAcross && px>=nextSample){
               const a=(1-u-v)*d/z,b=u*xyDepth[j+5]/z,c=v*xyDepth[j+8]/z;
               shadeTriangle(i,material,a*mesh[k]+b*mesh[k+7]+c*mesh[k+14],
@@ -249,6 +367,19 @@ void main(){
             pixels[index]=litTones[(px&1)+2*(py&1)];
           }
         }
+      }
+      const black=pack(0,0,0);
+      function outlineNeighbor(source,neighbor){
+        if(visibleIds[source]!==visibleIds[neighbor] && depths[source]>=depths[neighbor]){
+          pixels[neighbor]=black;
+        }
+      }
+      for(let i=0;i<visibleIds.length;i++){
+        if(!visibleIds[i]) continue;
+        if(i%w>0) outlineNeighbor(i,i-1);
+        if(i%w<w-1) outlineNeighbor(i,i+1);
+        if(i>=w) outlineNeighbor(i,i-w);
+        if(i+w<visibleIds.length) outlineNeighbor(i,i+w);
       }
       ctx.putImageData(image,0,0);
     };
@@ -301,7 +432,7 @@ void main(){
   shaft.hidden=true;
   arena.prepend(shaft);
   let lastSpot=-1;
-  const candleNames=["烛台上的高蜡烛","烛台上的中蜡烛","烛台上的矮蜡烛","桌边的蜡烛","窗边的蜡烛"];
+  const candleNames=["高蜡烛","中等高度的蜡烛","矮蜡烛","桌边的蜡烛","窗边的蜡烛"];
   const volumes=props.books.map(book=>{
     const target=document.createElement(book.musicBook ? "button" : "span");
     target.className="book-spine";
@@ -350,12 +481,23 @@ void main(){
     ["   #####","   #####","   #   #","   #   #","   #   #"," ### ###","#### ###"," ##"],
     ["    #","    ##","    ###","    # #","    #","  ###"," ####","  ##"]
   ];
+  const bandLevels=new Float32Array(7), reedHeights=new Float32Array(7);
+  let lastMeterQuery=-Infinity, lastSample=-Infinity, bassFloor=0, strongBeat=false;
+  function receiveBands(bands){
+    if(!spinning) return;
+    if(!Array.isArray(bands) || bands.length!==7){bandLevels.fill(0);strongBeat=false;return;}
+    bandLevels.set(bands);
+    const now=performance.now(), bass=.65*bandLevels[0]+.35*bandLevels[1];
+    strongBeat=now-lastSample<400 && bass>.31 && bass>bassFloor+.075;
+    bassFloor+=(bass-bassFloor)*(1-Math.exp(-Math.max(1,now-lastSample)/380));
+    lastSample=now;
+  }
   let nextNote=0, noteStart=-Infinity, noteDrift=0;
   function drawHornNote(now,projectLocal){
     if(!spinning || motion.matches || !ink){note.hidden=true; return;}
-    if(now>=nextNote){
+    if(strongBeat && now>=nextNote){
       noteStart=now;
-      nextNote=now+4200+Math.random()*3000;
+      nextNote=now+1600;
       noteDrift=.23+Math.random()*.24;
       ink.clearRect(0,0,note.width,note.height);
       ink.fillStyle="#dbc28a";
@@ -385,15 +527,18 @@ void main(){
     if(state.playing!==spinning){
       note.hidden=true;
       noteStart=-Infinity;
-      nextNote=performance.now()+1400+Math.random()*1200;
+      nextNote=0; bassFloor=0; strongBeat=false; lastSample=-Infinity;
+      bandLevels.fill(0);
     }
     spinning=state.playing;
     schedule();
   }
   window.addEventListener("message",event=>{
     if(embeddedTable && event.source===window.parent && event.data?.type==="portfolio-music-state") reflectMusic(event.data);
+    if(embeddedTable && event.source===window.parent && event.data?.type==="portfolio-music-levels") receiveBands(event.data.bands);
   });
   window.addEventListener("portfolio-music-state",event=>reflectMusic(event.detail));
+  window.addEventListener("portfolio-music-levels",event=>receiveBands(event.detail.bands));
   gram.onclick=()=>{
     requestMusic("portfolio-music-shuffle");
     arena.dispatchEvent(new Event("record-change"));
@@ -542,9 +687,9 @@ void main(){
     ctx.globalCompositeOperation="source-over";
   }
   // Convex silhouette of the projected wax, wick and flame, with a small screen-space margin.
-  function fitCandleButton(button, project, fx, base, wick, fz, radius, flameHeight, sway, pad) {
+  function fitCandleButton(button, project, fx, base, wick, fz, trayRadius, radius, flameHeight, sway, pad) {
     const points=[];
-    for(const [y,r,shift] of [[base,1.23*radius,0],[wick,radius,0],[wick+flameHeight,.025,sway]]){
+    for(const [y,r,shift] of [[base,trayRadius,0],[wick,radius,0],[wick+flameHeight,.025,sway]]){
       for(let side=0;side<8;side++){
         const a=side*Math.PI/4, cos=Math.cos(a), sin=Math.sin(a);
         const [x,py]=project(fx+shift+r*cos,y,fz+r*sin);
@@ -641,9 +786,9 @@ void main(){
     encounter.style.setProperty("--actor-x",center+"px");
     encounter.style.setProperty("--prop-height",(foot-crown)+"px");
     encounter.style.setProperty("--prop-width",(foot-crown)*84/121+"px");
-    // On a portrait display bring the candleholder into the right side of the shot.
+    // Leave room between the candle cluster and the gramophone on portrait displays.
     const candleScale=narrow ? .66 : 1;
-    const clusterX=narrow ? -.24*w/focal*5.8 : clusterOrigin.x;
+    const clusterX=narrow ? -.18*w/focal*5.8 : clusterOrigin.x;
     const clusterZ=narrow ? 1.24 : clusterOrigin.z;
     for(let i=clusterStart;i<clusterEnd;i+=7){
       mesh[i]=clusterX+(rest[i]-clusterOrigin.x)*candleScale;
@@ -692,7 +837,7 @@ void main(){
         const limit=(eyeZ-flame.z)*w/focal*(narrow ? .442 : .40);
         fx=Math.max(-limit,Math.min(limit,fx));
         if(narrow && index===3) fx=.055*w/focal*(eyeZ-flame.z);
-        for(let i=flame.waxStart;i<flame.waxEnd;i+=7) mesh[i]=rest[i]+fx-flame.x;
+        for(let i=flame.tray.shadow.start;i<flame.waxEnd;i+=7) mesh[i]=rest[i]+fx-flame.x;
       }
       const fz=index<3 ? clusterZ+(flame.z-clusterOrigin.z)*scale : flame.z;
       const wick=1.53+(flame.y-1.53)*scale;
@@ -727,7 +872,9 @@ void main(){
       leftWarmth+=energy*(1-rightShare);
       rightWarmth+=energy*rightShare;
       const flameHeight=Math.max(.11,.46*(1+.13*pulse)*power)*scale;
-      fitCandleButton(button,project,fx,wick-flame.h*scale,wick,fz,flame.r*scale,
+      // The shared dish has no switch of its own. Each wick keeps its individual hit area.
+      const baseRadius=index<3 ? 1.23*flame.r : flame.tray.radius;
+      fitCandleButton(button,project,fx,wick-(flame.h+.040)*scale,wick,fz,baseRadius*scale,flame.r*scale,
         flameHeight,sway*scale*power,narrow ? 4 : 5);
       followModel(outline.layer,outline,flame.waxStart,flame.waxEnd,camera,focal,w,h,width,height);
     }
@@ -750,6 +897,23 @@ void main(){
     const gramYaw=.15, gc=Math.cos(gramYaw), gs=Math.sin(gramYaw);
     placePart(props.gramShadow,gramAnchor,0,gramYaw);
     placePart(props.gramBase,gramAnchor,0,gramYaw);
+    if(spinning && now-lastMeterQuery>=(motion.matches ? 120 : 60)){
+      lastMeterQuery=now;
+      requestMusic("portfolio-music-meter-query");
+    }
+    let reedsMoving=false;
+    props.gramReeds.forEach((reed,i)=>{
+      const target=spinning && now-lastSample<450 ? bandLevels[i] : 0;
+      const step=1-Math.exp(-delta/(target>reedHeights[i] ? 35 : 115));
+      reedHeights[i]+=(target-reedHeights[i])*step;
+      if(Math.abs(target-reedHeights[i])<.008) reedHeights[i]=target;
+      else reedsMoving=true;
+      placePart(reed,gramAnchor,0,gramYaw);
+      for(let k=reed.start;k<reed.end;k+=7){
+        const height=props.reedFoot+(rest[k+1]-props.reedFoot)*(.13+.87*reedHeights[i]);
+        mesh[k+1]=1.533+height*gramAnchor.scale;
+      }
+    });
     placePart(props.gramRecord,gramAnchor,0,gramYaw,0,true,recordAngle);
     const projectGram=([gx,gy,gz])=>project(gramAnchor.x+(gx*gc+gz*gs)*gramAnchor.scale,
       1.533+gy*gramAnchor.scale,gramAnchor.z+(gz*gc-gx*gs)*gramAnchor.scale);
@@ -904,13 +1068,14 @@ void main(){
       shaft.style.setProperty("--spread",Math.atan(spread/(length*1.35))+"rad");
       shaft.style.opacity=spotlight[3];
     }
+    shadeSilverTrays();
     draw(camera,focal);
     canvas.classList.add("painted");
     if (!arena.classList.contains("modeled")) {
       arena.classList.add("modeled");
       arena.dispatchEvent(new Event("cabin-painted"));
     }
-    if(spinning && motion.matches) idleTimer=setTimeout(schedule,80);
+    if((spinning || reedsMoving) && motion.matches) idleTimer=setTimeout(schedule,80);
     else if(!motion.matches) {
       if(bookMoving || spotMoving || changingLight || watchTilt!==watchTarget || stackLift!==liftTarget || cutting || drawTime<250 || returnTime<240 || bellTime<500 || kick || seconds<.6 || Math.abs(targetX-x)+Math.abs(targetY-y)>.001) schedule();
       else idleTimer=setTimeout(schedule,gpu ? 50 : 105);

@@ -26,6 +26,13 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
   const title = panel.querySelector(".now-playing");
   const slider = panel.querySelector(".track-seek");
   const clock = panel.querySelector(".track-time");
+  const readBands = window.gramophoneSpectrum?.reader(siteRoot);
+  function publishBands(){
+    const bands=rotating && !audio.paused && readBands ? readBands(audio.src,audio.currentTime) : null;
+    const state={type:"portfolio-music-levels",bands:bands?.map(n=>n*audio.volume/level) || null};
+    document.querySelector(".interactive-frame")?.contentWindow?.postMessage(state,"*");
+    window.dispatchEvent(new CustomEvent(state.type,{detail:state}));
+  }
   let rotating = false;
   function publishMusic() {
     const state = {type:"portfolio-music-state", skin, available:tracks.length > 0, playing:rotating};
@@ -37,12 +44,14 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
     if (!scene || event.source !== scene.contentWindow ||
         !(event.origin === location.origin || (location.protocol === "file:" && event.origin === "null"))) return;
     if (event.data?.type === "portfolio-music-query") publishMusic();
+    if (event.data?.type === "portfolio-music-meter-query") publishBands();
     if (event.data?.type === "portfolio-music-shuffle") playRandomTrack();
     if (event.data?.type === "portfolio-blue-book-click") clickMusicBook("brocade");
     if (event.data?.type === "portfolio-red-book-click") clickMusicBook("dream");
     if (event.data?.type === "portfolio-change-skin") changeSkin(event.data.skin);
   });
   window.addEventListener("portfolio-music-query", publishMusic);
+  window.addEventListener("portfolio-music-meter-query", publishBands);
   window.addEventListener("portfolio-music-shuffle", playRandomTrack);
   window.addEventListener("portfolio-blue-book-click", () => clickMusicBook("brocade"));
   window.addEventListener("portfolio-red-book-click", () => clickMusicBook("dream"));
