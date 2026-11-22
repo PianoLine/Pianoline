@@ -1125,8 +1125,8 @@ window.PORTFOLIO_CONTENT = {
       "src": "assets/media/music/mwoytxpi-6skbjk-Eluvium---The-Well-Meaning-Professor.mp3"
     },
     {
-      "title": "my head is empty - i was only temporary 2 u (1)",
-      "src": "assets/media/music/my head is empty - i was only temporary 2 u (1).mp3"
+      "title": "my head is empty - i was only temporary 2 u",
+      "src": "assets/media/music/my head is empty - i was only temporary 2 u.mp3"
     }
   ],
   "brocadePlaylist": [

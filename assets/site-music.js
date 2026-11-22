@@ -59,7 +59,7 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
 
   const level = .35;
   const fadeMs = 360;
-  const retiringPlayers = new Set();
+  let outgoing = null;
   let audio = createPlayer();
 
   function createPlayer(previous) {
@@ -68,7 +68,7 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
     player.volume = 0;
     if (previous) previous.before(player);
     else panel.append(player);
-    for (const type of ["playing","pause","waiting","ended","emptied","error","loadedmetadata","timeupdate","durationchange","seeked"]) {
+    for (const type of ["playing","pause","waiting","ended","emptied","error","loadedmetadata","timeupdate","durationchange","seeked","progress","canplay"]) {
       player.addEventListener(type, onMediaEvent);
     }
     return player;
@@ -89,8 +89,8 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
     toggle.disabled = !tracks.length;
     panel.querySelector(".track-info").hidden = !tracks.length;
   }
-  let trackId = 0, playId = 0, fadeTimer = 0, sourceReady, objectUrl = "", localCopy;
-  let seekId = 0, pendingSeek = null;
+  let trackId = 0, playId = 0, fadeTimer = 0, sourceReady, objectUrl = "";
+  let pendingSeek = null;
   let destination = "";
 
   function format(seconds) {
@@ -156,25 +156,30 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
     fadeTimer = rampVolume(audio, to, done);
   }
 
-  function crossfadeFromCurrentPlayer() {
-    const previous = audio;
-    const previousUrl = objectUrl;
-    objectUrl = "";
-    clearInterval(fadeTimer);
-    audio = createPlayer(previous);
-    let timer = 0;
+  function releaseOutgoing(immediate = false) {
+    if (!outgoing) return;
+    const old = outgoing;
     function finish() {
-      clearInterval(timer);
-      previous.pause();
-      previous.removeAttribute("src");
-      previous.load();
-      previous.remove();
-      if (previousUrl) URL.revokeObjectURL(previousUrl);
-      retiringPlayers.delete(finish);
+      clearInterval(old.timer);
+      old.player.pause();
+      old.player.removeAttribute("src");
+      old.player.load();
+      old.player.remove();
+      if (old.url) URL.revokeObjectURL(old.url);
+      outgoing = null;
     }
-    retiringPlayers.add(finish);
-    if (previous.paused) finish();
-    else timer = rampVolume(previous, 0, finish);
+    if (immediate || old.player.paused) finish();
+    else if (!old.timer) old.timer = rampVolume(old.player, 0, finish);
+  }
+
+  function keepPlayingWhileBuffering() {
+    if (audio.paused || audio.ended || !audio.volume) return;
+    releaseOutgoing(true);
+    const previous = audio;
+    outgoing = {player:previous, url:objectUrl, timer:0};
+    objectUrl = "";
+    audio = createPlayer(previous);
+    audio.loop = previous.loop;
   }
 
   async function start() {
@@ -183,15 +188,37 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
     clearInterval(fadeTimer);
     display();
     try {
-      await sourceReady;
+      if (sourceReady) await sourceReady;
       if (token !== playId) return;
-      await audio.play();
-      if (token === playId) fade(level);
+      try {
+        await audio.play();
+      } catch (error) {
+        // Some phones grant playback to the element the visitor already unlocked.
+        if (error.name !== "NotAllowedError" || !outgoing || token !== playId) throw error;
+        const incoming = audio, old = outgoing;
+        outgoing = null;
+        clearInterval(old.timer);
+        audio = old.player;
+        audio.volume = 0;
+        audio.loop = incoming.loop;
+        audio.preload = "auto";
+        audio.src = incoming.src;
+        incoming.removeAttribute("src");
+        incoming.load();
+        incoming.remove();
+        if (old.url) URL.revokeObjectURL(old.url);
+        await audio.play();
+      }
+      if (token === playId) {
+        releaseOutgoing();
+        fade(level);
+      }
     } catch (error) {
       if (token !== playId) return;
       wanted = false;
       audio.pause();
       audio.volume = 0;
+      releaseOutgoing();
       if (error?.name === "NotAllowedError") display("浏览器已阻止播放，点击打开音乐", true);
       else display("无法开始播放，请检查音频或再点一次音乐开关");
     }
@@ -201,16 +228,18 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
     ++playId;
     wanted = false;
     display();
+    releaseOutgoing();
     fade(0, () => { audio.pause(); save(); });
   }
 
   function selectTrack() {
     const token = ++trackId;
     ++playId;
-    ++seekId;
     clearInterval(fadeTimer);
     dragging = false;
-    pendingSeek = localCopy = null;
+    pendingSeek = null;
+    if (wanted && tracks.length) keepPlayingWhileBuffering();
+    else releaseOutgoing();
     audio.pause();
     audio.volume = 0;
     if (objectUrl) URL.revokeObjectURL(objectUrl);
@@ -222,46 +251,41 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
       return;
     }
     const path = tracks[index].src.trim();
-    sourceReady = (async () => {
-      const file = preview ? await window.playlistFiles.get(path) : null;
+    function setSource(file) {
       if (token !== trackId) return;
       objectUrl = file ? URL.createObjectURL(file) : "";
+      audio.preload = wanted ? "auto" : "metadata";
       audio.src = objectUrl || new URL(path, siteRoot).href;
-      audio.load();
-    })();
+    }
+    sourceReady = preview ? window.playlistFiles.get(path).then(setSource) : null;
+    if (!preview) setSource(null);
     display();
     if (wanted) start();
   }
 
-  async function seek(seconds) {
-    const token = ++seekId;
+  function seek(seconds) {
     const duration = audio.duration;
     if (!Number.isFinite(duration) || duration <= 0) return;
     const time = Math.max(0, Math.min(seconds, duration));
     pendingSeek = time;
     timeline();
+    audio.preload = "auto";
+    applyPendingSeek();
+  }
+  function applyPendingSeek() {
+    if (pendingSeek === null) return;
+    // On sequential-only servers, reuse the player's incoming bytes until the target is reachable.
+    const covers = ranges => {
+      for (let i = 0; i < ranges.length; i++) {
+        if (pendingSeek >= ranges.start(i) && pendingSeek <= ranges.end(i)) return true;
+      }
+      return false;
+    };
+    if (pendingSeek && !covers(audio.seekable) && !covers(audio.buffered)) return;
     try {
-      const ranges = audio.seekable;
-      const canSeek = Array.from({length:ranges.length}, (_, i) => time >= ranges.start(i) && time <= ranges.end(i)).some(Boolean);
-      const url = new URL(audio.src);
-      // Simple static preview servers may ignore Range requests and seek back to zero.
-      if (!canSeek && time > 0 && !objectUrl && url.origin === location.origin && /^https?:$/.test(url.protocol)) {
-        localCopy ??= fetch(url).then(response => {
-          if (!response.ok) throw new Error("Audio unavailable");
-          return response.blob();
-        });
-        const blob = await localCopy;
-        if (token !== seekId) return;
-        objectUrl = URL.createObjectURL(blob);
-        audio.src = objectUrl;
-        audio.currentTime = time;
-        if (wanted) start();
-      } else audio.currentTime = time;
-    } catch {
-      if (token === seekId) { localCopy = null; slider.title = "暂时无法跳到此位置"; }
-    } finally {
-      if (token === seekId) { pendingSeek = null; timeline(); }
-    }
+      audio.currentTime = pendingSeek;
+      pendingSeek = null;
+    } catch { /* The next media progress event retries while metadata settles. */ }
   }
 
   function restore(cached, newListPlaying = null) {
@@ -320,7 +344,6 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
     playlist = next;
     try { sessionStorage.setItem(scope + ":playlist", playlist); } catch {}
     rotating = false;
-    crossfadeFromCurrentPlayer();
     loadList();
     restore(false, playing);
     publishMusic();
@@ -360,6 +383,10 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
   function onMediaEvent(event) {
     if (event.currentTarget !== audio) return;
     switch (event.type) {
+      case "progress":
+      case "canplay":
+        applyPendingSeek();
+        break;
       case "loadedmetadata": {
         const time = offset;
         offset = 0;
@@ -382,9 +409,8 @@ window.setupSiteMusic = function (playlists, preview, siteRoot, resumeSkin) {
   window.navigation?.addEventListener("navigate", event => { destination = event.destination.url; });
   window.addEventListener("pagehide", () => {
     save();
-    for (const finish of retiringPlayers) finish();
+    releaseOutgoing(true);
     ++playId;
-    ++seekId;
     ++trackId;
     clearInterval(fadeTimer);
     audio.pause();

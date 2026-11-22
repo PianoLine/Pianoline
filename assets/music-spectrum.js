@@ -53,7 +53,7 @@ window.gramophoneSpectrum = (() => {
     function loadScores(){
       scoreFile ??= new Promise(resolve=>{
         const script=document.createElement("script");
-        script.src=new URL("assets/gramophone-scores.js",siteRoot).href;
+        script.src=new URL("assets/gramophone-scores.js?v=stream-playback",siteRoot).href;
         script.onload=script.onerror=()=>resolve(window.gramophoneScores || {});
         document.head.append(script);
       });
