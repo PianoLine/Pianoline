@@ -651,3 +651,35 @@ a:focus-visible { outline-color: #f5b55f; }
 .board-slot .card[aria-disabled="true"] { cursor: default; }
 .modeled .hand { z-index: 2; pointer-events: none; }
 .modeled .hand .card-wrap { pointer-events: auto; }
+
+@media (max-width:720px) {
+  .awaiting-room .arena::before, .arena:has(.cabin-view.painted)::before { background-image: none; }
+  .stage { min-height: clamp(215px, 56vw, 270px); grid-template-columns: 40% 1fr; padding-block: 50px 13px; }
+  .opening h1 { font-size: clamp(26px, 7vw, 36px); margin-block: 6px 4px; }
+  .edition { font-size: 13px; gap: 6px; }
+  .edition i { width: 19px; }
+  .byline { font-size: clamp(13px, 3.4vw, 16px); }
+  .browse { font-size: 14px; min-height: 40px; margin-top: 2px; }
+  .audio-controls { top: 8px; left: 4%; right: auto; }
+  .modeled .speech { --bubble-inset: 12px; max-width: min(39vw, 13em); pointer-events: none; }
+  .modeled .play-row { grid-template-rows: clamp(99px, 28vw, 148px) auto; gap: 5px; }
+  .hand .card-wrap + .card-wrap { margin-inline-start: calc(var(--hand-card-width) * -.29); }
+  .hand:has(.card-wrap:nth-child(5)) .card-wrap + .card-wrap { margin-inline-start: calc(var(--hand-card-width) * -.49); }
+}
+@media (pointer:coarse) {
+  .book-guard, .book-spine:not(button) { pointer-events: none; }
+}
+.phone-landscape .stage { min-height: 144px; width: 92%; padding-block: 12px; grid-template-columns: 35% 1fr; }
+.phone-landscape .opening h1 { margin-block: 4px 2px; font-size: 30px; }
+.phone-landscape .edition, .phone-landscape .byline, .phone-landscape .browse { font-size: 14px; }
+.phone-landscape .browse { margin-top: 0; min-height: 32px; }
+.phone-landscape .audio-controls { left: auto; right: 3%; top: 6px; }
+.phone-landscape .modeled .speech { --bubble-inset: 4px; }
+.phone-landscape .modeled .play-row { display: block; padding-top: clamp(55px, 8vw, 75px); }
+.phone-landscape .modeled .table-inner { padding: 0; }
+.phone-landscape .modeled .hand {
+  top: 0; width: 40%; margin: auto; min-height: 0; padding: 0;
+  --hand-card-width: clamp(66px, 9vw, 84px);
+}
+.phone-landscape .scene-edges { --side-fade: 3vw; --top-fade: 12px; --foot-fade: 12px; }
+.phone-landscape.awaiting-room .arena::before, .phone-landscape .arena:has(.cabin-view.painted)::before { background-image: none; }

@@ -601,6 +601,13 @@ body { position: relative; isolation: isolate; min-height: 100vh; }
 .topbar, .editor-topbar, .footer { border-color: #423a2e; background: #151513; }
 
 .interactive-hero { background: #10100f; }
+/* Reserve the phone table's space before its first measured height arrives. */
+@media (max-width:720px) {
+  .interactive-frame { height: clamp(482px, calc(290px + 60vw), 624px); }
+}
+@media (pointer:coarse) and (orientation:landscape) and (max-height:550px) and (max-width:1000px) {
+  .interactive-frame { height: clamp(293px, 38vw, 340px); }
+}
 .section-head, .project-spread { border-color: #59503f; }
 .panel, .post-detail, .post-card, .project-card {
   color: var(--text); border-color: var(--line);

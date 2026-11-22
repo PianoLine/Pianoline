@@ -9,9 +9,20 @@
     const tableKey = "portfolio-table-v1:" + new URL("../", location.href).pathname + (display.has("preview") ? ":preview" : "");
     const resumeTable = display.has("resume") || performance.getEntriesByType("navigation")[0]?.type === "back_forward";
     if (display.has("embed")) document.documentElement.classList.add("embedded");
+    // The embedded table has its own height. Use the host viewport for phone rotation.
+    const viewport = window.frameElement?.ownerDocument.defaultView || window;
+    const phoneLandscape = viewport.matchMedia("(pointer:coarse) and (orientation:landscape) and (max-height:550px) and (max-width:1000px)");
+    function updatePhoneLayout() { document.documentElement.classList.toggle("phone-landscape", phoneLandscape.matches); }
+    updatePhoneLayout();
+    phoneLandscape.addEventListener("change", updatePhoneLayout);
+    if (matchMedia("(max-width:720px)").matches || phoneLandscape.matches) {
+      document.documentElement.classList.add("awaiting-room");
+      // Show the illustrated fallback if initialization stalls or the renderer is unavailable.
+      setTimeout(() => document.documentElement.classList.remove("awaiting-room"), 900);
+    }
   </script>
   <link rel="stylesheet" href="../assets/fonts/titles.css?v=pixel-table-3">
-  <link rel="stylesheet" href="prototype.css?v=table-tear">
+  <link rel="stylesheet" href="prototype.css?v=phone-table">
   <link rel="stylesheet" href="../assets/site-music.css?v=music-prompt">
 </head>
 <body>
@@ -88,8 +99,8 @@
   <script src="../assets/playlist-files.js"></script>
   <script src="../assets/site-content.js?v=card-covers"></script>
   <script src="art/book-prints.js?v=sky-to-rim"></script>
-  <script src="cabin-mesh.js?v=torn-moon"></script>
-  <script src="cabin-view.js?v=moving-camera"></script>
+  <script src="cabin-mesh.js?v=phone-table"></script>
+  <script src="cabin-view.js?v=phone-table"></script>
   <script src="ghost-idle.js?v=table-tear"></script>
   <script src="golden-veil.js?v=mist-wisps"></script>
   <script src="skin-mirror.js?v=skin-dialogue"></script>

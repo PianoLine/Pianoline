@@ -16,7 +16,8 @@
   let mesh,movingVertices,windowVertices,vertexCount,objectIds,trays,projected;
   let geometry;
   function loadRoom(){
-    ({vertices:rest,props,flames,clusterOrigin,clusterStart,clusterEnd,shadowStart,moon,moonDisc,clouds}=window.buildCabinMesh(room));
+    const lowDetail=matchMedia("(pointer:coarse) and (max-width:1000px)").matches;
+    ({vertices:rest,props,flames,clusterOrigin,clusterStart,clusterEnd,shadowStart,moon,moonDisc,clouds}=window.buildCabinMesh(room,lowDetail));
     mesh=rest.slice();
     movingVertices=mesh.subarray(clusterStart);
     windowVertices=mesh.subarray(moonDisc.start,clouds.at(-1)?.end ?? moonDisc.end);
@@ -723,11 +724,27 @@ void main(){
     moonButton.setAttribute("aria-label",room==="castle" ? "回到小屋" : "进入城堡");
   };
   labelMoon();
-  moonButton.addEventListener("click",()=>{
+  function switchRoom(){
     if(roomRequested || tear) return;
     roomRequested=true;
     setRoomLock(true);
     schedule();
+  }
+  let moonTouch=null, lastMoonTap=-Infinity;
+  moonButton.addEventListener("pointerdown",event=>{
+    if(event.pointerType==="touch" && event.isPrimary) moonTouch={id:event.pointerId,x:event.clientX,y:event.clientY};
+  });
+  moonButton.addEventListener("pointercancel",()=>{moonTouch=null;});
+  moonButton.addEventListener("pointerup",event=>{
+    if(moonTouch?.id!==event.pointerId) return;
+    const tapped=Math.hypot(event.clientX-moonTouch.x,event.clientY-moonTouch.y)<10;
+    moonTouch=null;
+    if(tapped){lastMoonTap=performance.now();switchRoom();}
+  });
+  moonButton.addEventListener("click",event=>{
+    // Some touch browsers omit the compatibility click after a drag or rotation.
+    if(event.detail && performance.now()-lastMoonTap<600) return;
+    switchRoom();
   });
   function prepareOutline(button, host = button.querySelector(".control-art")) {
     const layer=document.createElement("canvas");
@@ -1082,8 +1099,9 @@ void main(){
     const seconds=Math.max(0,(now-hit)/1000);
     const shakeTime=heavyHit ? .32 : .15;
     const kick=seconds<shakeTime ? (heavyHit ? .86 : .22)*(1-seconds/shakeTime)**2 : 0;
-    const narrow=width<=720;
-    const focal=narrow ? Math.max(w*.68,stage.offsetHeight*1.99*h/height) : Math.min(h*1.47,Math.max(h*1.01,w*.545));
+    const landscape=document.documentElement.classList.contains("phone-landscape");
+    const narrow=width<=720 || landscape;
+    const focal=landscape ? Math.min(w*.46,stage.offsetHeight*1.9*h/height) : narrow ? Math.max(w*.71,Math.min(w*.98,stage.offsetHeight*1.67*h/height)) : Math.min(h*1.47,Math.max(h*1.01,w*.545));
     const cameraX=x*Math.min(1,width/1000);
     const camera=cameraRows(cameraX,y*.78,kick,kick ? seconds : 0);
     // Shift the horizon as the mobile hand wraps; the far edge of the table stays in the stage.
@@ -1091,15 +1109,15 @@ void main(){
     const neutralY=h/2-focal*backUp/backDepth;
     const lift=(neutralY-(stage.offsetHeight+(narrow ? -12 : 8))*h/height)/focal;
     camera[1]=camera[1].map((v,i)=>v+lift*camera[2][i]);
-    const actorX=narrow ? .215*w/focal*backDepth : 0;
+    const actorX=narrow && !landscape ? .07*w/focal*backDepth : 0;
     const sceneTime=motion.matches ? 0 : now*.001;
     const recoil=seconds<.58 ? (heavyHit ? 2.7 : .50)*Math.exp(-seconds*7.7)*Math.sin(seconds*16) : 0;
     for(let i=shadowStart;i<mesh.length;i+=7) mesh[i]=rest[i]+actorX;
     // Project the elbows and crown. The portrait box hugs the opaque 84 × 121 px of the master.
     const footY=1.535+.12*recoil, footZ=actorZ-1.32*recoil;
     // Leave room above the hair for the speech bubble on short or ultrawide screens.
-    const headroom=stage.offsetHeight-(narrow ? 85 : 52);
-    const tilt=-.38*recoil, actorHeight=Math.min(narrow ? 2.9 : 3.62,headroom*h/height*backDepth/focal);
+    const headroom=stage.offsetHeight-(landscape ? 32 : narrow ? 64 : 52);
+    const tilt=-.38*recoil, actorHeight=Math.min(narrow ? 3.12 : 3.62,headroom*h/height*backDepth/focal);
     const topY=footY+actorHeight*Math.cos(tilt), topZ=footZ+actorHeight*Math.sin(tilt);
     const footDepth=dot(camera[2],actorX,footY,footZ), topDepth=dot(camera[2],actorX,topY,topZ);
     const foot=height*(.5-focal/h*dot(camera[1],actorX,footY,footZ)/footDepth);
@@ -1112,9 +1130,9 @@ void main(){
     encounter.style.setProperty("--prop-height",(foot-crown)+"px");
     encounter.style.setProperty("--prop-width",(foot-crown)*84/121+"px");
     // Leave room between the candle cluster and the gramophone on portrait displays.
-    const candleScale=narrow ? .66 : 1;
-    const clusterX=narrow ? -.18*w/focal*5.8 : clusterOrigin.x;
-    const clusterZ=narrow ? 1.24 : clusterOrigin.z;
+    const candleScale=narrow ? .85 : 1;
+    const clusterZ=narrow ? -.74 : clusterOrigin.z;
+    const clusterX=narrow ? -.245*w/focal*(eyeZ-clusterZ) : clusterOrigin.x;
     for(let i=clusterStart;i<clusterEnd;i+=7){
       mesh[i]=clusterX+(rest[i]-clusterOrigin.x)*candleScale;
       mesh[i+1]=1.53+(rest[i+1]-1.53)*candleScale;
@@ -1126,13 +1144,13 @@ void main(){
         height*(.5-focal/h*dot(camera[1],px,py,pz)/d)];
     };
     // Keep the moon in the inner pane on phones, where the outer pane falls outside the viewport.
-    const moonDX=narrow ? (room==="castle" ? -7.85 : -8.8) : 0;
+    const moonDX=narrow && !landscape ? -5.65 : 0;
     for(let i=moonDisc.start;i<moonDisc.end;i+=7) mesh[i]=rest[i]+moonDX;
     clouds.forEach(({start,end},layer)=>{
       const drift=(sceneTime*(.32+layer*.23)+layer*2)%10;
       for(let i=start;i<end;i+=7) mesh[i]=rest[i]+drift;
     });
-    fitHitPolygon(moonButton,moon.map(([mx,my,mz])=>project(mx+moonDX,my,mz)),5);
+    fitHitPolygon(moonButton,moon.map(([mx,my,mz])=>project(mx+moonDX,my,mz)),narrow ? 13 : 5);
     moonButton.hidden=false;
     // Convert the projected table edge to the portrait's native 128 px grid.
     const [edgeA,edgeB]=props.tableRearEdge.map(point=>project(...point));
@@ -1147,8 +1165,10 @@ void main(){
       slot.style.transform = fitCardPlane(corners, 160, 224);
     });
     // On narrow screens the title occupies the lower left wall.
-    const mirrorDX=narrow ? 1.8 : 0, mirrorDY=narrow ? 1.22 : 0;
-    fitHitPolygon(mirrorButton,props.mirrorRim.map(([x,y,z])=>project(x+mirrorDX,y+mirrorDY,z)),0);
+    const portraitLayout=narrow && !landscape;
+    const mirrorDX=portraitLayout ? 1.15 : 0;
+    const mirrorDY=portraitLayout ? 1.86+Math.max(0,390-width)/70 : 0;
+    fitHitPolygon(mirrorButton,props.mirrorRim.map(([x,y,z])=>project(x+mirrorDX,y+mirrorDY,z)),narrow ? 8 : 0);
     mirrorButton.hidden=false;
     for(let i=props.mirror.start;i<props.mirror.end;i+=7){
       mesh[i]=rest[i]+mirrorDX;
@@ -1164,16 +1184,20 @@ void main(){
       if(Math.abs(target-brightness[index])<.006) brightness[index]=target;
       else changingLight=true;
       const power=brightness[index];
-      const scale=index<3 ? candleScale : 1;
+      const scale=index<3 ? candleScale : narrow && index===3 ? .82 : 1;
       let fx=index<3 ? clusterX+(flame.x-clusterOrigin.x)*scale : flame.x;
+      const fz=index<3 ? clusterZ+(flame.z-clusterOrigin.z)*scale : narrow && index===3 ? -.83 : flame.z;
       if(index>=3) {
         // Keep the solitary candles within the narrower camera framing.
         const limit=(eyeZ-flame.z)*w/focal*(narrow ? .442 : .40);
         fx=Math.max(-limit,Math.min(limit,fx));
-        if(narrow && index===3) fx=.055*w/focal*(eyeZ-flame.z);
-        for(let i=flame.tray.shadow.start;i<flame.waxEnd;i+=7) mesh[i]=rest[i]+fx-flame.x;
+        if(narrow && index===3) fx=.245*w/focal*(eyeZ-fz);
+        for(let i=flame.tray.shadow.start;i<flame.waxEnd;i+=7){
+          mesh[i]=fx+(rest[i]-flame.x)*scale;
+          mesh[i+1]=1.53+(rest[i+1]-1.53)*scale;
+          mesh[i+2]=fz+(rest[i+2]-flame.z)*scale;
+        }
       }
-      const fz=index<3 ? clusterZ+(flame.z-clusterOrigin.z)*scale : flame.z;
       const wick=1.53+(flame.y-1.53)*scale;
       const t=sceneTime*(1+.035*index)+flame.phase;
       const draftTime=sceneTime*.94+flame.x*.18+flame.z*.12;
@@ -1231,10 +1255,10 @@ void main(){
     const dark=Math.max(0,1-exposure/.80);
     encounter.style.setProperty("--red-glow",(dark*dark*(3-2*dark)).toFixed(3));
     const compact=width<=1050;
-    const deckAnchor=tablePosition(compact ? .235 : .125, narrow ? 3.49 : compact ? 2.87 : 3.76, compact ? .55 : .52,w,focal,width);
-    const shuffleAnchor=tablePosition(narrow ? .48 : compact ? .43 : .245, narrow ? 3.72 : compact ? 3.13 : 3.83, narrow ? .48 : .55,w,focal,width);
-    const bellAnchor=tablePosition(narrow ? .69 : compact ? .72 : .735, narrow ? 3.73 : compact ? 3.45 : 3.66, .594,w,focal,width);
-    const gramAnchor=tablePosition(narrow ? .19 : .202, narrow ? 1.82 : 1.67,narrow ? .57 : .90,w,focal,width);
+    const deckAnchor=tablePosition(narrow ? .19 : compact ? .235 : .125, narrow ? 3.5 : compact ? 2.87 : 3.76, compact ? .55 : .52,w,focal,width);
+    const shuffleAnchor=tablePosition(landscape ? .31 : narrow ? .50 : compact ? .43 : .245, narrow ? 3.72 : compact ? 3.13 : 3.83, narrow ? .5 : .55,w,focal,width);
+    const bellAnchor=tablePosition(narrow ? .80 : compact ? .72 : .735, narrow ? 3.57 : compact ? 3.45 : 3.66, narrow ? .52 : .594,w,focal,width);
+    const gramAnchor=tablePosition(narrow ? .115 : .202, narrow ? 1.60 : 1.67,narrow ? .54 : .90,w,focal,width);
     const gramYaw=.15, gc=Math.cos(gramYaw), gs=Math.sin(gramYaw);
     placePart(props.gramShadow,gramAnchor,0,gramYaw);
     placePart(props.gramBase,gramAnchor,0,gramYaw);
@@ -1264,9 +1288,9 @@ void main(){
     gramTip.style.top=Math.min(...gramHull.map(p=>p[1]))+"px";
     drawHornNote(now,projectGram);
     followModel(gramOutline.layer,gramOutline,props.gramBase.start,props.gramRecord.end,camera,focal,w,h,width,height);
-    const shelfAnchor=tablePosition(narrow ? .89 : .924, narrow ? 2.31 : compact ? 2.62 : 3.12,
-      narrow ? .46 : Math.min(1.06,width/1370)*.88,w,focal,width);
-    const shelfYaw=narrow ? -1.17 : -1.36, co=Math.cos(shelfYaw), si=Math.sin(shelfYaw);
+    const shelfAnchor=tablePosition(narrow ? .88 : .924, narrow ? 1.78 : compact ? 2.62 : 3.12,
+      narrow ? .54 : Math.min(1.06,width/1370)*.88,w,focal,width);
+    const shelfYaw=narrow ? -.68 : -1.36, co=Math.cos(shelfYaw), si=Math.sin(shelfYaw);
     placePart(props.shelf,shelfAnchor,0,shelfYaw);
     let bookMoving=false;
     for(const volume of volumes){
@@ -1444,7 +1468,7 @@ void main(){
     if((spinning || reedsMoving) && motion.matches) idleTimer=setTimeout(schedule,80);
     else if(!motion.matches) {
       if(bookMoving || spotMoving || changingLight || watchTilt!==watchTarget || stackLift!==liftTarget || cutting || drawTime<250 || returnTime<240 || bellTime<500 || kick || seconds<.6 || Math.abs(targetX-x)+Math.abs(targetY-y)>.001) schedule();
-      else idleTimer=setTimeout(schedule,gpu ? 50 : 105);
+      else idleTimer=setTimeout(schedule,narrow ? (gpu ? 70 : 135) : (gpu ? 50 : 105));
     }
   }
   function center(){targetX=targetY=0; schedule();}

@@ -1,5 +1,5 @@
 /* All dimensions are in room space. +Y is up, and +Z points toward the visitor. */
-window.buildCabinMesh = function buildCabinMesh(room="cabin") {
+window.buildCabinMesh = function buildCabinMesh(room="cabin", lowDetail=false) {
   const castle=room==="castle";
   const vertices = [];
   const palette = new Map();
@@ -42,6 +42,7 @@ window.buildCabinMesh = function buildCabinMesh(room="cabin") {
     }
   }
   function turned(x,z,levels,sides,paint,emission=0,rotation=.21,material=0) {
+    if(lowDetail) sides=Math.min(sides,12);
     const rings=levels.map(([y,r,dx=0])=>Array.from({length:sides},(_,i)=>{
       const a=rotation+2*Math.PI*i/sides;
       return [x+dx+r*Math.cos(a),y,z+r*Math.sin(a)];
@@ -106,10 +107,11 @@ window.buildCabinMesh = function buildCabinMesh(room="cabin") {
           const a=x*2*Math.PI/10;
           return y+.34*Math.sin(a+layer)+.16*Math.cos(2*a-layer)+.09*Math.sin(3*a+.6*layer);
         };
-        for(let x=-10;x<28;x+=.5){
-          const a=edge(x), b=edge(x+.5);
-          face([[x,-4,z],[x+.5,-4,z],[x+.5,b,z],[x,a,z]],paint,0,1);
-          face([[x,a,z],[x+.5,b,z],[x+.5,b+.06,z],[x,a+.06,z]],crest,0,1);
+        const span=lowDetail ? 1 : .5;
+        for(let x=-10;x<28;x+=span){
+          const a=edge(x), b=edge(x+span);
+          face([[x,-4,z],[x+span,-4,z],[x+span,b,z],[x,a,z]],paint,0,1);
+          face([[x,a,z],[x+span,b,z],[x+span,b+.06,z],[x,a+.06,z]],crest,0,1);
         }
       }));
     }
