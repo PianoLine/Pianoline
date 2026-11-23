@@ -176,6 +176,7 @@ html:has(.room-tearing):not(.embedded) { overflow: hidden; scrollbar-gutter: sta
 .card-image :is(canvas, img) { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
 .card-image canvas { image-rendering: pixelated; filter: grayscale(1); mix-blend-mode: multiply; }
 .card-image img { opacity: var(--cover-opacity, 0); transition: opacity 340ms ease-in-out; }
+.card-image.generated-print img { opacity: 0; }
 .card.drag-clone, .card.played-cover { --cover-opacity: 1; }
 .card-image:has(canvas) { background: #e9d9b6; }
 .folio {

@@ -196,15 +196,16 @@
   const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
   const inkLevels = [28, 51, 88, 135, 180, 219, 248];
 
-  async function printCover(image) {
+  async function printCover(image, nativePixels = false) {
     await image.decode();
     const canvas = document.createElement("canvas");
     // Keep the source aspect ratio so both layers share the same crop at any card size.
-    const scale = Math.min(1, 100 / Math.min(image.naturalWidth, image.naturalHeight),
-      360 / Math.max(image.naturalWidth, image.naturalHeight));
+    const scale = nativePixels ? 1 : Math.min(1, 76 / Math.min(image.naturalWidth, image.naturalHeight),
+      320 / Math.max(image.naturalWidth, image.naturalHeight));
     canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
     canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
     const ctx = canvas.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
     ctx.fillStyle = "#eee";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
@@ -212,9 +213,22 @@
     try {
       pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
     } catch (error) {
-      // File previews and cross-origin artwork can still display the small raster.
-      if (error.name === "SecurityError") return canvas;
-      throw error;
+      if (error.name !== "SecurityError") throw error;
+      // A local or external image may be drawable without allowing pixel reads.
+      // Stamp the dither on its native grid, then quantize at display time.
+      const tile = document.createElement("canvas");
+      tile.width = tile.height = 4;
+      const dots = tile.getContext("2d");
+      bayer.forEach((value, i) => {
+        const gray = value * 17;
+        dots.fillStyle = "rgb(" + [gray, gray, gray].join(",") + ")";
+        dots.fillRect(i % 4, Math.floor(i / 4), 1, 1);
+      });
+      ctx.globalAlpha = .075;
+      ctx.fillStyle = ctx.createPattern(tile, "repeat");
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      canvas.style.filter = 'url("#card-ink-levels")';
+      return canvas;
     }
     const { data } = pixels;
     const tones = new Uint8Array(canvas.width * canvas.height);
@@ -227,7 +241,7 @@
     const light = Math.max(156, sorted[Math.floor(sorted.length * .97)]);
     for (let i = 0; i < tones.length; i++) {
       const x = i % canvas.width, y = Math.floor(i / canvas.width);
-      const dither = ((bayer[(y % 4) * 4 + x % 4] + .5) / 16 - .5) * .2;
+      const dither = ((bayer[(y % 4) * 4 + x % 4] + .5) / 16 - .5) * .60;
       const last = inkLevels.length - 1;
       const tone = (tones[i] - dark) / (light - dark);
       // Reserve sparse paper cuts for middle shadows so highlights and lettering stay clear.
@@ -240,18 +254,38 @@
     return canvas;
   }
 
-  // Animated card copies share the same print, including while a cover is loading.
+  async function resolveCardArt(project) {
+    const sources = [project.cover?.cardSrc, project.cover?.src, ...project.gallery.map(image => image?.src)];
+    for (const source of new Set(sources.filter(Boolean))) {
+      try {
+        const image = new Image();
+        image.src = new URL(source, homeUrl).href;
+        return {image, print: await printCover(image)};
+      } catch { /* Try the next project image if this one cannot be loaded. */ }
+    }
+    const image = new Image();
+    image.src = window.designProjectCard(project);
+    return {image, print: await printCover(image, true), generated: true};
+  }
+
+  function cardArt(project) {
+    if (!prints.has(project)) prints.set(project, resolveCardArt(project));
+    return prints.get(project);
+  }
+
+  // Cloning a canvas clears its bitmap. Reapply the shared print to each flying copy.
   customElements.define("card-print", class extends HTMLElement {
     async connectedCallback() {
-      const image = this.querySelector("img");
-      if (!image) return;
-      const src = image.src;
-      if (!prints.has(src)) prints.set(src, printCover(image).catch(() => null));
-      const print = await prints.get(src);
-      if (!print || !this.isConnected) return;
+      const project = projects[this.dataset.project];
+      const {image, print, generated} = await cardArt(project);
+      if (!this.isConnected) return;
+      this.classList.toggle("generated-print", Boolean(generated));
       const copy = print.cloneNode();
       copy.getContext("2d").drawImage(print, 0, 0);
-      this.replaceChildren(copy, image);
+      const color = image.cloneNode();
+      color.alt = "";
+      color.draggable = false;
+      this.replaceChildren(copy, color);
     }
   });
 
@@ -279,14 +313,7 @@
     card.querySelector("b").textContent = project.title;
     card.querySelector(".card-number").textContent = project.number || String(id + 1).padStart(2, "0");
     card.querySelector(".card-type").textContent = project.category || "项目作品";
-    const cardImage = project.cover?.cardSrc || project.cover?.src;
-    if (cardImage) {
-      const image = new Image();
-      image.alt = "";
-      image.draggable = false;
-      image.src = new URL(cardImage, homeUrl).href;
-      card.querySelector("card-print").append(image);
-    }
+    card.querySelector("card-print").dataset.project = id;
     return card;
   }
 
@@ -787,9 +814,19 @@
     transition.style.setProperty("--deal-x", (point.left + point.width / 2 - scene.left - scene.width / 2) + "px");
     transition.style.setProperty("--deal-y", (point.top + point.height / 2 - scene.top - scene.height / 2) + "px");
     get("transition-title").textContent = project.title;
-    image.hidden = !cover;
-    image.onerror = () => { image.hidden = true; };
-    if (cover) image.src = new URL(cover, homeUrl).href;
+    image.hidden = true;
+    const showCardArt = async () => {
+      const art = await cardArt(project);
+      if (playedCard !== id) return;
+      image.onerror = null;
+      image.src = art.image.src;
+      image.hidden = false;
+    };
+    if (cover) {
+      image.onerror = showCardArt;
+      try { image.src = new URL(cover, homeUrl).href; image.hidden = false; }
+      catch { showCardArt(); }
+    } else showCardArt();
     const skipFlip = reduced();
     const flipDelay = Math.max(skipFlip ? 330 : 460, lineTime + 140);
     if (skipFlip) tableAudio.play("hit-transition", 1, (flipDelay - 245) / 1000);

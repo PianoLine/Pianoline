@@ -1,5 +1,5 @@
 /* All dimensions are in room space. +Y is up, and +Z points toward the visitor. */
-window.buildCabinMesh = function buildCabinMesh(room="cabin", lowDetail=false) {
+window.buildCabinMesh = function buildCabinMesh(room="cabin", lowDetail=false, bookPrints=[]) {
   const castle=room==="castle";
   const vertices = [];
   const palette = new Map();
@@ -492,7 +492,7 @@ window.buildCabinMesh = function buildCabinMesh(room="cabin", lowDetail=false) {
   const reedFoot=cabinetY(reedFootY);
   // From the right edge, the open shelf faces across the table. The backboard and feet
   // extend behind the books; the low lip leaves a clear path to pull a volume out.
-  const {bloodborne,nightreign}=window.portfolioBookPrints;
+  const [bloodborne,nightreign]=bookPrints;
   const bindings=[
     {width:.20,height:1.44,color:"526e63",label:"青绿色布面书"},
     {width:.23,height:1.29,color:"874e45",label:"酒红色皮面书",print:bloodborne,musicBook:"portfolio-red-book-click"},
@@ -558,13 +558,13 @@ window.buildCabinMesh = function buildCabinMesh(room="cabin", lowDetail=false) {
       }
       if(print){
         // Paint on the outward (+X) leather board. Local +Z points to the viewer's left.
-        const pixel=depth*.76/64, surface=width/2+.0035, middle=height*.50;
-        for(const [col,row,cols,rows] of print.rectangles){
-          const left=(32-col)*pixel, right=left-cols*pixel;
+        const pixel=depth*.76/print.width, surface=width/2+.0035, middle=height*.50;
+        for(const [col,row,cols,rows,ink] of print.rectangles){
+          const left=(print.width/2-col)*pixel, right=left-cols*pixel;
           // Extend the solid sky to the inside of this cover’s top rail.
-          const top=row===0 ? middle+frameHalfHeight-frameStroke/2 : middle+(32-row)*pixel;
-          const bottom=middle+(32-row-rows)*pixel;
-          face([[surface,top,left],[surface,bottom,left],[surface,bottom,right],[surface,top,right]],print.ink);
+          const top=row===0 ? middle+frameHalfHeight-frameStroke/2 : middle+(print.height/2-row)*pixel;
+          const bottom=middle+(print.height/2-row-rows)*pixel;
+          face([[surface,top,left],[surface,bottom,left],[surface,bottom,right],[surface,top,right]],ink);
         }
       }
     });

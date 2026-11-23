@@ -1,4 +1,4 @@
-(() => {
+(async () => {
   const arena = document.getElementById("arena");
   if (!arena) return;
   const encounter=arena.querySelector(".encounter");
@@ -17,7 +17,7 @@
   let geometry;
   function loadRoom(){
     const lowDetail=matchMedia("(pointer:coarse) and (max-width:1000px)").matches;
-    ({vertices:rest,props,flames,clusterOrigin,clusterStart,clusterEnd,shadowStart,moon,moonDisc,clouds}=window.buildCabinMesh(room,lowDetail));
+    ({vertices:rest,props,flames,clusterOrigin,clusterStart,clusterEnd,shadowStart,moon,moonDisc,clouds}=window.buildCabinMesh(room,lowDetail,bookPrints));
     mesh=rest.slice();
     movingVertices=mesh.subarray(clusterStart);
     windowVertices=mesh.subarray(moonDisc.start,clouds.at(-1)?.end ?? moonDisc.end);
@@ -37,6 +37,7 @@
     geometry={mesh,objectIds,vertexCount,room,moonDisc,windowVertices,clusterStart,movingVertices};
     try { sessionStorage.setItem(roomKey,room); } catch { /* Optional resume state. */ }
   }
+  const bookPrints = await window.portfolioBookPrintsReady;
   loadRoom();
   const glows=flames.map(()=>{
     const glow=document.createElement("canvas");
@@ -483,7 +484,7 @@ void main(){
     if(ctx) draw=softwareRenderer(ctx);
   }
   makeRenderer();
-  if(!draw){ canvas.remove(); arena.classList.add("scene-unavailable"); return; }
+  if(!draw){ canvas.remove(); arena.classList.add("scene-unavailable"); arena.dispatchEvent(new Event("cabin-painted")); return; }
 
   const motion=matchMedia("(prefers-reduced-motion: reduce)");
   let targetX=0,targetY=0,x=0,y=0,hit=-Infinity,frame=0,previous=0,visible=true;
@@ -897,7 +898,7 @@ void main(){
     return outline;
   });
   let heavyHit = false;
-  let remaining = 0, drawAt = -Infinity, returnedAt = -Infinity, bellAt = -Infinity, shuffleAt = -Infinity;
+  let remaining = Number(document.getElementById("remaining").textContent), drawAt = -Infinity, returnedAt = -Infinity, bellAt = -Infinity, shuffleAt = -Infinity;
   arena.addEventListener("deck-size", event => { remaining = event.detail; schedule(); });
   arena.addEventListener("deck-draw", () => { drawAt = performance.now(); schedule(); });
   arena.addEventListener("deck-shuffle", () => { shuffleAt = performance.now(); schedule(); });

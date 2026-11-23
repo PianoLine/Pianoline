@@ -19,7 +19,7 @@
     phoneLandscape.addEventListener("change", updatePhoneLayout);
   </script>
   <link rel="stylesheet" href="../assets/fonts/titles.css?v=pixel-table-3">
-  <link rel="stylesheet" href="prototype.css?v=lit-room">
+  <link rel="stylesheet" href="prototype.css?v=pixel-ink">
   <link rel="stylesheet" href="../assets/site-music.css?v=music-prompt">
 </head>
 <body>
@@ -42,7 +42,16 @@
       </div>
     </section>
     <svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute">
-      <defs><clipPath id="dream-table-contact" clipPathUnits="objectBoundingBox">
+      <defs>
+        <filter id="card-ink-levels" color-interpolation-filters="sRGB">
+          <feColorMatrix type="matrix" values=".36 .71 .14 0 -.10  .36 .71 .14 0 -.10  .36 .71 .14 0 -.10  0 0 0 1 0"/>
+          <feComponentTransfer>
+            <feFuncR type="discrete" tableValues=".11 .20 .35 .53 .71 .86 .97"/>
+            <feFuncG type="discrete" tableValues=".11 .20 .35 .53 .71 .86 .97"/>
+            <feFuncB type="discrete" tableValues=".11 .20 .35 .53 .71 .86 .97"/>
+          </feComponentTransfer>
+        </filter>
+        <clipPath id="dream-table-contact" clipPathUnits="objectBoundingBox">
         <polygon transform="scale(.0078125)" id="dream-table-edge" points="0,0 128,0 128,120 0,120"/>
         <!-- The exposed arms stay in front of the table in all five finger poses. -->
         <path transform="scale(.0078125)" d="M30 107H46V110H47V111H49V112H51V113H52V114H54V116H62V115H70V114H74V113H80V112H84V110H85V109H86V108H95V110H96V112H97V116H98V120H97V122H96V123H95V124H67V125H52V124H45V125H43V126H42V125H40V126H39V125H37V126H35V124H32V123H31V122H30V121H29V119H28V115H27V112H28V109H29V108H30Z"/>
@@ -93,16 +102,17 @@
   <script src="../assets/schema.js?v=dream-red-book"></script>
   <script src="../assets/playlist-files.js"></script>
   <script src="../assets/site-content.js?v=stream-playback"></script>
-  <script src="art/book-prints.js?v=sky-to-rim"></script>
-  <script src="cabin-mesh.js?v=castle-bookshelf"></script>
+  <script src="art/book-prints.js?v=pixel-png"></script>
+  <script src="cabin-mesh.js?v=pixel-png"></script>
   <script src="portrait-light.js?v=lit-room"></script>
-  <script src="cabin-view.js?v=lit-room"></script>
+  <script src="cabin-view.js?v=pixel-png"></script>
   <script src="ghost-idle.js?v=lit-room"></script>
   <script src="golden-veil.js?v=mist-wisps"></script>
   <script src="skin-mirror.js?v=lit-room"></script>
   <script src="table-audio.js?v=duel-placement"></script>
   <script src="../assets/music-spectrum.js?v=stream-playback"></script>
   <script src="../assets/site-music.js?v=mobile-playhead"></script>
-  <script src="prototype.js?v=lit-room"></script>
+  <script src="card-art.js"></script>
+  <script src="prototype.js?v=pixel-ink"></script>
 </body>
 </html>

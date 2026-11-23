@@ -8,6 +8,9 @@ $runtimeFiles = @(
     'prototype.js'
     'table-audio.js'
     'art/book-prints.js'
+    'art/bloodborne.png'
+    'art/nightreign.png'
+    'card-art.js'
     'cabin-mesh.js'
     'cabin-view.js'
     'ghost-idle.js'
@@ -28,6 +31,16 @@ foreach ($file in $runtimeFiles) {
         throw "Missing runtime file: prototype/$file"
     }
 }
+
+# Keep the double-click HTML preview in step with the editable PNG sources.
+$pngs = [ordered]@{}
+foreach ($name in @('bloodborne', 'nightreign')) {
+    $pngs[$name] = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $source "art/$name.png")))
+}
+$loader = Join-Path $source 'art/book-prints.js'
+$code = [IO.File]::ReadAllText($loader)
+$code = $code -replace '(?m)^const offlineBookPNGs = [^;]+;', ('const offlineBookPNGs = ' + ($pngs | ConvertTo-Json -Compress) + ';')
+[IO.File]::WriteAllText($loader, $code, [Text.UTF8Encoding]::new($false))
 
 foreach ($file in $runtimeFiles) {
     $target = Join-Path $destination $file
